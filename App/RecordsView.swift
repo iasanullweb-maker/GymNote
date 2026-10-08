@@ -81,6 +81,21 @@ struct RecordSection: View {
                 }
             }
 
+            if entries.count >= 2 {
+                Chart(entries) { entry in
+                    LineMark(
+                        x: .value("날짜", entry.date),
+                        y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
+                    )
+                    PointMark(
+                        x: .value("날짜", entry.date),
+                        y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
+                    )
+                }
+                .foregroundStyle(.orange)
+                .frame(height: 140)
+            }
+
             NavigationLink {
                 RecordHistoryView(typeID: type.id)
             } label: {
@@ -138,22 +153,6 @@ struct RecordHistoryView: View {
 
         List {
             if let type = type {
-                if entries.count >= 2 {
-                    Section("기록 변화") {
-                        Chart(model.data.entries(type)) { entry in
-                            LineMark(
-                                x: .value("날짜", entry.date),
-                                y: .value("기록", type.score(entry))
-                            )
-                            PointMark(
-                                x: .value("날짜", entry.date),
-                                y: .value("기록", type.score(entry))
-                            )
-                        }
-                        .foregroundStyle(.orange)
-                        .frame(height: 140)
-                    }
-                }
                 Section {
                     ForEach(entries) { entry in
                         RecordRow(type: type, entry: entry, isBest: entry.id == best?.id) { editing = entry }
