@@ -26,7 +26,7 @@ struct RoutineView: View {
                             HStack(spacing: 12) {
                                 VStack {
                                     Text(DayKey.weekdayName(date)).font(.caption)
-                                    Text(date, format: .dateTime.day()).bold()
+                                    Text(String(Calendar.current.component(.day, from: date))).bold()
                                 }
                                 .frame(width: 32)
                                 VStack(alignment: .leading, spacing: 3) {
