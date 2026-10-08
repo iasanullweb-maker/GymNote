@@ -3,7 +3,7 @@ import SwiftUI
 
 struct RecordsView: View {
     @Environment(AppModel.self) private var model
-    @State private var showingAdd = false
+    @State private var addingFor: RecordType?
     @State private var showingTypes = false
     @State private var prMessage: String?
     @State private var showingJournal = false
@@ -23,27 +23,28 @@ struct RecordsView: View {
                 } else {
                     List {
                         if model.data.recordTypes.isEmpty {
-                            Text("종목이 없어. 오른쪽 위 '종목 편집'에서 추가해 줘.")
+                            Text("종목이 없어. 아래 '종목 추가 · 편집'에서 추가해 줘.")
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(model.data.recordTypes) { type in
-                            RecordSection(type: type)
+                            RecordSection(type: type) { addingFor = type }
+                        }
+
+                        Section {
+                            Button {
+                                showingTypes = true
+                            } label: {
+                                Label("종목 추가 · 편집 · 순서", systemImage: "slider.horizontal.3")
+                            }
+                        } footer: {
+                            Text("위에 있는 3개 종목이 위젯에 표시돼.")
                         }
                     }
                 }
             }
             .navigationTitle("기록")
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if !showingJournal {
-                        Button("종목 편집") { showingTypes = true }
-                        Button { showingAdd = true } label: { Image(systemName: "plus") }
-                            .disabled(model.data.recordTypes.isEmpty)
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAdd) {
-                AddRecordView(types: model.data.recordTypes) { entry in
+            .sheet(item: $addingFor) { type in
+                AddRecordView(types: model.data.recordTypes, fixedTypeID: type.id) { entry in
                     if model.addRecord(entry), let type = model.data.recordType(entry.typeID) {
                         prMessage = "\(type.name) \(type.display(entry))"
                     }
@@ -67,12 +68,13 @@ struct RecordsView: View {
 struct RecordSection: View {
     @Environment(AppModel.self) private var model
     let type: RecordType
+    let onAdd: () -> Void
 
     var body: some View {
         let entries = model.data.entries(type)
         let best = model.data.best(type)
 
-        Section(type.name) {
+        Section {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("최고 기록")
@@ -110,6 +112,19 @@ struct RecordSection: View {
                 Text("전체 기록 보기 (\(entries.count)개)")
                     .foregroundStyle(.secondary)
             }
+        } header: {
+            HStack {
+                Text(type.name)
+                Spacer()
+                Button(action: onAdd) {
+                    Label("기록", systemImage: "plus.circle.fill")
+                        .font(.subheadline.bold())
+                }
+                .buttonStyle(.borderless)
+                .tint(.orange)
+                .accessibilityLabel("\(type.name) 기록 추가")
+            }
+            .textCase(nil)
         }
     }
 }
@@ -190,6 +205,7 @@ struct AddRecordView: View {
     @Environment(\.dismiss) private var dismiss
     let types: [RecordType]
     let existing: RecordEntry?
+    let lockType: Bool
     let onSave: (RecordEntry) -> Void
 
     @State private var typeID: String
@@ -197,11 +213,14 @@ struct AddRecordView: View {
     @State private var extra: Int?
     @State private var date: Date
 
-    init(types: [RecordType], existing: RecordEntry? = nil, onSave: @escaping (RecordEntry) -> Void) {
+    /// fixedTypeID를 주면 그 종목으로 고정 (종목 선택 칸 숨김)
+    init(types: [RecordType], existing: RecordEntry? = nil, fixedTypeID: String? = nil,
+         onSave: @escaping (RecordEntry) -> Void) {
         self.types = types
         self.existing = existing
+        self.lockType = fixedTypeID != nil
         self.onSave = onSave
-        _typeID = State(initialValue: existing?.typeID ?? types.first?.id ?? "")
+        _typeID = State(initialValue: fixedTypeID ?? existing?.typeID ?? types.first?.id ?? "")
         _value = State(initialValue: existing?.value)
         _extra = State(initialValue: existing.map { $0.extraReps })
         _date = State(initialValue: existing?.date ?? Date())
@@ -212,9 +231,11 @@ struct AddRecordView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("종목", selection: $typeID) {
-                    ForEach(types) { t in
-                        Text(t.name).tag(t.id)
+                if !lockType {
+                    Picker("종목", selection: $typeID) {
+                        ForEach(types) { t in
+                            Text(t.name).tag(t.id)
+                        }
                     }
                 }
 
@@ -239,7 +260,7 @@ struct AddRecordView: View {
                     }
                 }
             }
-            .navigationTitle(existing == nil ? "기록 추가" : "기록 수정")
+            .navigationTitle(existing != nil ? "기록 수정" : (lockType ? "\(type?.name ?? "") 기록" : "기록 추가"))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }
