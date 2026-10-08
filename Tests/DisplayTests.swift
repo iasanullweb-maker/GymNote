@@ -20,7 +20,9 @@ final class DisplayTests: XCTestCase {
     }
 
     private func host<V: View>(_ view: V, name: String) async throws -> UIWindow {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 834, height: 1194))
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 834, height: 1194)
         window.rootViewController = UIHostingController(rootView: view)
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
@@ -31,8 +33,12 @@ final class DisplayTests: XCTestCase {
 
     private func capture(_ window: UIWindow, name: String) {
         let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            XCTAssertTrue(window.drawHierarchy(in: window.bounds, afterScreenUpdates: true), "화면 캡처 렌더링 성공")
         }
+        if let data = image.cgImage?.dataProvider?.data, let pixels = CFDataGetBytePtr(data) {
+            let count = CFDataGetLength(data)
+            XCTAssertTrue(stride(from: 4, to: count, by: 4).contains { pixels[$0] != pixels[0] }, "빈 화면 캡처를 성공으로 처리하지 않음")
+        } else { XCTFail("화면 캡처 픽셀 없음") }
         let attachment = XCTAttachment(image: image)
         attachment.name = name
         attachment.lifetime = .keepAlways
