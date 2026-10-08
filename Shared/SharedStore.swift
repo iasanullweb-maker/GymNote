@@ -26,8 +26,17 @@ enum SharedStore {
 
     static func load() -> AppData {
         let url = fileURL
-        guard let raw = try? Data(contentsOf: url) else { return AppData.sample }
+        guard let raw = try? Data(contentsOf: url) else {
+            let initial = AppData.sample
+            save(initial, reloadWidgets: false)
+            return initial
+        }
         if let decoded = try? JSONDecoder().decode(AppData.self, from: raw) {
+            // 이전 요일 루틴을 날짜 일정으로 옮긴 결과를 즉시 저장해 다음 주에 다시 이관하지 않음.
+            if let fields = try? JSONSerialization.jsonObject(with: raw) as? [String: Any],
+               fields["scheduledPlans"] == nil || fields["exerciseLibrary"] == nil {
+                save(decoded, reloadWidgets: false)
+            }
             return decoded
         }
         // 파일이 깨졌으면 덮어쓰기 전에 백업

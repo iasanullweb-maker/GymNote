@@ -39,7 +39,7 @@ struct RootView: View {
     var body: some View {
         TabView {
             TodayView()
-                .tabItem { Label("오늘", systemImage: "figure.strengthtraining.traditional") }
+                .tabItem { Label("운동", systemImage: "figure.strengthtraining.traditional") }
             RoutineView()
                 .tabItem { Label("루틴", systemImage: "calendar") }
             RecordsView()

@@ -35,6 +35,11 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Verify data migration and calendar schedules
+        run: |
+          swiftc Shared/Models.swift scripts/test_models.swift -o /tmp/gymnote-model-checks
+          /tmp/gymnote-model-checks
+
       - name: Build (unsigned)
         run: |
           xcodebuild \

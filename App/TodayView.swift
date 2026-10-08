@@ -9,12 +9,6 @@ struct TodayView: View {
 
         NavigationStack {
             List {
-                if let start = model.restStart, let end = model.restEnd {
-                    Section {
-                        RestBanner(start: start, end: end) { model.stopRest() }
-                    }
-                }
-
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(plan.isRestDay ? "오늘은 휴식일" : "\(progress.done) / \(progress.total) 세트")
@@ -40,21 +34,15 @@ struct TodayView: View {
                     }
                 }
 
-                Section("최고 기록") {
-                    ForEach(model.data.recordTypes) { type in
-                        HStack {
-                            Text(type.name)
-                            Spacer()
-                            Text(model.data.best(type).map { type.display($0) } ?? "–").bold()
-                        }
-                    }
-                }
-
                 Section {
-                    Button {
-                        model.startDefaultRest()
-                    } label: {
-                        Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
+                    if let start = model.restStart, let end = model.restEnd {
+                        RestBanner(start: start, end: end) { model.stopRest() }
+                    } else {
+                        Button {
+                            model.startDefaultRest()
+                        } label: {
+                            Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
+                        }
                     }
                 }
             }

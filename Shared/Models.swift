@@ -119,9 +119,11 @@ struct AppData: Codable, Equatable {
     var logs: [DayLog]
     var defaultRest: Int
     var restSound: Bool          // 휴식 끝 알림 소리 (기본: 끔)
+    var scheduledPlans: [String: DayPlan] = [:] // 날짜별 일정, 자동으로 반복하지 않음
+    var exerciseLibrary: [Exercise] = []
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound
+        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -133,6 +135,8 @@ struct AppData: Codable, Equatable {
         self.defaultRest = defaultRest
         self.restSound = restSound
         padWeek()
+        migrateSchedule()
+        seedExerciseLibrary()
     }
 
     // 나중에 필드가 늘어나도 예전 저장 파일을 읽을 수 있게 하나씩 꺼냄
@@ -145,6 +149,32 @@ struct AppData: Codable, Equatable {
         defaultRest = try c.decodeIfPresent(Int.self, forKey: .defaultRest) ?? 90
         restSound = try c.decodeIfPresent(Bool.self, forKey: .restSound) ?? false
         padWeek()
+        if let saved = try c.decodeIfPresent([String: DayPlan].self, forKey: .scheduledPlans) {
+            scheduledPlans = saved
+        } else {
+            migrateSchedule()
+        }
+        if let saved = try c.decodeIfPresent([Exercise].self, forKey: .exerciseLibrary) {
+            exerciseLibrary = saved
+        } else {
+            seedExerciseLibrary()
+        }
+    }
+
+    private mutating func migrateSchedule() {
+        for date in DayKey.weekDates(containing: Date()) {
+            scheduledPlans[DayKey.key(date)] = week[DayKey.weekdayIndex(date)]
+        }
+    }
+
+    private mutating func seedExerciseLibrary() {
+        var names = Set<String>()
+        exerciseLibrary = week.flatMap(\.exercises).filter { names.insert($0.name).inserted }
+            .map { exercise in
+                var copy = exercise
+                copy.id = UUID()
+                return copy
+            }
     }
 
     private mutating func padWeek() {
@@ -157,6 +187,14 @@ struct AppData: Codable, Equatable {
 
 enum DayKey {
     static let weekdayNames = ["일", "월", "화", "수", "목", "금", "토"]
+
+    static func weekDates(containing date: Date) -> [Date] {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        let offset = (calendar.component(.weekday, from: day) + 5) % 7
+        let monday = calendar.date(byAdding: .day, value: -offset, to: day) ?? day
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: monday) }
+    }
 
     static func key(_ date: Date = Date()) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
@@ -176,8 +214,7 @@ enum DayKey {
 
 extension AppData {
     func plan(for date: Date = Date()) -> DayPlan {
-        let i = DayKey.weekdayIndex(date)
-        return week.indices.contains(i) ? week[i] : DayPlan(title: "휴식", exercises: [])
+        scheduledPlans[DayKey.key(date)] ?? DayPlan(title: "휴식", exercises: [])
     }
 
     func doneSets(_ exercise: Exercise, on date: Date = Date()) -> Int {

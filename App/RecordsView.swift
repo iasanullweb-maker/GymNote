@@ -283,6 +283,7 @@ struct AddRecordView: View {
 struct RecordTypesView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var adding: RecordType?
 
     var body: some View {
         NavigationStack {
@@ -316,8 +317,7 @@ struct RecordTypesView: View {
                     }
 
                     Button {
-                        let new = RecordType(name: "새 종목")
-                        model.data.recordTypes.append(new)
+                        adding = RecordType(name: "")
                     } label: {
                         Label("종목 추가", systemImage: "plus")
                     }
@@ -332,6 +332,9 @@ struct RecordTypesView: View {
                     Button("완료") { dismiss() }
                 }
             }
+            .sheet(item: $adding) { type in
+                NewRecordTypeView(type: type) { model.data.recordTypes.append($0) }
+            }
         }
     }
 
@@ -340,6 +343,44 @@ struct RecordTypesView: View {
         var text = type.unit.isEmpty ? "숫자" : "단위: \(type.unit)"
         if type.lowerIsBetter { text += " · 낮을수록 좋음" }
         return text
+    }
+}
+
+struct NewRecordTypeView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State var type: RecordType
+    let onSave: (RecordType) -> Void
+    @FocusState private var nameFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("종목 이름", text: $type.name).focused($nameFocused)
+                Picker("기록 방식", selection: $type.style) {
+                    Text("숫자").tag(RecordType.Style.count)
+                    Text("라운드 + 횟수").tag(RecordType.Style.rounds)
+                }.pickerStyle(.segmented)
+                if type.style == .count {
+                    TextField("단위 (예: 회, kg, 초)", text: $type.unit)
+                    Toggle("낮을수록 좋은 기록", isOn: $type.lowerIsBetter)
+                } else {
+                    Stepper("라운드당 횟수: \(type.repsPerRound)", value: $type.repsPerRound, in: 1...500)
+                }
+                TextField("설명", text: $type.hint, axis: .vertical)
+            }
+            .navigationTitle("종목 추가")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("저장") {
+                        type.name = type.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                        onSave(type)
+                        dismiss()
+                    }.disabled(type.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .onAppear { nameFocused = true }
+        }
     }
 }
 
