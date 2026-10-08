@@ -20,14 +20,6 @@ extension AppData {
         var result = AppData(week: Array(repeating: DayPlan(title: "휴식", exercises: []), count: 7))
         result.scheduledPlans = [:]
         result.exerciseLibrary = []
-        for item in guest.dailyItems where !result.dailyItems.contains(where: { $0.id == item.id }) {
-            result.dailyItems.append(item)
-        }
-        for completion in guest.dailyCompletions where !result.dailyCompletions.contains(where: {
-            $0.id == completion.id || ($0.itemID == completion.itemID && $0.day == completion.day)
-        }) {
-            result.dailyCompletions.append(completion)
-        }
         return result
     }
 
@@ -83,6 +75,14 @@ extension AppData {
                 incoming.endedAt = max(Date(), incoming.startedAt)
                 result.workouts.append(incoming)
             }
+        }
+        for item in guest.dailyItems where !result.dailyItems.contains(where: { $0.id == item.id }) {
+            result.dailyItems.append(item)
+        }
+        for completion in guest.dailyCompletions where !result.dailyCompletions.contains(where: {
+            $0.id == completion.id || ($0.itemID == completion.itemID && $0.day == completion.day)
+        }) {
+            result.dailyCompletions.append(completion)
         }
         return result
     }
