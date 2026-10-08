@@ -58,8 +58,25 @@ struct TodayView: View {
                     if let start = model.restStart, let end = model.restEnd {
                         RestBanner(start: start, end: end) { model.stopRest() }
                     } else {
-                        Button { model.startDefaultRest() } label: {
-                            Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
+                        HStack {
+                            Button { model.startDefaultRest() } label: {
+                                Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
+                            }
+                            .buttonStyle(.borderless)
+                            Spacer()
+                            // 기본 휴식 시간 조절 (15초 단위, 설정 탭과 같은 값)
+                            Button { model.adjustDefaultRest(by: -SettingsView.restStep) } label: {
+                                Image(systemName: "minus")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
+                            .accessibilityLabel("휴식 시간 15초 줄이기")
+                            Button { model.adjustDefaultRest(by: SettingsView.restStep) } label: {
+                                Image(systemName: "plus")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
+                            .accessibilityLabel("휴식 시간 15초 늘리기")
                         }
                     }
                 }

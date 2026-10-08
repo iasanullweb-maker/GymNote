@@ -40,7 +40,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
     @State private var selectedDate = Date()
-    @State private var showingAccount = false
+    @State private var showingSettings = false
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
     var body: some View {
@@ -53,10 +53,10 @@ struct RootView: View {
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 360)
                 Spacer(minLength: 0)
-                Button { showingAccount = true } label: {
-                    Image(systemName: "person.crop.circle").font(.title2)
+                Button { showingSettings = true } label: {
+                    Image(systemName: "gearshape").font(.title2)
                 }
-                .accessibilityLabel("계정")
+                .accessibilityLabel("설정")
             }
             .padding(.horizontal).padding(.vertical, 8)
             if workspace == "일상", model.data.activeWorkout != nil {
@@ -87,10 +87,10 @@ struct RootView: View {
                 .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
             }
         }
-        .sheet(isPresented: $showingAccount) {
-            AccountView()
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
                 .safeAreaInset(edge: .bottom) {
-                    Button("닫기") { showingAccount = false }
+                    Button("닫기") { showingSettings = false }
                         .frame(maxWidth: .infinity).padding().background(.regularMaterial)
                 }
         }

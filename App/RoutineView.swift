@@ -65,13 +65,6 @@ struct RoutineView: View {
                 } footer: {
                     Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 자동으로 반복되지 않으니 '다음 주에도 반복'을 써 줘.")
                 }
-                Section("설정") {
-                    Stepper("기본 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest, in: 15...600, step: 15)
-                    Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
-                }
-                Section("진단") {
-                    LabeledContent("위젯 공유 저장소", value: SharedStore.diagnostics).font(.caption)
-                }
             }
             .navigationTitle("계획")
             .confirmationDialog("이 주 계획을 몇 주 동안 반복할까?", isPresented: $confirmingRepeat, titleVisibility: .visible) {
