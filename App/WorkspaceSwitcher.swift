@@ -3,6 +3,7 @@ import SwiftUI
 /// 화면 너비를 함께 쓰는 두 개의 큰 선택 버튼.
 struct WorkspaceSwitcher: View {
     @Binding var selection: String
+    @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -24,8 +25,8 @@ struct WorkspaceSwitcher: View {
             }
             .foregroundStyle(selected ? color : Color.secondary)
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 60)
+            .padding(.vertical, compact ? 6 : 12)
+            .frame(maxWidth: .infinity, minHeight: compact ? 44 : 60)
             .background(selected ? color.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 17))
             .overlay {
                 RoundedRectangle(cornerRadius: 17)

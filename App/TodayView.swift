@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.gymnoteCompactLayout) private var compact
 
     var body: some View {
         let plan = model.todayPlan
@@ -18,10 +19,10 @@ struct TodayView: View {
                         }
                     }.padding(.vertical, 4)
                     if model.data.activeWorkout == nil, model.savedToday {
-                        HStack {
+                        (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
                             Label("운동 일지에 저장됨", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Spacer()
+                            if !compact { Spacer() }
                             Button { model.startWorkout() } label: {
                                 Label("새 운동 시작", systemImage: "plus")
                             }
@@ -49,33 +50,36 @@ struct TodayView: View {
                     }
                 }
                 Section {
-                    HStack {
+                    (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
                         Button { model.startDefaultRest() } label: {
                             Label("휴식 타이머 \(RestDuration.text(seconds: model.data.defaultRest))", systemImage: "timer")
                         }
                         .buttonStyle(.borderless)
-                        Spacer()
-                        // 기본 휴식 시간 조절 (간격은 설정 탭의 '−/+ 버튼 간격')
-                        Button { model.adjustDefaultRest(by: -model.data.restStep) } label: {
-                            Image(systemName: "minus")
-                                .font(.body.weight(.semibold))
-                                .frame(width: 22, height: 22)
+                        HStack {
+                            if !compact { Spacer() }
+                            // 기본 휴식 시간 조절 (간격은 설정 탭의 '−/+ 버튼 간격')
+                            Button { model.adjustDefaultRest(by: -model.data.restStep) } label: {
+                                Image(systemName: "minus")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 22, height: 22)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
+                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 줄이기")
+                            Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
+                                Image(systemName: "plus")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 22, height: 22)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
+                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 늘리기")
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
-                        .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 줄이기")
-                        Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
-                            Image(systemName: "plus")
-                                .font(.body.weight(.semibold))
-                                .frame(width: 22, height: 22)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
-                        .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 늘리기")
                     }
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
+            .navigationBarTitleDisplayMode(compact ? .inline : .large)
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { model.recordMessage != nil },
                 set: { if !$0 { model.recordMessage = nil } }
@@ -89,6 +93,8 @@ struct TodayView: View {
 }
 
 struct ExerciseRow: View {
+    @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.dynamicTypeSize) private var textSize
     let exercise: Exercise
     let done: Int
     let session: WorkoutSession?
@@ -123,25 +129,27 @@ struct ExerciseRow: View {
             if !finished, let value = actualReps {
                 Text("\(done + 1)세트 · 계획 \(exercise.detail)")
                     .font(.subheadline).foregroundStyle(.secondary)
-                HStack(spacing: 16) {
+                (compact || textSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 16))) {
                     Text("실제 횟수").font(.headline)
-                    Spacer(minLength: 0)
-                    Button { draftReps = max(0, value - 1) } label: {
-                        Image(systemName: "minus").frame(width: 32, height: 36)
+                    if !compact && !textSize.isAccessibilitySize { Spacer(minLength: 0) }
+                    HStack(spacing: 12) {
+                        Button { draftReps = max(0, value - 1) } label: {
+                            Image(systemName: "minus").frame(width: 32, height: 36)
+                        }
+                        .buttonStyle(.bordered).disabled(value == 0)
+                        .accessibilityLabel("실제 횟수 1회 줄이기")
+                        Button { editingReps = true } label: {
+                            Text("\(value)회").font(.title2.bold().monospacedDigit())
+                                .frame(minWidth: 64, minHeight: 44)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("실제 횟수 \(value)회, 직접 입력")
+                        Button { draftReps = min(9999, value + 1) } label: {
+                            Image(systemName: "plus").frame(width: 32, height: 36)
+                        }
+                        .buttonStyle(.bordered).disabled(value == 9999)
+                        .accessibilityLabel("실제 횟수 1회 늘리기")
                     }
-                    .buttonStyle(.bordered).disabled(value == 0)
-                    .accessibilityLabel("실제 횟수 1회 줄이기")
-                    Button { editingReps = true } label: {
-                        Text("\(value)회").font(.title2.bold().monospacedDigit())
-                            .frame(minWidth: 64, minHeight: 44)
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("실제 횟수 \(value)회, 직접 입력")
-                    Button { draftReps = min(9999, value + 1) } label: {
-                        Image(systemName: "plus").frame(width: 32, height: 36)
-                    }
-                    .buttonStyle(.bordered).disabled(value == 9999)
-                    .accessibilityLabel("실제 횟수 1회 늘리기")
                 }
             }
             if let session, done > 0 {
@@ -275,6 +283,7 @@ struct CompletedRepetitionRows: View {
 
 /// One pinned status area stays reachable while scrolling through exercises.
 struct WorkoutStatusBanner: View {
+    @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let startedAt: Date?
     let restStart: Date?
@@ -297,7 +306,7 @@ struct WorkoutStatusBanner: View {
                     actions(resting: resting)
                 }
             }
-            .padding(16)
+            .padding(compact ? 10 : 16)
             .frame(maxWidth: 720, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay {
@@ -321,11 +330,11 @@ struct WorkoutStatusBanner: View {
                     .contentTransition(.opacity)
                 if resting, let end = restEnd {
                     Text(RestDuration.text(seconds: RestDuration.remaining(until: end, at: now)))
-                        .font(.title2.monospacedDigit()).bold()
+                        .font(compact ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
                         .accessibilityHint("남은 휴식 시간")
                 } else if let startedAt {
                     Text(startedAt, style: .timer)
-                        .font(.title2.monospacedDigit()).bold()
+                        .font(compact ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
                         .accessibilityHint("운동 경과 시간")
                 }
             }

@@ -110,6 +110,7 @@ struct RecordsView: View {
 }
 
 struct RecordSection: View {
+    @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(AppModel.self) private var model
     let type: RecordType
     var allowsAdding = true
@@ -132,7 +133,7 @@ struct RecordSection: View {
                 RecordValueRow(title: "하루 총량 최고", value: auto.bestDay.map { "\($0.value)\(unit)" },
                                date: auto.bestDay?.date, source: "운동 일지")
             } else {
-                HStack {
+                (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout())) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("최고 기록")
                             .font(.caption)
@@ -141,7 +142,7 @@ struct RecordSection: View {
                             .font(.title2)
                             .bold()
                     }
-                    Spacer()
+                    if !compact { Spacer() }
                     if let best = best {
                         Text(best.date, format: .dateTime.year().month().day())
                             .foregroundStyle(.secondary)

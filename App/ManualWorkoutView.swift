@@ -4,6 +4,7 @@ import UIKit
 struct ManualWorkoutView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.gymnoteCompactLayout) private var compact
     @AppStorage private var savedDraft: String
     @State private var draft = ManualWorkoutDraft()
     @State private var loaded = false
@@ -60,13 +61,17 @@ struct ManualWorkoutView: View {
                                         Image(systemName: "minus.circle")
                                     }.buttonStyle(.borderless).accessibilityLabel("\(index + 1)세트 삭제")
                                 }
-                                HStack {
-                                    TextField("실제 횟수", text: $entry.reps).keyboardType(.numberPad)
-                                        .accessibilityLabel("\(index + 1)세트 실제 횟수")
-                                    Text("회").foregroundStyle(.secondary)
-                                    TextField("무게 (선택)", text: $entry.weight).keyboardType(.decimalPad)
-                                        .accessibilityLabel("\(index + 1)세트 무게 kg")
-                                    Text("kg").foregroundStyle(.secondary)
+                                (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10)) : AnyLayout(HStackLayout())) {
+                                    HStack {
+                                        TextField("실제 횟수", text: $entry.reps).keyboardType(.numberPad)
+                                            .accessibilityLabel("\(index + 1)세트 실제 횟수")
+                                        Text("회").foregroundStyle(.secondary)
+                                    }
+                                    HStack {
+                                        TextField("무게 (선택)", text: $entry.weight).keyboardType(.decimalPad)
+                                            .accessibilityLabel("\(index + 1)세트 무게 kg")
+                                        Text("kg").foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }

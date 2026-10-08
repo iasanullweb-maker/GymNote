@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlanCalendarView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.gymnoteCompactLayout) private var compact
     enum Content { case workout, daily, all, journal }
     @Binding var selectedDate: Date
     var content: Content = .workout
@@ -22,12 +23,14 @@ struct PlanCalendarView: View {
         VStack(spacing: 14) {
             HStack {
                 Button { moveMonth(by: -1) } label: {
-                    Image(systemName: "chevron.left").frame(width: 36, height: 36)
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
                 }.accessibilityLabel("이전 달")
                 Text(displayedMonth, format: .dateTime.year().month())
-                    .font(.title.bold())
+                    .font(compact ? .headline : .title.bold())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Button { moveMonth(by: 1) } label: {
-                    Image(systemName: "chevron.right").frame(width: 36, height: 36)
+                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
                 }.accessibilityLabel("다음 달")
                 Spacer()
                 Button("오늘") {
@@ -36,7 +39,7 @@ struct PlanCalendarView: View {
                 }
             }
             // 모든 주의 높이를 처음부터 측정해 스크롤 중 높이 추정을 막는다.
-            Grid(alignment: .topLeading, horizontalSpacing: 6, verticalSpacing: 6) {
+            Grid(alignment: .topLeading, horizontalSpacing: compact ? 2 : 6, verticalSpacing: compact ? 4 : 6) {
                 GridRow {
                     ForEach(weekdayOrder, id: \.self) { index in
                         Text(DayKey.weekdayNames[index])
@@ -51,6 +54,18 @@ struct PlanCalendarView: View {
                         }
                     }
                 }
+            }
+            if compact, content != .journal {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(selectedDate, format: .dateTime.month().day().weekday())
+                        .font(.subheadline.bold())
+                    planContent(
+                        exercises: content == .daily ? [] : model.data.plan(for: selectedDate).exercises,
+                        dailyItems: content == .workout ? [] : model.data.dailyItems(on: selectedDate),
+                        date: selectedDate
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .buttonStyle(.plain)
@@ -83,18 +98,20 @@ struct PlanCalendarView: View {
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 Text(String(Calendar.current.component(.day, from: date)))
-                    .font(.system(size: 22, weight: .bold))
+                    .font(compact ? .body.bold() : .title3.bold())
                     .foregroundStyle(selected || today ? Color.orange : Color.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if content == .journal {
+                    .frame(maxWidth: .infinity, alignment: compact ? .center : .leading)
+                if compact {
+                    compactContent(workouts: workouts, exercises: exercises, dailyItems: dailyItems)
+                } else if content == .journal {
                     journalContent(workouts: workouts, names: journalNames)
                 } else {
                     planContent(exercises: exercises, dailyItems: dailyItems, date: date)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(6)
-            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
+            .padding(compact ? 3 : 6)
+            .frame(maxWidth: .infinity, minHeight: compact ? 64 : 132, alignment: .topLeading)
             .background(selected ? Color.orange.opacity(0.12) : Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
@@ -122,6 +139,29 @@ struct PlanCalendarView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func compactContent(workouts: [WorkoutSession], exercises: [Exercise], dailyItems: [DailyItem]) -> some View {
+        VStack(spacing: 2) {
+            if content == .journal {
+                if !workouts.isEmpty {
+                    Text("\(workouts.count)회").foregroundStyle(.orange)
+                }
+            } else {
+                if !exercises.isEmpty {
+                    Text("운동\(exercises.count)").foregroundStyle(.orange)
+                }
+                if !dailyItems.isEmpty {
+                    Text("일상\(dailyItems.count)").foregroundStyle(.teal)
+                }
+            }
+        }
+        .font(.caption2)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
     }
 
     @ViewBuilder

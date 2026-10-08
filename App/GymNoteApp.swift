@@ -77,14 +77,18 @@ struct RootView: View {
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
     var body: some View {
-        Group {
-            if !account.initialized || account.connection == .checking {
-                ProgressView("기기 기록을 불러오는 중…")
-            } else if account.showsWelcome {
-                AccountView(welcome: true)
-            } else {
-                mainTabs
+        GeometryReader { geometry in
+            Group {
+                if !account.initialized || account.connection == .checking {
+                    ProgressView("기기 기록을 불러오는 중…")
+                } else if account.showsWelcome {
+                    AccountView(welcome: true)
+                } else {
+                    mainTabs(compact: geometry.size.width < 600)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(\.gymnoteCompactLayout, geometry.size.width < 600)
         }
         .tint(.orange)
         .onChange(of: scenePhase) { _, phase in
@@ -108,11 +112,11 @@ struct RootView: View {
         } message: { Text(model.storageError ?? "") }
     }
 
-    private var mainTabs: some View {
+    private func mainTabs(compact: Bool) -> some View {
         VStack(spacing: 0) {
             WorkspaceSwitcher(selection: $workspace)
                 .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.vertical, compact ? 4 : 10)
             if model.data.activeWorkout != nil || model.restEnd != nil {
                 WorkoutStatusBanner(
                     startedAt: model.data.activeWorkout?.startedAt,
@@ -122,7 +126,7 @@ struct RootView: View {
                 )
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, compact ? 6 : 12)
             }
             if workspace == "일상", model.data.activeWorkout != nil {
                 Button("진행 중인 운동으로 돌아가기") { workspace = "운동"; selectedTab = 0 }
