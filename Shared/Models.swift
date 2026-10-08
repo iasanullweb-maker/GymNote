@@ -332,11 +332,34 @@ extension AppData {
         if logs.count > 400 { logs.removeFirst(logs.count - 400) }
     }
 
+    /// 오늘 이미 저장한 운동 일지가 있는지
+    func hasSavedWorkout(on date: Date = Date()) -> Bool {
+        let key = DayKey.key(date)
+        return workouts.contains { $0.day == key }
+    }
+
+    /// 날짜가 지난 진행 중 운동을 정리. 완료 세트가 있으면 일지로 저장(끝난 시각은 모름), 없으면 버림.
+    @discardableResult
+    mutating func closeStaleWorkout(now: Date = Date()) -> Bool {
+        guard let session = activeWorkout, session.day != DayKey.key(now) else { return false }
+        if session.done > 0 && !workouts.contains(where: { $0.id == session.id }) {
+            workouts.append(session)
+        }
+        activeWorkout = nil
+        return true
+    }
+
     @discardableResult
     mutating func startWorkout(at date: Date = Date()) -> Bool {
+        closeStaleWorkout(now: date)
         guard activeWorkout == nil else { return false }
         let currentPlan = plan(for: date)
         guard !currentPlan.isRestDay else { return false }
+        // 같은 날 이미 저장한 운동이 있으면 새 운동은 0세트부터 (이전 일지는 그대로 보존)
+        let key = DayKey.key(date)
+        if hasSavedWorkout(on: date), let i = logs.firstIndex(where: { $0.day == key }) {
+            for exercise in currentPlan.exercises { logs[i].doneSets[exercise.id.uuidString] = 0 }
+        }
         var session = WorkoutSession(startedAt: date, plan: currentPlan)
         for exercise in currentPlan.exercises {
             session.completedSets[exercise.id.uuidString] = doneSets(exercise, on: date)
@@ -357,6 +380,39 @@ extension AppData {
         }
         activeWorkout = nil
         return true
+    }
+
+    /// 위젯에서 세트를 체크할 때: 진행 중 운동이 없으면 자동으로 시작해서 운동 일지에 남게 함
+    mutating func completeSetFromWidget(_ exerciseID: UUID, now: Date = Date()) {
+        closeStaleWorkout(now: now)
+        if activeWorkout == nil, !hasSavedWorkout(on: now) {
+            let current = progress(on: now)
+            if current.total > 0, current.done < current.total { startWorkout(at: now) }
+        }
+        changeSets(exerciseID, by: 1, wrap: true, on: now)
+    }
+
+    /// 선택한 주(월~일)의 계획을 이후 몇 주에 복사. 오늘 이후 날짜만 바꾸고, 지난 날짜·오늘은 건드리지 않음.
+    mutating func repeatWeek(containing date: Date, weeks: Int, today: Date = Date()) {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: today)
+        for week in 1...max(weeks, 1) {
+            for day in DayKey.weekDates(containing: date) {
+                guard let target = calendar.date(byAdding: .day, value: 7 * week, to: day),
+                      calendar.startOfDay(for: target) > todayStart else { continue }
+                let targetKey = DayKey.key(target)
+                if var source = scheduledPlans[DayKey.key(day)] {
+                    source.exercises = source.exercises.map { exercise in
+                        var copy = exercise
+                        copy.id = UUID()
+                        return copy
+                    }
+                    scheduledPlans[targetKey] = source
+                } else {
+                    scheduledPlans.removeValue(forKey: targetKey)
+                }
+            }
+        }
     }
 
     /// 기록을 추가하고, 신기록이면 true

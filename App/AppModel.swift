@@ -30,7 +30,7 @@ final class AppModel {
         if let session = data.activeWorkout { return (session.done, session.total) }
         return data.progress()
     }
-    var savedToday: Bool { data.workouts.contains { $0.day == DayKey.key() } }
+    var savedToday: Bool { data.hasSavedWorkout() }
 
     func startWorkout() { data.startWorkout() }
 
@@ -38,6 +38,11 @@ final class AppModel {
         if data.activeWorkout?.done == 0 { data.activeWorkout = nil }
         else { data.finishWorkout() }
         stopRest()
+    }
+
+    // 미리보기에서는 실제 계정 저장소를 열거나 샘플 데이터로 덮어쓰지 않음.
+    init(previewData: AppData) {
+        replaceData(previewData)
     }
 
     init() {
@@ -71,6 +76,10 @@ final class AppModel {
     func reload() {
         do { replaceData(try SharedStore.snapshot(userID: selection.userID).data) }
         catch { storageError = "기록을 읽지 못했어요. 기기를 잠금 해제하고 다시 시도해 주세요." }
+        // 어제 마치지 않은 운동은 일지로 정리하고 오늘 계획으로 돌아감
+        if let session = data.activeWorkout, session.day != DayKey.key() {
+            data.closeStaleWorkout()
+        }
         if let rest = RestController.current(), rest.end > Date() {
             restStart = rest.start
             restEnd = rest.end

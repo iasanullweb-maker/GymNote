@@ -14,7 +14,7 @@ struct PlanCalendarView: View {
                     Image(systemName: "chevron.left").frame(width: 36, height: 36)
                 }.accessibilityLabel("이전 달")
                 Text(displayedMonth, format: .dateTime.year().month())
-                    .font(.title2.bold())
+                    .font(.title.bold())
                 Button { moveMonth(by: 1) } label: {
                     Image(systemName: "chevron.right").frame(width: 36, height: 36)
                 }.accessibilityLabel("다음 달")
@@ -27,7 +27,7 @@ struct PlanCalendarView: View {
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(weekdayOrder, id: \.self) { index in
                     Text(DayKey.weekdayNames[index])
-                        .font(.caption.bold()).foregroundStyle(.secondary)
+                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 }
                 ForEach(DayKey.monthDates(containing: displayedMonth), id: \.self) { date in
@@ -58,17 +58,17 @@ struct PlanCalendarView: View {
             selectedDate = date
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                Text(date, format: .dateTime.day())
-                    .font(.headline)
+                Text(String(Calendar.current.component(.day, from: date)))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(selected || today ? Color.orange : Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if exercises.isEmpty {
                     Text("휴식")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .font(.system(size: 14)).foregroundStyle(.secondary)
                 } else {
                     ForEach(exercises) { exercise in
                         Text(exercise.name)
-                            .font(.system(size: 11))
+                            .font(.system(size: 14))
                             .foregroundStyle(.primary)
                             .lineLimit(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,7 +77,7 @@ struct PlanCalendarView: View {
                 Spacer(minLength: 0)
             }
             .padding(6)
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: 132, alignment: .topLeading)
             .background(selected ? Color.orange.opacity(0.12) : Color.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
             .overlay {
                 RoundedRectangle(cornerRadius: 8)
@@ -88,5 +88,22 @@ struct PlanCalendarView: View {
         }
         .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + (exercises.isEmpty ? "휴식" : exercises.map(\.name).joined(separator: ", ")))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+#Preview("계획 캘린더") {
+    PlanCalendarPreview()
+}
+
+private struct PlanCalendarPreview: View {
+    @State private var selectedDate = Date()
+    @State private var model = AppModel(previewData: AppData.sample)
+
+    var body: some View {
+        ScrollView {
+            PlanCalendarView(selectedDate: $selectedDate)
+                .padding()
+        }
+        .environment(model)
     }
 }

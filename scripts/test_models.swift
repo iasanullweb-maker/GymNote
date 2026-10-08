@@ -92,6 +92,60 @@ struct ModelChecks {
         assert(training.workouts.last?.done == 1)
         let finishedReload = try decoder.decode(AppData.self, from: encoder.encode(training))
         assert(finishedReload == training, "일지 저장 후 재로드")
-        print("Model checks passed: migration, calendars, workout sessions, journals, persistence")
+
+        // 날짜가 지난 운동 정리
+        var stale = AppData(week: AppData.sample.week)
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today)!
+        let staleExercise = Exercise(name: "어제 운동", sets: 3, detail: "10회", restSeconds: 0)
+        stale.scheduledPlans[DayKey.key(yesterday)] = DayPlan(title: "어제", exercises: [staleExercise])
+        assert(stale.startWorkout(at: yesterday))
+        stale.changeSets(staleExercise.id, by: 1, on: yesterday)
+        assert(stale.closeStaleWorkout(now: today) && stale.activeWorkout == nil, "어제 운동 정리")
+        assert(stale.workouts.count == 1 && stale.workouts[0].endedAt == nil, "완료 세트 있으면 일지로 저장")
+        assert(!stale.closeStaleWorkout(now: today), "정리할 운동 없음")
+        assert(stale.startWorkout(at: yesterday) == true && stale.closeStaleWorkout(now: today), "0세트 지난 운동")
+        assert(stale.workouts.count == 1, "0세트 지난 운동은 버림")
+
+        // 같은 날 두 번째 운동은 0세트부터, 이전 일지 보존
+        var twice = AppData(week: AppData.sample.week)
+        let move = Exercise(name: "스쿼트", sets: 2, detail: "20회", restSeconds: 0)
+        twice.scheduledPlans[key] = DayPlan(title: "하체", exercises: [move])
+        assert(twice.startWorkout(at: today))
+        twice.changeSets(move.id, by: 1, on: today)
+        twice.changeSets(move.id, by: 1, on: today)
+        assert(twice.activeWorkout == nil && twice.hasSavedWorkout(on: today), "첫 운동 자동 저장")
+        assert(twice.startWorkout(at: today), "저장 후 새 운동 시작 가능")
+        assert(twice.activeWorkout?.done == 0 && twice.doneSets(move, on: today) == 0, "새 운동은 0세트")
+        assert(twice.workouts[0].done == 2, "이전 일지 보존")
+
+        // 위젯 체크로 운동 자동 시작
+        var widget = AppData(week: AppData.sample.week)
+        widget.scheduledPlans[key] = DayPlan(title: "위젯", exercises: [move])
+        widget.completeSetFromWidget(move.id, now: today)
+        assert(widget.activeWorkout?.done == 1, "위젯 첫 체크로 운동 시작")
+        widget.completeSetFromWidget(move.id, now: today)
+        assert(widget.activeWorkout == nil && widget.workouts.count == 1, "위젯으로 끝까지 하면 일지 저장")
+        widget.completeSetFromWidget(move.id, now: today)
+        assert(widget.workouts.count == 1 && widget.activeWorkout == nil, "저장 후 위젯 탭은 새 일지를 만들지 않음")
+
+        // 주간 반복: 미래 날짜만, 새 운동 ID
+        var weekly = AppData(week: AppData.sample.week)
+        let monday = DayKey.weekDates(containing: today)[0]
+        weekly.scheduledPlans = [:]
+        for (i, day) in DayKey.weekDates(containing: monday).enumerated() where i % 2 == 0 {
+            weekly.scheduledPlans[DayKey.key(day)] = DayPlan(title: "반복 \(i)", exercises: [move])
+        }
+        let before = weekly.scheduledPlans
+        weekly.repeatWeek(containing: monday, weeks: 2, today: today)
+        for (i, day) in DayKey.weekDates(containing: monday).enumerated() {
+            assert(weekly.scheduledPlans[DayKey.key(day)] == before[DayKey.key(day)], "이번 주는 그대로")
+            for w in 1...2 {
+                let target = Calendar.current.date(byAdding: .day, value: 7 * w, to: day)!
+                let copied = weekly.plan(for: target)
+                assert(copied.title == (i % 2 == 0 ? "반복 \(i)" : "휴식"), "요일별 복사")
+                if i % 2 == 0 { assert(copied.exercises[0].id != move.id, "복사본은 새 운동 ID") }
+            }
+        }
+        print("Model checks passed: migration, calendars, workout sessions, journals, persistence, stale/twice/widget/repeat")
     }
 }

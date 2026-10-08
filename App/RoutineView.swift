@@ -3,6 +3,7 @@ import SwiftUI
 struct RoutineView: View {
     @Environment(AppModel.self) private var model
     @State private var selectedDate = Date()
+    @State private var confirmingRepeat = false
 
     var body: some View {
         @Bindable var model = model
@@ -17,7 +18,7 @@ struct RoutineView: View {
                         Label("선택한 날짜 계획 설정", systemImage: "calendar.badge.plus")
                     }
                 }
-                Section("선택한 주의 운동") {
+                Section {
                     ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
                         NavigationLink {
                             ScheduledDayEditor(date: date)
@@ -26,7 +27,7 @@ struct RoutineView: View {
                             HStack(spacing: 12) {
                                 VStack {
                                     Text(DayKey.weekdayName(date)).font(.caption)
-                                    Text(date, format: .dateTime.day()).bold()
+                                    Text(String(Calendar.current.component(.day, from: date))).bold()
                                 }
                                 .frame(width: 32)
                                 VStack(alignment: .leading, spacing: 3) {
@@ -43,6 +44,15 @@ struct RoutineView: View {
                             }
                         }
                     }
+                    Button {
+                        confirmingRepeat = true
+                    } label: {
+                        Label("이 주 계획을 다음 주에도 반복", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                } header: {
+                    Text("선택한 주의 운동")
+                } footer: {
+                    Text("반복하면 이후 주의 같은 요일 계획을 덮어써. 오늘과 지난 날짜는 바뀌지 않아.")
                 }
                 Section {
                     NavigationLink {
@@ -51,7 +61,7 @@ struct RoutineView: View {
                         Label("운동 목록", systemImage: "list.bullet.rectangle")
                     }
                 } footer: {
-                    Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 매주 반복되지 않아.")
+                    Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 자동으로 반복되지 않으니 '다음 주에도 반복'을 써 줘.")
                 }
                 Section("설정") {
                     Stepper("기본 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest, in: 15...600, step: 15)
@@ -62,6 +72,13 @@ struct RoutineView: View {
                 }
             }
             .navigationTitle("계획")
+            .confirmationDialog("이 주 계획을 몇 주 동안 반복할까?", isPresented: $confirmingRepeat, titleVisibility: .visible) {
+                ForEach([1, 2, 4, 8], id: \.self) { weeks in
+                    Button("다음 \(weeks)주") { model.data.repeatWeek(containing: selectedDate, weeks: weeks) }
+                }
+            } message: {
+                Text("이후 주의 계획을 이 주와 같게 덮어써.")
+            }
         }
     }
 }
