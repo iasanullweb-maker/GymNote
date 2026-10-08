@@ -2,15 +2,17 @@ import SwiftUI
 
 struct RoutineView: View {
     @Environment(AppModel.self) private var model
-    @State private var selectedDate = Date()
+    @Binding var selectedDate: Date
     @State private var confirmingRepeat = false
+    @State private var showAll = false
 
     var body: some View {
         @Bindable var model = model
         NavigationStack {
             List {
                 Section("캘린더") {
-                    PlanCalendarView(selectedDate: $selectedDate)
+                    Toggle("운동·일상 함께 보기", isOn: $showAll)
+                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout)
                         .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
                     NavigationLink {
                         ScheduledDayEditor(date: selectedDate)

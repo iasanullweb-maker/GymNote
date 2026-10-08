@@ -39,21 +39,60 @@ struct RootView: View {
     @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
+    @State private var selectedDate = Date()
+    @State private var showingSettings = false
+    @AppStorage("selectedWorkspace") private var workspace = "운동"
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            TodayView()
-                .tabItem { Label("운동", systemImage: "figure.strengthtraining.traditional") }
-                .tag(0)
-            RoutineView()
-                .tabItem { Label("계획", systemImage: "calendar") }
-                .tag(1)
-            RecordsView()
-                .tabItem { Label("기록", systemImage: "trophy") }
-                .tag(2)
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Picker("분야", selection: $workspace) {
+                    Text("운동").tag("운동")
+                    Text("일상").tag("일상")
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 360)
+                Spacer(minLength: 0)
+                Button { showingSettings = true } label: {
+                    Image(systemName: "gearshape").font(.title2)
+                }
+                .accessibilityLabel("설정")
+            }
+            .padding(.horizontal).padding(.vertical, 8)
+            if workspace == "일상", model.data.activeWorkout != nil {
+                Button {
+                    workspace = "운동"
+                    selectedTab = 0
+                } label: {
+                    Label("진행 중인 운동으로 돌아가기", systemImage: "figure.strengthtraining.traditional")
+                        .font(.subheadline).frame(maxWidth: .infinity).padding(8)
+                }
+                .background(Color.orange.opacity(0.1))
+            }
+            TabView(selection: $selectedTab) {
+                Group {
+                    if workspace == "일상" { DailyTodayView() }
+                    else { TodayView() }
+                }
+                .tabItem { Label("실행", systemImage: "checkmark.circle") }.tag(0)
+                Group {
+                    if workspace == "일상" { DailyPlansView(selectedDate: $selectedDate) }
+                    else { RoutineView(selectedDate: $selectedDate) }
+                }
+                .tabItem { Label("계획", systemImage: "calendar") }.tag(1)
+                Group {
+                    if workspace == "일상" { DailyHistoryView() }
+                    else { RecordsView() }
+                }
+                .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
             SettingsView()
-                .tabItem { Label("설정", systemImage: "gearshape") }
-                .tag(3)
+                .safeAreaInset(edge: .bottom) {
+                    Button("닫기") { showingSettings = false }
+                        .frame(maxWidth: .infinity).padding().background(.regularMaterial)
+                }
         }
         .id(model.selection.generation)
         .tint(.orange)
