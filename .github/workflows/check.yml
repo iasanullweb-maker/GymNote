@@ -45,8 +45,10 @@ jobs:
       - name: iPad simulator build and security regression tests
         run: |
           set -o pipefail
+          mkdir -p build
           xcodebuild -project GymNote.xcodeproj -scheme GymNote -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+            -resultBundlePath build/TestResults.xcresult \
             CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES \
             CODE_SIGN_STYLE=Manual test 2>&1 | tee /tmp/xcodebuild-test.log
       - name: Report test failures as annotations
@@ -54,6 +56,19 @@ jobs:
         run: |
           grep -E "error:|: failed|XCTAssert|Fatal error|Test Case .* failed" /tmp/xcodebuild-test.log \
             | head -40 | sed -e 's/%/%25/g' -e 's/^/::error::/' || true
+      - name: Export simulator screen captures
+        if: always()
+        run: |
+          if [ -d build/TestResults.xcresult ]; then
+            xcrun xcresulttool export attachments --path build/TestResults.xcresult --output-path build/test-attachments
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iPad-test-results
+          path: |
+            build/TestResults.xcresult
+            build/test-attachments
   database:
     runs-on: ubuntu-latest
     services:

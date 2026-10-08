@@ -60,7 +60,7 @@ struct TodayView: View {
                     } else {
                         HStack {
                             Button { model.startDefaultRest() } label: {
-                                Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
+                                Label("휴식 타이머 \(RestDuration.text(seconds: model.data.defaultRest))", systemImage: "timer")
                             }
                             .buttonStyle(.borderless)
                             Spacer()
@@ -72,7 +72,7 @@ struct TodayView: View {
                             }
                             .buttonStyle(.bordered)
                             .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
-                            .accessibilityLabel("휴식 시간 \(model.data.restStep)초 줄이기")
+                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 줄이기")
                             Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
                                 Image(systemName: "plus")
                                     .font(.body.weight(.semibold))
@@ -80,7 +80,7 @@ struct TodayView: View {
                             }
                             .buttonStyle(.bordered)
                             .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
-                            .accessibilityLabel("휴식 시간 \(model.data.restStep)초 늘리기")
+                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 늘리기")
                         }
                     }
                 }
@@ -158,10 +158,12 @@ struct RestBanner: View {
                     .font(.headline)
                 Spacer()
                 if resting {
-                    Text(timerInterval: start...end, countsDown: true)
+                    Text(RestDuration.text(seconds: RestDuration.remaining(until: end, at: context.date)))
                         .font(.title.monospacedDigit())
                         .bold()
-                        .frame(minWidth: 80, alignment: .trailing)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(minWidth: 100, alignment: .trailing)
                 }
                 Button(resting ? "건너뛰기" : "닫기", action: onStop)
                     .buttonStyle(.bordered)

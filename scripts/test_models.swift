@@ -165,6 +165,30 @@ struct ModelChecks {
         let noRestReload = try decoder.decode(Exercise.self, from: JSONSerialization.data(withJSONObject: noRest))
         assert(noRestReload.restSeconds == 0 && noRestReload.name == "예전 운동" && noRestReload.sets == 4 && noRestReload.id == withRest.id, "휴식 필드 없는 운동")
         assert(Exercise(name: "새 운동", sets: 3, detail: "10회").restSeconds == 0, "새 운동은 운동별 휴식 없음")
+        // 표시만 분·초로 변환. 저장된 초 및 타이머 종료 시각은 변경하지 않는다.
+        for (seconds, text) in [(-1, "0초"), (0, "0초"), (5, "5초"), (59, "59초"),
+                                (60, "1분 0초"), (90, "1분 30초"), (125, "2분 5초"), (600, "10분 0초")] {
+            assert(RestDuration.text(seconds: seconds) == text)
+        }
+        let restEnd = today.addingTimeInterval(90)
+        assert(RestDuration.remaining(until: restEnd, at: today) == 90)
+        assert(RestDuration.remaining(until: restEnd, at: restEnd.addingTimeInterval(-0.2)) == 1)
+        assert(RestDuration.remaining(until: restEnd, at: restEnd) == 0)
+        assert(RestDuration.remaining(until: restEnd, at: restEnd.addingTimeInterval(5)) == 0)
+
+        // 하루 여러 일지, 자정 이후 종료, 계획 변경·삭제와 독립적인 날짜 조회.
+        let journalDay = calendar.startOfDay(for: today)
+        let morning = WorkoutSession(startedAt: journalDay.addingTimeInterval(3600), plan: DayPlan(title: "아침", exercises: [move]), completedSets: [move.id.uuidString: 1])
+        let night = WorkoutSession(startedAt: journalDay.addingTimeInterval(23 * 3600), endedAt: journalDay.addingTimeInterval(25 * 3600), plan: DayPlan(title: "저녁", exercises: [move]), completedSets: [move.id.uuidString: 2])
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: journalDay)!
+        let next = WorkoutSession(startedAt: tomorrow.addingTimeInterval(3600), plan: morning.plan)
+        var journal = AppData.empty
+        journal.workouts = [morning, next, night]
+        assert(journal.workouts(on: today).map(\.id) == [night.id, morning.id])
+        assert(journal.workouts(on: tomorrow).map(\.id) == [next.id])
+        assert(journal.workouts(on: calendar.date(byAdding: .day, value: -1, to: today)!).isEmpty)
+        let journalReload = try decoder.decode(AppData.self, from: encoder.encode(journal))
+        assert(journalReload.workouts(on: today) == [night, morning])
         print("Model checks passed: migration, calendars, workout sessions, journals, persistence, stale/twice/widget/repeat")
     }
 }

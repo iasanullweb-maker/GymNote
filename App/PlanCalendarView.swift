@@ -2,14 +2,21 @@ import SwiftUI
 
 struct PlanCalendarView: View {
     @Environment(AppModel.self) private var model
-    enum Content { case workout, daily, all }
+    enum Content { case workout, daily, all, journal }
     @Binding var selectedDate: Date
     var content: Content = .workout
-    @State private var displayedMonth = Date()
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .top), count: 7)
+    @State private var displayedMonth: Date
     private let weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
 
+    init(selectedDate: Binding<Date>, content: Content = .workout) {
+        _selectedDate = selectedDate
+        self.content = content
+        _displayedMonth = State(initialValue: selectedDate.wrappedValue)
+    }
+
     var body: some View {
+        let dates = DayKey.monthDates(containing: displayedMonth)
+        let workoutsByDay = content == .journal ? Dictionary(grouping: model.data.workouts, by: \.day) : [:]
         VStack(spacing: 14) {
             HStack {
                 Button { moveMonth(by: -1) } label: {
@@ -26,19 +33,26 @@ struct PlanCalendarView: View {
                     displayedMonth = selectedDate
                 }
             }
-            LazyVGrid(columns: columns, spacing: 6) {
-                ForEach(weekdayOrder, id: \.self) { index in
-                    Text(DayKey.weekdayNames[index])
-                        .font(.system(size: 16, weight: .semibold)).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
+            // List 안의 큰 한 행이다. 모든 주의 높이를 처음부터 측정해
+            // 스크롤 중 lazy 행의 추정 높이가 바뀌는 것을 막는다.
+            Grid(alignment: .topLeading, horizontalSpacing: 6, verticalSpacing: 6) {
+                GridRow {
+                    ForEach(weekdayOrder, id: \.self) { index in
+                        Text(DayKey.weekdayNames[index])
+                            .font(.system(size: 16, weight: .semibold)).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
-                ForEach(DayKey.monthDates(containing: displayedMonth), id: \.self) { date in
-                    dayCell(date)
+                ForEach(Array(stride(from: 0, to: dates.count, by: 7)), id: \.self) { offset in
+                    GridRow {
+                        ForEach(Array(dates[offset..<min(offset + 7, dates.count)]), id: \.self) { date in
+                            dayCell(date, workouts: workoutsByDay[DayKey.key(date)] ?? [])
+                        }
+                    }
                 }
             }
         }
         .buttonStyle(.plain)
-        .onAppear { displayedMonth = selectedDate }
         .onChange(of: selectedDate) { _, date in
             if !Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month) {
                 displayedMonth = date
@@ -51,12 +65,15 @@ struct PlanCalendarView: View {
         displayedMonth = Calendar.current.date(byAdding: .month, value: offset, to: start) ?? start
     }
 
-    private func dayCell(_ date: Date) -> some View {
+    private func dayCell(_ date: Date, workouts: [WorkoutSession]) -> some View {
         let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
         let inMonth = Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month)
         let today = Calendar.current.isDateInToday(date)
-        let exercises = content == .daily ? [] : model.data.plan(for: date).exercises
-        let dailyItems = content == .workout ? [] : model.data.dailyItems(on: date)
+        let exercises = content == .daily || content == .journal ? [] : model.data.plan(for: date).exercises
+        let dailyItems = content == .workout || content == .journal ? [] : model.data.dailyItems(on: date)
+        let journalNames = Array(Set(workouts.flatMap { workout in
+            workout.plan.exercises.filter { workout.doneSets($0) > 0 }.map(\.name)
+        })).sorted()
         return Button {
             selectedDate = date
         } label: {
@@ -65,7 +82,21 @@ struct PlanCalendarView: View {
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(selected || today ? Color.orange : Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if exercises.isEmpty && dailyItems.isEmpty {
+                if content == .journal {
+                    if workouts.isEmpty {
+                        Text("기록 없음").font(.system(size: 14)).foregroundStyle(.secondary)
+                    } else {
+                        Text("\(workouts.count)회 · \(workouts.reduce(0) { $0 + $1.done })세트")
+                            .font(.system(size: 14, weight: .semibold)).foregroundStyle(.orange)
+                        ForEach(journalNames.prefix(3), id: \.self) { name in
+                            Text(name).font(.system(size: 14)).lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        if journalNames.count > 3 {
+                            Text("+\(journalNames.count - 3)개 더").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                } else if exercises.isEmpty && dailyItems.isEmpty {
                     Text(content == .workout ? "휴식" : "일정 없음")
                         .font(.system(size: 14)).foregroundStyle(.secondary)
                 } else {
@@ -94,7 +125,9 @@ struct PlanCalendarView: View {
             .opacity(inMonth ? 1 : 0.4)
             .contentShape(Rectangle())
         }
-        .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + ((exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")))
+        .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + (content == .journal
+            ? "운동 일지 \(workouts.count)개, " + journalNames.joined(separator: ", ")
+            : (exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
