@@ -1,3 +1,4 @@
+import AuthenticationServices
 import XCTest
 @testable import GymNote
 
@@ -7,7 +8,8 @@ final class AuthStub: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         do {
-            let (status, data) = try Self.reply!(request)
+            guard let reply = Self.reply else { throw URLError(.cannotConnectToHost) }
+            let (status, data) = try reply(request)
             let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: data)
@@ -426,5 +428,254 @@ final class AccountTests: XCTestCase {
         let backups = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("backup-\(id.uuidString.lowercased())-") }
         XCTAssertEqual(backups.count, 2)
+    }
+
+    // MARK: - Google/Apple (Supabase OAuth + PKCE)
+
+    func testPKCEMatchesRFC7636AndVerifiersAreUnique() throws {
+        XCTAssertEqual(PKCE.challenge(for: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
+                       "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+        let first = try PKCE.verifier(), second = try PKCE.verifier()
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(first.count, 43)
+        XCTAssertTrue(first.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") })
+    }
+
+    func testAuthorizeURLUsesPKCEAndExactReturnAddress() throws {
+        let client = stubClient()
+        let attempt = try client.beginOAuth(.google)
+        let parts = URLComponents(url: attempt.url, resolvingAgainstBaseURL: false)!
+        XCTAssertEqual(parts.scheme, "https")
+        XCTAssertEqual(parts.host, client.config.url.host)
+        XCTAssertEqual(parts.path, "/auth/v1/authorize")
+        let query = Dictionary(uniqueKeysWithValues: parts.queryItems!.map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(query["provider"], "google")
+        XCTAssertEqual(query["redirect_to"], "com.gymnote.app://auth-callback")
+        XCTAssertEqual(query["code_challenge_method"], "s256")
+        XCTAssertEqual(query["code_challenge"], PKCE.challenge(for: attempt.verifier))
+        XCTAssertNil(query["code_verifier"], "검증용 비밀값은 브라우저로 보내지 않음")
+        XCTAssertNotEqual(try client.beginOAuth(.google).verifier, attempt.verifier)
+    }
+
+    func testCallbackAcceptsOnlyOurReturnAddress() throws {
+        XCTAssertEqual(try AuthClient.authorizationCode(from: URL(string: "com.gymnote.app://auth-callback?code=3f7c2a10-1b2c-4d5e-8f90-123456789abc")!),
+                       "3f7c2a10-1b2c-4d5e-8f90-123456789abc")
+        for bad in ["https://evil.example/auth-callback?code=abc", "com.other.app://auth-callback?code=abc",
+                    "com.gymnote.app://other?code=abc", "com.gymnote.app://auth-callback/extra?code=abc",
+                    "com.gymnote.app://auth-callback", "com.gymnote.app://auth-callback?code=a%20b",
+                    "com.gymnote.app://auth-callback?error=server_error&error_description=x",
+                    "com.gymnote.app://auth-callback#error=invalid_request&code=abc"] {
+            XCTAssertThrowsError(try AuthClient.authorizationCode(from: URL(string: bad)!), bad)
+        }
+        XCTAssertThrowsError(try AuthClient.authorizationCode(from: URL(string: "com.gymnote.app://auth-callback?error=access_denied")!)) { error in
+            guard case AccountError.cancelled = error else { return XCTFail("동의 거부는 취소로 처리: \(error)") }
+        }
+    }
+
+    func testAccountUserProvidersSurviveKeychainRoundTrip() throws {
+        let id = UUID()
+        let fromServer = try JSONDecoder().decode(AccountUser.self, from: JSONSerialization.data(withJSONObject: [
+            "id": id.uuidString, "email": "relay@privaterelay.appleid.com",
+            "app_metadata": ["provider": "apple", "providers": ["apple", "google"]],
+        ]))
+        XCTAssertEqual(fromServer.providers, ["apple", "google"])
+        let legacy = try JSONDecoder().decode(AccountUser.self, from: JSONSerialization.data(withJSONObject: ["id": id.uuidString]))
+        XCTAssertEqual(legacy.providers, [])
+        let vault = SessionVault(project: "test-\(UUID())")
+        defer { try? vault.clear() }
+        try vault.write(AccountSession(accessToken: "a", refreshToken: "r", expiresAt: 0, user: fromServer))
+        XCTAssertEqual(try vault.read()?.user.providers, ["apple", "google"])
+    }
+
+    /// Records the PKCE challenge the browser saw and checks the exchange proves the same verifier.
+    private func socialStub(id: UUID, providers: [String: Bool] = ["google": true, "apple": false, "email": true],
+                            userProviders: [String] = ["google"], email: String = "user@gmail.com",
+                            challenge: @escaping () -> String?, onRequest: ((URLRequest) -> Void)? = nil) {
+        AuthStub.reply = { request in
+            onRequest?(request)
+            switch request.url!.path {
+            case "/auth/v1/settings":
+                XCTAssertEqual(request.httpMethod, "GET")
+                return (200, try JSONSerialization.data(withJSONObject: ["external": providers]))
+            case "/auth/v1/token":
+                XCTAssertEqual(request.url?.query, "grant_type=pkce")
+                let body = try JSONSerialization.jsonObject(with: AuthStub.body(of: request)) as! [String: String]
+                XCTAssertEqual(body["auth_code"], "auth-code-1")
+                guard let verifier = body["code_verifier"], PKCE.challenge(for: verifier) == challenge() else { return (400, Data()) }
+                return (200, try JSONSerialization.data(withJSONObject: [
+                    "access_token": "social-access-\(UUID())", "refresh_token": "social-refresh", "expires_in": 3600,
+                    "user": ["id": id.uuidString, "email": email, "app_metadata": ["providers": userProviders]]]))
+            case "/auth/v1/user":
+                return (200, try JSONEncoder().encode(AccountUser(id: id, email: email, providers: userProviders)))
+            case "/auth/v1/logout": return (204, Data())
+            case "/rest/v1/rpc/load_workout": return (200, Data("[]".utf8))
+            case "/rest/v1/rpc/save_workout":
+                let body = try JSONSerialization.jsonObject(with: AuthStub.body(of: request)) as! [String: Any]
+                return (200, try JSONSerialization.data(withJSONObject: [["version": 1, "payload": body["p_payload"]!]]))
+            default: throw URLError(.badURL)
+            }
+        }
+    }
+
+    private func browser(returning code: String = "auth-code-1", seen: @escaping (URL) -> Void) -> (URL) async throws -> URL {
+        { url in
+            seen(url)
+            return URL(string: "com.gymnote.app://auth-callback?code=\(code)")!
+        }
+    }
+
+    private func challenge(of url: URL?) -> String? {
+        url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "code_challenge" }?.value }
+    }
+
+    func testGoogleLoginStoresSessionWithoutImportingGuestRecords() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        let model = AppModel()
+        let guest = RecordEntry(typeID: "pushup", date: Date(), value: 33)
+        model.data.records = [guest]
+        var opened: URL?
+        socialStub(id: id, challenge: { self.challenge(of: opened) })
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.refreshProviders()
+        XCTAssertTrue(account.canSignIn(with: .google))
+        XCTAssertFalse(account.canSignIn(with: .apple), "서버에서 꺼진 Apple은 비활성")
+        await account.signIn(with: .google, authenticate: browser { opened = $0 })
+        XCTAssertNotNil(opened)
+        XCTAssertEqual(account.user?.id, id)
+        XCTAssertEqual(account.user?.providers, ["google"])
+        XCTAssertEqual(model.selection.userID, id)
+        XCTAssertTrue(model.data.records.isEmpty, "동의 없이 기기 기록을 가져오지 않음")
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.records, [guest])
+        XCTAssertEqual(try vault.read()?.user.id, id)
+        XCTAssertFalse(account.busy)
+    }
+
+    func testGoogleLoginImportsGuestOnlyWithConsent() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        let model = AppModel()
+        let guest = RecordEntry(typeID: "pushup", date: Date(), value: 44)
+        model.data.records = [guest]
+        var opened: URL?
+        socialStub(id: id, challenge: { self.challenge(of: opened) })
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.refreshProviders()
+        await account.signIn(with: .google, importDeviceRecords: true, authenticate: browser { opened = $0 })
+        XCTAssertEqual(model.selection.userID, id)
+        XCTAssertEqual(model.data.records, [guest])
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.records, [guest], "게스트 원본 보존")
+    }
+
+    func testCancelledFailedAndDisabledSocialLoginKeepGuest() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let model = AppModel()
+        var tokenRequests = 0
+        socialStub(id: UUID(), challenge: { nil }) { if $0.url?.path == "/auth/v1/token" { tokenRequests += 1 } }
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.refreshProviders()
+        // 사용자가 인증 창을 닫음
+        await account.signIn(with: .google) { _ in throw ASWebAuthenticationSessionError(.canceledLogin) }
+        XCTAssertNil(account.user)
+        XCTAssertEqual(account.message, AccountError.cancelled.localizedDescription)
+        // Google 동의 화면에서 거부
+        await account.signIn(with: .google) { _ in URL(string: "com.gymnote.app://auth-callback?error=access_denied")! }
+        XCTAssertEqual(account.message, AccountError.cancelled.localizedDescription)
+        // 다른 주소로 돌아온 응답은 거부
+        await account.signIn(with: .google) { _ in URL(string: "https://evil.example/auth-callback?code=auth-code-1")! }
+        XCTAssertNil(account.user)
+        // 다른 시도의 코드/검증값 불일치(challenge 없음)는 서버가 거부
+        await account.signIn(with: .google, authenticate: browser { _ in })
+        XCTAssertNil(account.user)
+        XCTAssertEqual(tokenRequests, 1)
+        // 서버에서 꺼진 방식은 인증 창을 열지 않음
+        var openedApple = false
+        await account.signIn(with: .apple) { url in openedApple = true; return url }
+        XCTAssertFalse(openedApple)
+        XCTAssertEqual(account.message, AccountError.providerUnavailable.localizedDescription)
+        XCTAssertNil(model.selection.userID)
+        XCTAssertNil(try vault.read())
+        XCTAssertFalse(account.busy, "취소·실패 후 다시 시도 가능")
+    }
+
+    func testSocialButtonsStayDisabledOfflineAndWhenSettingsFail() async throws {
+        let model = AppModel()
+        let offline = AccountModel(model: model, client: stubClient(), initialConnection: .offline, monitorConnectivity: false)
+        AuthStub.reply = { _ in XCTFail("오프라인에서는 설정을 묻지 않음"); throw URLError(.notConnectedToInternet) }
+        await offline.bootstrap()
+        await offline.refreshProviders()
+        XCTAssertFalse(offline.canSignIn(with: .google))
+        let failing = AccountModel(model: model, client: stubClient(), initialConnection: .online, monitorConnectivity: false)
+        AuthStub.reply = { _ in (500, Data()) }
+        await failing.bootstrap()
+        await failing.refreshProviders()
+        XCTAssertFalse(failing.canSignIn(with: .google))
+        XCTAssertFalse(AccountModel(model: model, client: nil, initialConnection: .online, monitorConnectivity: false).canSignIn(with: .google))
+    }
+
+    func testSocialReauthenticationForDeletionRequiresSameAccount() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        try vault.write(AccountSession(accessToken: "old-access", refreshToken: "old-refresh",
+                                       expiresAt: Date().timeIntervalSince1970 + 3600,
+                                       user: AccountUser(id: id, email: "user@gmail.com", providers: ["google"])))
+        let model = AppModel()
+        var opened: URL?
+        var revoked: [String] = []
+        socialStub(id: UUID(), challenge: { self.challenge(of: opened) }) {
+            if $0.url?.path == "/auth/v1/logout" { revoked.append($0.value(forHTTPHeaderField: "Authorization") ?? "") }
+        }
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.refreshProviders()
+        account.beginDeletion()
+        XCTAssertFalse(account.canUseEmailForReauthentication, "Google 전용 계정은 이메일 인증번호로 확인하지 않음")
+        XCTAssertTrue(account.canSignIn(with: .google))
+        // 다른 Google 계정으로 인증하면 거부하고 새로 생긴 세션은 종료
+        await account.signIn(with: .google, authenticate: browser { opened = $0 })
+        XCTAssertFalse(account.readyToDelete)
+        XCTAssertEqual(account.user?.id, id)
+        XCTAssertEqual(model.selection.userID, id)
+        XCTAssertEqual(account.message, AccountError.wrongAccount.localizedDescription)
+        XCTAssertEqual(revoked.count, 1)
+        XCTAssertEqual(try vault.read()?.accessToken, "old-access")
+        // 같은 계정으로 다시 인증하면 삭제 가능, 이전 세션은 종료
+        socialStub(id: id, challenge: { self.challenge(of: opened) }) {
+            if $0.url?.path == "/auth/v1/logout" { revoked.append($0.value(forHTTPHeaderField: "Authorization") ?? "") }
+        }
+        await account.signIn(with: .google, authenticate: browser { opened = $0 })
+        XCTAssertTrue(account.readyToDelete)
+        XCTAssertEqual(revoked.last, "Bearer old-access")
+        XCTAssertNotEqual(try vault.read()?.accessToken, "old-access")
+        account.cancelDeletion()
+        XCTAssertFalse(account.readyToDelete)
+    }
+
+    func testEmailAccountWithoutGoogleCannotReauthenticateWithGoogle() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        try vault.write(AccountSession(accessToken: "a", refreshToken: "r", expiresAt: Date().timeIntervalSince1970 + 3600,
+                                       user: AccountUser(id: id, email: "me@example.com")))
+        socialStub(id: id, challenge: { nil })
+        let account = AccountModel(model: AppModel(), client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.refreshProviders()
+        XCTAssertTrue(account.canSignIn(with: .google), "로그인 화면에서는 사용 가능")
+        account.beginDeletion()
+        XCTAssertTrue(account.canUseEmailForReauthentication, "예전 세션은 이메일 계정으로 간주")
+        XCTAssertFalse(account.canSignIn(with: .google), "연결되지 않은 방법으로는 삭제 본인 확인 불가")
     }
 }

@@ -1,3 +1,4 @@
+import AuthenticationServices
 import Foundation
 import Observation
 import Network
@@ -19,6 +20,8 @@ final class AccountModel {
     private(set) var cloudChecked = false
     private(set) var connection: AccountConnection
     private(set) var guestSelected = false
+    /// Providers the Supabase project reports as enabled. Unknown (offline/failed) means none.
+    private(set) var availableProviders: Set<SocialProvider> = []
     @ObservationIgnored private unowned let model: AppModel
     @ObservationIgnored private let client: AuthClient?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
@@ -26,10 +29,20 @@ final class AccountModel {
     @ObservationIgnored private var generation = UUID()
     @ObservationIgnored private var deleting = false
     @ObservationIgnored private let connectivity = NWPathMonitor()
+    /// Live app: watch the network and refresh enabled providers automatically. Tests call refreshProviders() directly.
+    @ObservationIgnored private let monitorsEnvironment: Bool
 
     var configured: Bool { client != nil }
     var user: AccountUser? { session?.user }
     var isReauthenticating: Bool { needsLogin || deleting }
+    var isDeleting: Bool { deleting }
+    /// Methods this account can re-authenticate with. Older cached sessions lack provider data: assume email.
+    var accountProviders: [String] { (user?.providers.isEmpty ?? true) ? ["email"] : user!.providers }
+    var canUseEmailForReauthentication: Bool { !deleting || accountProviders.contains("email") }
+    func canSignIn(with provider: SocialProvider) -> Bool {
+        guard configured, isOnline, availableProviders.contains(provider) else { return false }
+        return !deleting || accountProviders.contains(provider.rawValue)
+    }
     var isOnline: Bool { connection == .online }
     var showsWelcome: Bool { initialized && configured && isOnline && user == nil && !guestSelected }
     var modeDescription: String {
@@ -56,6 +69,7 @@ final class AccountModel {
         self.model = model
         self.client = client
         connection = initialConnection
+        monitorsEnvironment = monitorConnectivity
         connectivity.pathUpdateHandler = { [weak self] path in
             let connected = path.status == .satisfied && (path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet))
             Task { @MainActor [weak self] in self?.updateConnection(connected ? .online : .offline) }
@@ -67,7 +81,7 @@ final class AccountModel {
     func bootstrap() async {
         guard !initialized else { return }
         busy = true
-        defer { initialized = true; finishOperation(); scheduleSync() }
+        defer { initialized = true; finishOperation(); scheduleSync(); autoRefreshProviders() }
         do {
             if let stored = try vault?.read() {
                 session = stored
@@ -82,7 +96,7 @@ final class AccountModel {
 
     func updateConnection(_ next: AccountConnection) {
         connection = next
-        if isOnline { scheduleSync() }
+        if isOnline { scheduleSync(); autoRefreshProviders() }
         else {
             // Do not cancel an in-flight upload: it may already have committed on the server.
             if !busy { syncTask?.cancel() }
@@ -91,6 +105,17 @@ final class AccountModel {
     }
 
     func continueAsGuest() { guestSelected = true; resetCode() }
+
+    private func autoRefreshProviders() {
+        guard monitorsEnvironment else { return }
+        Task { [weak self] in await self?.refreshProviders() }
+    }
+
+    /// Buttons are enabled only for providers the server confirms. Failure keeps them disabled.
+    func refreshProviders() async {
+        guard initialized, isOnline, let client else { return }
+        if let providers = try? await client.enabledProviders() { availableProviders = providers }
+    }
 
     private func requireConnection() -> Bool {
         guard isOnline else {
@@ -155,34 +180,83 @@ final class AccountModel {
         busy = true
         defer { finishOperation() }
         do {
-            let wasGuest = model.selection.userID == nil
             let verified = try await client.verify(email: email, code: code)
-            let identity = try await client.user(token: verified.accessToken)
-            guard identity.id == verified.user.id, (!deleting || identity.id == user?.id) else { throw AccountError.unauthorized }
-            let beforeImport = try SharedStore.snapshot(userID: identity.id)
-            try vault?.write(verified)
-            if model.selection.userID != identity.id {
-                cloudChecked = false
-                conflict = nil
-                try await model.switchAccount(identity.id)
-            }
-            session = verified
-            if wasGuest, !deleting, importDeviceRecords {
-                try SharedStore.importGuest(selection: model.selection)
-                if !beforeImport.importedGuest, beforeImport.serverVersion == 0, !beforeImport.dirty {
-                    UserDefaults.standard.set(true, forKey: importConsentKey(identity.id))
-                }
-                model.reload()
-            }
-            needsLogin = false
-            pendingEmail = nil
-            generation = UUID()
-            message = deleting ? "본인 확인을 마쳤어요. 계정 삭제를 다시 눌러 완료해 주세요."
-                : (wasGuest && importDeviceRecords ? "로그인했어요. 기기 기록을 가져왔고, 연결되면 서버에 이어서 저장합니다."
-                    : "로그인했어요. 기존 기기 기록은 설정에서 가져올 수 있어요.")
-            if deleting { deletionVerifiedAt = Date() }
-            else { scheduleSync() }
+            try await completeSignIn(verified, importDeviceRecords: importDeviceRecords)
         } catch { show(error) }
+    }
+
+    /// Google/Apple through Supabase hosted OAuth. `authenticate` presents the system authentication
+    /// browser (ASWebAuthenticationSession) and returns the callback URL it received.
+    /// Used for first login, expired-session login and re-authentication before account deletion.
+    func signIn(with provider: SocialProvider, importDeviceRecords: Bool = false,
+                authenticate: (URL) async throws -> URL) async {
+        guard !busy, let client else { return }
+        guard requireConnection() else { return }
+        guard canSignIn(with: provider) else {
+            message = (deleting && availableProviders.contains(provider) ? AccountError.wrongAccount : AccountError.providerUnavailable).localizedDescription
+            return
+        }
+        busy = true
+        message = nil
+        defer { finishOperation() }
+        do {
+            let attempt = try client.beginOAuth(provider)
+            let callback: URL
+            do { callback = try await authenticate(attempt.url) }
+            catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin { throw AccountError.cancelled }
+            catch is CancellationError { throw AccountError.cancelled }
+            catch let error as AccountError { throw error }
+            catch { throw AccountError.browserUnavailable }
+            let code = try AuthClient.authorizationCode(from: callback)
+            let verified = try await client.exchange(code: code, verifier: attempt.verifier)
+            try await completeSignIn(verified, importDeviceRecords: importDeviceRecords)
+        } catch { show(error) }
+    }
+
+    /// Shared by email OTP and social login. Records are keyed only by the server-verified user UUID,
+    /// never by email, and guest records are copied only with explicit consent.
+    private func completeSignIn(_ verified: AccountSession, importDeviceRecords: Bool) async throws {
+        guard let client else { throw AccountError.notConfigured }
+        let wasGuest = model.selection.userID == nil
+        var identity = try await client.user(token: verified.accessToken)
+        guard identity.id == verified.user.id else { throw AccountError.unauthorized }
+        if deleting, identity.id != user?.id {
+            // Deletion re-authentication must prove the same account; revoke the session we just created.
+            try? await client.signOut(token: verified.accessToken)
+            throw AccountError.wrongAccount
+        }
+        if identity.email == nil { identity.email = verified.user.email }
+        var accepted = verified
+        accepted.user = identity
+        let previous = session
+        let beforeImport = try SharedStore.snapshot(userID: identity.id)
+        try vault?.write(accepted)
+        if model.selection.userID != identity.id {
+            cloudChecked = false
+            conflict = nil
+            try await model.switchAccount(identity.id)
+        }
+        session = accepted
+        if let previous, previous.user.id == identity.id, previous.accessToken != accepted.accessToken,
+           previous.expiresAt > Date().timeIntervalSince1970 + 30 {
+            // Re-authentication creates a new server session; end the replaced one when still possible.
+            try? await client.signOut(token: previous.accessToken)
+        }
+        if wasGuest, !deleting, importDeviceRecords {
+            try SharedStore.importGuest(selection: model.selection)
+            if !beforeImport.importedGuest, beforeImport.serverVersion == 0, !beforeImport.dirty {
+                UserDefaults.standard.set(true, forKey: importConsentKey(identity.id))
+            }
+            model.reload()
+        }
+        needsLogin = false
+        pendingEmail = nil
+        generation = UUID()
+        message = deleting ? "본인 확인을 마쳤어요. 계정 삭제를 다시 눌러 완료해 주세요."
+            : (wasGuest && importDeviceRecords ? "로그인했어요. 기기 기록을 가져왔고, 연결되면 서버에 이어서 저장합니다."
+                : "로그인했어요. 기존 기기 기록은 설정에서 가져올 수 있어요.")
+        if deleting { deletionVerifiedAt = Date() }
+        else { scheduleSync() }
     }
 
     func resetCode() { pendingEmail = nil; message = nil }
@@ -327,7 +401,9 @@ final class AccountModel {
         sentAt = nil
         deletionVerifiedAt = nil
         syncTask?.cancel()
-        message = "계정 삭제를 위해 현재 이메일로 인증번호를 받아 본인 확인을 해 주세요."
+        message = accountProviders.contains("email")
+            ? "계정 삭제를 위해 이메일 인증번호나 연결된 로그인 방법으로 본인 확인을 해 주세요."
+            : "계정 삭제를 위해 연결된 로그인 방법으로 다시 로그인해 본인 확인을 해 주세요."
     }
     func cancelDeletion() { deleting = false; deletionVerifiedAt = nil; resetCode(); scheduleSync() }
 
@@ -336,7 +412,7 @@ final class AccountModel {
         guard requireConnection() else { return }
         guard readyToDelete else {
             deletionVerifiedAt = nil
-            message = "본인 확인이 만료됐어요. 인증번호를 다시 받아 확인해 주세요."
+            message = "본인 확인이 만료됐어요. 다시 본인 확인을 해 주세요."
             return
         }
         busy = true
