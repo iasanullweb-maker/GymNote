@@ -174,9 +174,10 @@ struct AppData: Codable, Equatable {
     var workouts: [WorkoutSession] = []
     var dailyItems: [DailyItem] = []
     var dailyCompletions: [DailyCompletion] = []
+    var dailyReminders = DailyReminderSettings()
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, dailyItems, dailyCompletions
+        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, dailyItems, dailyCompletions, dailyReminders
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -206,6 +207,7 @@ struct AppData: Codable, Equatable {
         workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
         dailyItems = try c.decodeIfPresent([DailyItem].self, forKey: .dailyItems) ?? []
         dailyCompletions = try c.decodeIfPresent([DailyCompletion].self, forKey: .dailyCompletions) ?? []
+        dailyReminders = try c.decodeIfPresent(DailyReminderSettings.self, forKey: .dailyReminders) ?? DailyReminderSettings()
         padWeek()
         if let saved = try c.decodeIfPresent([String: DayPlan].self, forKey: .scheduledPlans) {
             scheduledPlans = saved
@@ -267,6 +269,14 @@ enum DayKey {
     static func key(_ date: Date = Date()) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
+    /// key(_:)의 역변환. 그날 정오를 돌려준다(시간대·일광 절약 경계에서도 같은 날짜 유지).
+    static func date(fromKey key: String) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        let date = Calendar.current.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
+        return date.flatMap { self.key($0) == key ? $0 : nil }
     }
 
     static func weekdayIndex(_ date: Date = Date()) -> Int {
@@ -506,12 +516,73 @@ extension AppData {
     }
 }
 
-// MARK: - 일상: 할 일과 반복 습관
+// MARK: - 일상: 한 번 하는 일과 반복하는 일
+// 화면에서는 '반복' 설정 하나로 다룬다. 저장 형식은 예전 버전과 호환되도록 유지:
+// kind == .task → 반복 안 함(한 번), kind == .habit → 반복 (repeatRule 사용).
+
+/// 알림 시각(시·분). 날짜와 분리해 반복 일정의 매 회차에 적용한다.
+struct ReminderTime: Codable, Hashable {
+    var hour: Int
+    var minute: Int
+
+    init(hour: Int, minute: Int) {
+        self.hour = min(max(hour, 0), 23)
+        self.minute = min(max(minute, 0), 59)
+    }
+
+    init(_ date: Date, calendar: Calendar = .current) {
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        self.init(hour: parts.hour ?? 9, minute: parts.minute ?? 0)
+    }
+
+    /// 해당 날짜의 이 시각. 일광 절약 시간 등으로 존재하지 않는 시각이면 nil.
+    func date(on day: Date, calendar: Calendar = .current) -> Date? {
+        calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day)
+    }
+
+    /// 편집기의 DatePicker에 쓰는 오늘 날짜 기준 시각.
+    var pickerDate: Date { date(on: Date()) ?? Date() }
+    var label: String { String(format: "%02d:%02d", hour, minute) }
+}
+
+/// 일상 알림 전체 설정. 계정과 함께 동기화되고, 예약은 기기마다 따로 한다.
+struct DailyReminderSettings: Codable, Equatable {
+    var enabled = true
+    var sound = true
+    var morningSummary: ReminderTime?   // 아침 요약 (기본 꺼짐)
+    var eveningCheck: ReminderTime?     // 저녁 미완료 확인 (기본 꺼짐)
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey { case enabled, sound, morningSummary, eveningCheck }
+
+    // 필드가 늘어나도 예전 저장값을 읽을 수 있게 하나씩 꺼냄
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        sound = try c.decodeIfPresent(Bool.self, forKey: .sound) ?? true
+        morningSummary = try c.decodeIfPresent(ReminderTime.self, forKey: .morningSummary)
+        eveningCheck = try c.decodeIfPresent(ReminderTime.self, forKey: .eveningCheck)
+    }
+}
 
 struct DailyItem: Codable, Identifiable, Equatable {
     enum Kind: String, Codable, CaseIterable {
         case task, habit
-        var title: String { self == .task ? "할 일" : "습관" }
+        var title: String { self == .task ? "한 번" : "반복" }
+    }
+    /// 편집 화면의 '반복' 선택지. 안 함 = 한 번 하는 일.
+    enum RepeatChoice: String, CaseIterable, Identifiable {
+        case none, daily, weekdays, interval
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .none: return "안 함"
+            case .daily: return "매일"
+            case .weekdays: return "요일 지정"
+            case .interval: return "며칠 간격"
+            }
+        }
     }
     enum RepeatRule: String, Codable, CaseIterable {
         case daily, weekdays, interval
@@ -533,6 +604,29 @@ struct DailyItem: Codable, Identifiable, Equatable {
     var weekdays: [Int] = [1, 2, 3, 4, 5]
     var intervalDays = 2
     var skippedDays: Set<String> = []
+    var reminderTime: ReminderTime?
+
+    var isRepeating: Bool { kind == .habit }
+    var isUndated: Bool { kind == .task && scheduledDate == nil }
+
+    var repeatChoice: RepeatChoice {
+        get {
+            guard isRepeating else { return .none }
+            switch repeatRule {
+            case .daily: return .daily
+            case .weekdays: return .weekdays
+            case .interval: return .interval
+            }
+        }
+        set {
+            switch newValue {
+            case .none: kind = .task
+            case .daily: kind = .habit; repeatRule = .daily
+            case .weekdays: kind = .habit; repeatRule = .weekdays
+            case .interval: kind = .habit; repeatRule = .interval
+            }
+        }
+    }
 
     func occurs(on date: Date) -> Bool {
         let calendar = Calendar.current
@@ -604,6 +698,29 @@ extension AppData {
             dailyCompletions.append(DailyCompletion(itemID: id, title: item.title, note: item.note,
                 kind: item.kind, day: DayKey.key(date), completedAt: timestamp))
         }
+    }
+
+    /// 편집 저장. 반복하던 항목을 '안 함'으로 바꾸면 예전 날짜별 완료 기록 때문에
+    /// 이미 끝난 것으로 보이지 않도록 새 항목으로 저장한다(기존 완료 기록은 기록 화면에 그대로 남음).
+    mutating func saveDailyItemEditing(_ item: DailyItem) {
+        var saved = item
+        if !saved.isRepeating { saved.skippedDays = [] }
+        if saved.isUndated { saved.reminderTime = nil }
+        if let previous = dailyItems.first(where: { $0.id == item.id }), previous.isRepeating, !saved.isRepeating {
+            guard !saved.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            dailyItems.removeAll { $0.id == previous.id }
+            saved.id = UUID()
+        }
+        saveDailyItem(saved)
+    }
+
+    /// 알림의 '완료' 버튼처럼 되돌리기 없이 완료만 기록한다. 이미 완료됐거나 예정이 아니면 아무것도 하지 않는다.
+    @discardableResult
+    mutating func markDailyComplete(_ id: UUID, on date: Date, at timestamp: Date = Date()) -> Bool {
+        guard let item = dailyItems.first(where: { $0.id == id }),
+              item.occurs(on: date) || item.isUndated, !isDailyComplete(item, on: date) else { return false }
+        toggleDailyCompletion(id, on: date, at: timestamp)
+        return true
     }
 
     mutating func skipDailyHabit(_ id: UUID, on date: Date) {
