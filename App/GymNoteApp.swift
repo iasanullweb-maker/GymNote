@@ -73,6 +73,7 @@ struct RootView: View {
     @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
+    @State private var editingNavigation = EditingNavigationGuard()
     @State private var tabScreenVersions = [0, 0, 0, 0]
     @State private var selectedDate = Date()
     @AppStorage("selectedWorkspace") private var workspace = "운동"
@@ -90,6 +91,7 @@ struct RootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .environment(\.gymnoteCompactLayout, geometry.size.width < 600)
+            .environment(\.editingNavigationGuard, editingNavigation)
         }
         .tint(.orange)
         .onChange(of: selectedTab) { previous, _ in
@@ -125,9 +127,15 @@ struct RootView: View {
 
     private func mainTabs(compact: Bool) -> some View {
         VStack(spacing: 0) {
-            WorkspaceSwitcher(selection: $workspace)
+            WorkspaceSwitcher(selection: protectedSelection($workspace))
+                .disabled(editingNavigation.isEditing)
                 .padding(.horizontal, 16)
                 .padding(.vertical, compact ? 4 : 10)
+            if editingNavigation.isEditing {
+                Text("편집 중에는 이동할 수 없어요. 저장하거나 취소한 뒤 이동해 주세요.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                    .padding(.horizontal, 16).padding(.bottom, 6)
+            }
             if model.data.activeWorkout != nil || model.restEnd != nil {
                 WorkoutStatusBanner(
                     startedAt: model.data.activeWorkout?.startedAt,
@@ -135,15 +143,17 @@ struct RootView: View {
                     finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
                     onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() }
                 )
+                .disabled(editingNavigation.isEditing)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
                 .padding(.bottom, compact ? 6 : 12)
             }
             if workspace == "일상", model.data.activeWorkout != nil {
                 Button("진행 중인 운동으로 돌아가기") { workspace = "운동"; selectedTab = 0 }
+                    .disabled(editingNavigation.isEditing)
                     .font(.subheadline).padding(.bottom, 8)
             }
-            TabView(selection: $selectedTab) {
+            TabView(selection: protectedSelection($selectedTab)) {
                 Group {
                     if workspace == "일상" { DailyTodayView() }
                     else { TodayView() }
@@ -166,6 +176,7 @@ struct RootView: View {
                     .id("settings-\(tabScreenVersions[3])")
                     .tabItem { Label("설정", systemImage: "gearshape") }.tag(3)
             }
+            .toolbar(editingNavigation.isEditing ? .hidden : .automatic, for: .tabBar)
         }
         .id(model.selection.generation)
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -177,5 +188,12 @@ struct RootView: View {
                     .background(.thinMaterial)
             }
         }
+    }
+
+    private func protectedSelection<Value: Equatable>(_ selection: Binding<Value>) -> Binding<Value> {
+        Binding(get: { selection.wrappedValue }, set: { next in
+            guard editingNavigation.allowsSelection(from: selection.wrappedValue, to: next) else { return }
+            selection.wrappedValue = next
+        })
     }
 }

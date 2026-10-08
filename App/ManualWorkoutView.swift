@@ -124,6 +124,7 @@ struct ManualWorkoutView: View {
                 Button("확인", role: .cancel) { }
             } message: { Text("입력 내용은 남아 있어요. 기기를 잠금 해제하고 다시 시도해 주세요.") }
         }
+        .protectEditingNavigation()
     }
 
     private func save() {

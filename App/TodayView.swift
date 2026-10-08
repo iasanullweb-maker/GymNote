@@ -225,6 +225,7 @@ struct RepetitionEditor: View {
             .onAppear { focused = true }
         }
         .presentationDetents([.medium])
+        .protectEditingNavigation()
     }
 }
 

@@ -102,7 +102,6 @@ struct CatalogTypeEditor: View {
             }
             .disabled(saving)
             .navigationTitle(isNew ? "공통 종목 추가" : "공통 종목 수정")
-            .interactiveDismissDisabled(saving)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }.disabled(saving)
@@ -119,5 +118,6 @@ struct CatalogTypeEditor: View {
                 }
             }
         }
+        .protectEditingNavigation()
     }
 }

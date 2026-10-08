@@ -312,6 +312,7 @@ private struct DailyItemEditor: View {
                 }
             }
         }
+        .protectEditingNavigation()
     }
 }
 

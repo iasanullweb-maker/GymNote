@@ -276,6 +276,7 @@ struct ExercisePicker: View {
                 }
             }
         }
+        .protectEditingNavigation()
     }
 }
 
@@ -302,6 +303,7 @@ struct ExerciseDraftView: View {
                 dismiss()
             }
         }
+        .protectEditingNavigation()
     }
 }
 
@@ -323,6 +325,7 @@ struct ExerciseDraftForm: View {
             }
         }
         .navigationTitle(title)
+        .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("취소", action: onCancel) }
             ToolbarItem(placement: .confirmationAction) {

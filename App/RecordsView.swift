@@ -361,6 +361,7 @@ struct AddRecordView: View {
                 extra = nil
             }
         }
+        .protectEditingNavigation()
     }
 
     private func save() {
