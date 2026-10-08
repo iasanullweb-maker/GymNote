@@ -94,7 +94,7 @@ struct AccountView: View {
     }
 
     private var loginSection: some View {
-        Section(account.isReauthenticating ? "본인 확인" : "이메일로 로그인") {
+        Section {
             if let pending = account.pendingEmail {
                 Text(pending).font(.footnote).foregroundStyle(.secondary)
                 TextField("6자리 인증번호", text: $code)
@@ -125,6 +125,8 @@ struct AccountView: View {
                 }
                 .disabled(email.isEmpty || (createUser && !consent))
             }
+        } header: {
+            Text(account.isReauthenticating ? "본인 확인" : "이메일로 로그인")
         } footer: {
             Text("비밀번호 없이 일회용 이메일 인증번호로 로그인합니다. 인증번호는 누구에게도 알려주지 마세요.")
         }
