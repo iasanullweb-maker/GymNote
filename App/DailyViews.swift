@@ -340,3 +340,30 @@ private struct DailyHistoryDayView: View {
         }
     }
 }
+#Preview("일상 실행") {
+    DailyPreview(plan: false)
+}
+
+#Preview("일상 계획") {
+    DailyPreview(plan: true)
+}
+
+private struct DailyPreview: View {
+    let plan: Bool
+    @State private var selectedDate = Date()
+    @State private var model: AppModel = {
+        var data = AppData.sample
+        data.saveDailyItem(DailyItem(title: "책상 정리", scheduledDate: Date()))
+        data.saveDailyItem(DailyItem(title: "독서 20분", kind: .habit))
+        data.saveDailyItem(DailyItem(title: "주말 약속 정하기"))
+        return AppModel(previewData: data)
+    }()
+
+    var body: some View {
+        Group {
+            if plan { DailyPlansView(selectedDate: $selectedDate) }
+            else { DailyTodayView() }
+        }
+        .environment(model)
+    }
+}
