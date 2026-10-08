@@ -181,3 +181,10 @@
 - `applyingEdits`에 restStep 병합 추가, 예전 파일은 15초로 읽음. 모델·계정 회귀 검사 추가.
 - −/+ 아이콘 크기 고정(22pt, semibold)으로 두 버튼 크기 통일.
 - 작업 중 main이 0.1.28(일상 작업 통합)로 앞서 나가 `origin/main`을 브랜치에 병합. `Models.swift` CodingKeys 충돌은 restStep + dailyItems/dailyCompletions 모두 유지로 해결. 병합본 검증 빌드 성공 → main fast-forward → Actions #33 성공, **0.1.33** 배포.
+
+## 운동·일상 전환 버튼 확대 (배포 보류)
+- 기존 360pt 폭 제한의 작은 segmented Picker 대신 화면 너비를 나눠 쓰는 큰 버튼 두 개 배치. 최소 높이 60pt, 아이콘과 title3 글씨를 가운데 정렬.
+- 운동은 주황색, 일상은 청록색. 선택한 버튼의 배경·테두리·체크 표시로 현재 분야 구분. VoiceOver 선택 상태, 동작 줄이기 설정 지원. 마지막 분야 기억과 선택한 탭/날짜 유지.
+- `App/WorkspaceSwitcher.swift`의 '분야 전환' Xcode Preview에서 별도 저장소 없이 전환 가능. 실제 화면 시각 검토는 아직 하지 않음.
+- 검증 커밋 `6d78a23`: 브랜치 Build IPA #39와 Validate GymNote #18 성공. 모델/계정/일상 검사, 앱·위젯 Release 빌드, iPad 시뮬레이터 회귀 검사 통과. 최신 로컬 로그인·일상 위젯과 원격 0.1.33 휴식 간격 수정 보존.
+- 기존 main에 로컬 통합. AGENTS.md 배포 보류에 따라 main push·릴리스 게시·AltStore 소스 갱신은 하지 않음. 이후 통합 배포에 포함할 것.
