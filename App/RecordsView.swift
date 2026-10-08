@@ -91,18 +91,37 @@ struct RecordSection: View {
                 }
             }
 
-            if entries.count >= 2 {
+            if !entries.isEmpty {
                 Chart(entries) { entry in
-                    LineMark(
-                        x: .value("날짜", entry.date),
-                        y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
-                    )
+                    if entries.count >= 2 {
+                        LineMark(
+                            x: .value("날짜", entry.date),
+                            y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
+                        )
+                    }
                     PointMark(
                         x: .value("날짜", entry.date),
                         y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
                     )
                 }
                 .foregroundStyle(.orange)
+                .frame(height: 140)
+                .accessibilityLabel("\(type.name) 기록 추이")
+                if entries.count == 1 {
+                    Text("첫 기록이에요. 다음 기록부터 변화가 선으로 이어져요.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.title2)
+                    Text("기록을 추가하면 변화가 그래프로 보여요")
+                        .font(.callout)
+                        .multilineTextAlignment(.center)
+                }
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
                 .frame(height: 140)
             }
 
