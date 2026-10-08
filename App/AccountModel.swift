@@ -4,12 +4,16 @@ import Observation
 import Network
 
 enum AccountConnection { case checking, offline, online }
+enum AccountMessageContext: Equatable { case authentication, backup, management }
 
 @Observable
 @MainActor
 final class AccountModel {
     private(set) var session: AccountSession?
     private(set) var busy = false
+    private(set) var operationTitle = "기기 기록을 불러오는 중…"
+    private(set) var messageContext: AccountMessageContext = .authentication
+    private(set) var lastSyncedAt: Date?
     private(set) var initialized = false
     private(set) var needsLogin = false
     private(set) var pendingEmail: String?
@@ -27,7 +31,7 @@ final class AccountModel {
     @ObservationIgnored private var syncTask: Task<Void, Never>?
     @ObservationIgnored private var syncRequested = false
     @ObservationIgnored private var generation = UUID()
-    @ObservationIgnored private var deleting = false
+    private var deleting = false
     @ObservationIgnored private let connectivity = NWPathMonitor()
     /// Live app: watch the network and refresh enabled providers automatically. Tests call refreshProviders() directly.
     @ObservationIgnored private let monitorsEnvironment: Bool
@@ -36,6 +40,22 @@ final class AccountModel {
     var user: AccountUser? { session?.user }
     var isReauthenticating: Bool { needsLogin || deleting }
     var isDeleting: Bool { deleting }
+    var blocksDismissal: Bool { busy && messageContext != .backup }
+    func resendSeconds(at date: Date = Date()) -> Int {
+        sentAt.map { max(0, Int(ceil(60 - date.timeIntervalSince($0)))) } ?? 0
+    }
+    private func startOperation(_ title: String, context: AccountMessageContext) {
+        operationTitle = title
+        messageContext = context
+        message = nil
+        busy = true
+    }
+    func clearMessage() { message = nil }
+    func closeAccountScreen() {
+        guard !blocksDismissal else { return }
+        if deleting { cancelDeletion() }
+        else { resetCode() }
+    }
     /// Methods this account can re-authenticate with. Older cached sessions lack provider data: assume email.
     var accountProviders: [String] { (user?.providers.isEmpty ?? true) ? ["email"] : user!.providers }
     var canUseEmailForReauthentication: Bool { !deleting || accountProviders.contains("email") }
@@ -59,6 +79,13 @@ final class AccountModel {
         "com.gymnote.importConsent.\(client?.config.url.host ?? "unconfigured").\(id.uuidString)"
     }
     private var vault: SessionVault? { client.map { SessionVault(project: $0.config.url.host!) } }
+    private func lastSyncKey(_ id: UUID) -> String {
+        "com.gymnote.lastSync.\(client?.config.url.host ?? "unconfigured").\(id.uuidString)"
+    }
+    private func recordSuccessfulSync() {
+        lastSyncedAt = Date()
+        if let id = user?.id { UserDefaults.standard.set(lastSyncedAt, forKey: lastSyncKey(id)) }
+    }
     var canImport: Bool {
         guard cloudChecked, let id = user?.id else { return false }
         return (try? SharedStore.snapshot(userID: id).importedGuest) == false
@@ -80,11 +107,12 @@ final class AccountModel {
 
     func bootstrap() async {
         guard !initialized else { return }
-        busy = true
+        startOperation("기기 기록을 불러오는 중…", context: .management)
         defer { initialized = true; finishOperation(); scheduleSync(); autoRefreshProviders() }
         do {
             if let stored = try vault?.read() {
                 session = stored
+                lastSyncedAt = UserDefaults.standard.object(forKey: lastSyncKey(stored.user.id)) as? Date
                 try await model.switchAccount(stored.user.id)
             }
         } catch {
@@ -148,14 +176,14 @@ final class AccountModel {
 
     func sendCode(email raw: String, createUser: Bool, consent: Bool) async {
         guard !busy, let client else { return }
+        messageContext = .authentication
         guard requireConnection() else { return }
         let email = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard email.count <= 254, email.contains("@"), !email.contains(where: { $0.isWhitespace }),
               !createUser || consent else { message = AccountError.invalidInput.localizedDescription; return }
         if let sentAt, Date().timeIntervalSince(sentAt) < 60 { message = "인증번호 재발송은 60초 후 가능합니다."; return }
         if deleting, email.lowercased() != user?.email?.lowercased() { message = "현재 계정의 이메일을 입력해 주세요."; return }
-        busy = true
-        message = nil
+        startOperation("인증번호 보내는 중…", context: .authentication)
         defer { finishOperation() }
         do {
             try await client.sendCode(email: email, createUser: createUser && !deleting)
@@ -173,11 +201,12 @@ final class AccountModel {
     /// Verification is also the fresh authentication step required before deleting an account.
     func verify(code: String, importDeviceRecords: Bool = false) async {
         guard !busy, let client, let email = pendingEmail else { return }
+        messageContext = .authentication
         guard requireConnection() else { return }
         guard code.count == 6, code.allSatisfy({ $0.isASCII && $0.isNumber }) else {
             message = AccountError.invalidInput.localizedDescription; return
         }
-        busy = true
+        startOperation("인증번호 확인 중…", context: .authentication)
         defer { finishOperation() }
         do {
             let verified = try await client.verify(email: email, code: code)
@@ -191,13 +220,13 @@ final class AccountModel {
     func signIn(with provider: SocialProvider, importDeviceRecords: Bool = false,
                 authenticate: (URL) async throws -> URL) async {
         guard !busy, let client else { return }
+        messageContext = .authentication
         guard requireConnection() else { return }
         guard canSignIn(with: provider) else {
             message = (deleting && availableProviders.contains(provider) ? AccountError.wrongAccount : AccountError.providerUnavailable).localizedDescription
             return
         }
-        busy = true
-        message = nil
+        startOperation(deleting ? "본인 확인 중…" : "로그인 중…", context: .authentication)
         defer { finishOperation() }
         do {
             let attempt = try client.beginOAuth(provider)
@@ -237,6 +266,7 @@ final class AccountModel {
             try await model.switchAccount(identity.id)
         }
         session = accepted
+        lastSyncedAt = UserDefaults.standard.object(forKey: lastSyncKey(identity.id)) as? Date
         if let previous, previous.user.id == identity.id, previous.accessToken != accepted.accessToken,
            previous.expiresAt > Date().timeIntervalSince1970 + 30 {
             // Re-authentication creates a new server session; end the replaced one when still possible.
@@ -275,7 +305,7 @@ final class AccountModel {
 
     func synchronize() async {
         guard !busy, isOnline, !needsLogin, !deleting, conflict == nil, session != nil, let client else { return }
-        busy = true
+        startOperation("기록 동기화 중…", context: .backup)
         defer { finishOperation() }
         let operation = generation
         let selection = model.selection
@@ -313,6 +343,7 @@ final class AccountModel {
                 try SharedStore.acknowledge(version: version, revision: local.revision, selection: selection)
             }
             syncStatus = "동기화 완료"
+            recordSuccessfulSync()
             if try SharedStore.snapshot(userID: selection.userID).dirty { scheduleSync() }
         } catch AccountError.conflict {
             // An upload raced another device; re-read before offering explicit conflict resolution.
@@ -323,6 +354,7 @@ final class AccountModel {
 
     func importGuest() async {
         guard !busy, canImport, !needsLogin, !deleting, conflict == nil else { return }
+        messageContext = .backup
         do {
             try SharedStore.importGuest(selection: model.selection)
             model.reload()
@@ -334,8 +366,9 @@ final class AccountModel {
     /// Both choices preserve a local backup; replacing the cloud uses the version the user reviewed.
     func resolveConflict(useCloud: Bool) async {
         guard !busy, !needsLogin, let remote = conflict, let client else { return }
+        messageContext = .backup
         guard requireConnection() else { return }
-        busy = true
+        startOperation(useCloud ? "서버 기록 불러오는 중…" : "서버 기록 교체 중…", context: .backup)
         defer { finishOperation() }
         let selection = model.selection
         do {
@@ -353,6 +386,7 @@ final class AccountModel {
             conflict = nil
             model.reload()
             syncStatus = "동기화 완료"
+            recordSuccessfulSync()
             scheduleSync()
         } catch AccountError.conflict {
             conflict = nil
@@ -363,7 +397,7 @@ final class AccountModel {
 
     func signOut() async {
         guard !busy else { return }
-        busy = true
+        startOperation("로그아웃 중…", context: .management)
         syncTask?.cancel()
         defer { finishOperation() }
         var serverLogoutFailed = !isOnline && session != nil
@@ -377,6 +411,7 @@ final class AccountModel {
             try vault?.clear()
             if let id = session?.user.id { UserDefaults.standard.removeObject(forKey: importConsentKey(id)) }
             session = nil
+            lastSyncedAt = nil
             cloudChecked = false
             generation = UUID()
             conflict = nil
@@ -392,30 +427,47 @@ final class AccountModel {
         } catch { show(error) }
     }
 
-    @ObservationIgnored private var deletionVerifiedAt: Date?
-    var readyToDelete: Bool { deletionVerifiedAt.map { Date().timeIntervalSince($0) < 300 } ?? false }
+    private var deletionVerifiedAt: Date?
+    var readyToDelete: Bool { deletionIsVerified(at: Date()) }
+    func deletionIsVerified(at date: Date) -> Bool {
+        deleting && (deletionVerifiedAt.map { date.timeIntervalSince($0) < 300 } ?? false)
+    }
+    func expireDeletionVerification(at date: Date = Date()) {
+        guard !busy, deleting, deletionVerifiedAt != nil, !deletionIsVerified(at: date) else { return }
+        deletionVerifiedAt = nil
+        pendingEmail = nil
+        messageContext = .authentication
+        message = "본인 확인이 만료됐어요. 다시 본인 확인을 해 주세요."
+    }
     func beginDeletion() {
-        guard !busy else { return }
+        guard !busy, user != nil, !needsLogin, isOnline else { return }
         deleting = true
         pendingEmail = nil
-        sentAt = nil
         deletionVerifiedAt = nil
         syncTask?.cancel()
+        messageContext = .authentication
         message = accountProviders.contains("email")
             ? "계정 삭제를 위해 이메일 인증번호나 연결된 로그인 방법으로 본인 확인을 해 주세요."
             : "계정 삭제를 위해 연결된 로그인 방법으로 다시 로그인해 본인 확인을 해 주세요."
     }
-    func cancelDeletion() { deleting = false; deletionVerifiedAt = nil; resetCode(); scheduleSync() }
+    func cancelDeletion() {
+        guard !busy, deleting else { return }
+        deleting = false
+        deletionVerifiedAt = nil
+        resetCode()
+        scheduleSync()
+    }
 
     func deleteAccount() async {
         guard !busy, let client, let current = session else { return }
+        messageContext = .authentication
         guard requireConnection() else { return }
         guard readyToDelete else {
             deletionVerifiedAt = nil
             message = "본인 확인이 만료됐어요. 다시 본인 확인을 해 주세요."
             return
         }
-        busy = true
+        startOperation("계정 삭제 중…", context: .authentication)
         defer { finishOperation() }
         do {
             try await client.deleteAccount(token: current.accessToken)
@@ -423,6 +475,7 @@ final class AccountModel {
             var cleanupError: Error?
             do { try vault?.clear() } catch { cleanupError = error }
             session = nil
+            lastSyncedAt = nil
             cloudChecked = false
             generation = UUID()
             conflict = nil

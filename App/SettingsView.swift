@@ -53,16 +53,10 @@ struct SettingsView: View {
             }
             .navigationTitle("설정")
             .task { notificationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
-            .sheet(isPresented: $showingAccount) {
+            .sheet(isPresented: $showingAccount, onDismiss: { account.closeAccountScreen() }) {
                 AccountView()
                     .environment(model)
                     .environment(account)
-                    .safeAreaInset(edge: .bottom) {
-                        Button("닫기") { showingAccount = false }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(.regularMaterial)
-                    }
             }
         }
     }
