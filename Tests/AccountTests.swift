@@ -660,6 +660,104 @@ final class AccountTests: XCTestCase {
         XCTAssertNotEqual(try vault.read()?.accessToken, "old-access")
         account.cancelDeletion()
         XCTAssertFalse(account.readyToDelete)
+        XCTAssertFalse(account.isDeleting)
+        XCTAssertFalse(account.isReauthenticating)
+        XCTAssertNil(account.pendingEmail)
+        XCTAssertNil(account.message)
+    }
+
+    func testDeletionScreenCloseExpiryAndResendState() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        try vault.write(AccountSession(accessToken: "old", refreshToken: "refresh",
+                                       expiresAt: Date().timeIntervalSince1970 + 3600,
+                                       user: AccountUser(id: id, email: "me@example.com", providers: ["google"])))
+        let model = AppModel()
+        var opened: URL?
+        socialStub(id: id, challenge: { self.challenge(of: opened) })
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.refreshProviders()
+        XCTAssertFalse(account.isDeleting, "일반 계정 진입은 삭제 절차가 아님")
+        account.beginDeletion()
+        XCTAssertTrue(account.isDeleting)
+        account.closeAccountScreen()
+        XCTAssertFalse(account.isDeleting, "창 닫기 후 삭제 상태 초기화")
+        XCTAssertNil(account.message)
+        account.beginDeletion()
+        await account.signIn(with: .google) { url in
+            XCTAssertTrue(account.blocksDismissal)
+            XCTAssertEqual(account.operationTitle, "본인 확인 중…")
+            account.cancelDeletion()
+            account.closeAccountScreen()
+            XCTAssertTrue(account.isDeleting, "처리 중 상태를 지우지 않음")
+            return try await self.browser(seen: { opened = $0 })(url)
+        }
+        XCTAssertTrue(account.readyToDelete)
+        XCTAssertFalse(account.deletionIsVerified(at: Date().addingTimeInterval(301)))
+        account.expireDeletionVerification(at: Date().addingTimeInterval(301))
+        XCTAssertFalse(account.readyToDelete)
+        XCTAssertTrue(account.isDeleting, "만료 시 삭제 본인 확인 단계로 돌아감")
+        XCTAssertEqual(account.messageContext, .authentication)
+        XCTAssertEqual(account.message, "본인 확인이 만료됐어요. 다시 본인 확인을 해 주세요.")
+        account.closeAccountScreen()
+        XCTAssertFalse(account.isDeleting)
+        account.updateConnection(.offline)
+        account.beginDeletion()
+        XCTAssertFalse(account.isDeleting, "오프라인에서는 삭제 절차를 시작하지 않음")
+        account.updateConnection(.online)
+        AuthStub.reply = { _ in (200, Data("{}".utf8)) }
+        await account.sendCode(email: "me@example.com", createUser: false, consent: false)
+        let sentAt = try XCTUnwrap(account.sentAt)
+        XCTAssertEqual(account.resendSeconds(at: sentAt), 60)
+        XCTAssertEqual(account.resendSeconds(at: sentAt.addingTimeInterval(59.2)), 1)
+        XCTAssertEqual(account.resendSeconds(at: sentAt.addingTimeInterval(60)), 0)
+        XCTAssertEqual(account.pendingEmail, "me@example.com")
+        account.closeAccountScreen()
+        XCTAssertNil(account.pendingEmail)
+        XCTAssertNil(account.message)
+        XCTAssertEqual(account.resendSeconds(at: sentAt), 60, "화면 전환으로 재발송 제한을 우회하지 않음")
+        account.beginDeletion()
+        XCTAssertEqual(account.resendSeconds(at: sentAt), 60, "삭제 절차 재진입에도 재발송 제한 유지")
+        account.cancelDeletion()
+        AuthStub.reply = { _ in (401, Data()) }
+        await account.synchronize()
+        XCTAssertTrue(account.needsLogin)
+        XCTAssertFalse(account.isDeleting, "일반 재로그인이 삭제 절차를 시작하지 않음")
+        XCTAssertEqual(account.messageContext, .backup)
+        account.beginDeletion()
+        XCTAssertFalse(account.isDeleting, "재로그인 필요 상태에서는 먼저 로그인")
+        account.closeAccountScreen()
+        XCTAssertTrue(account.needsLogin, "창 닫기로 만료된 로그인이 복구되지는 않음")
+    }
+
+    func testBackupFeedbackAndLastSyncAreAccountScoped() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        let id = UUID()
+        let key = "com.gymnote.lastSync.\(client.config.url.host!).\(id.uuidString)"
+        defer { try? vault.clear(); UserDefaults.standard.removeObject(forKey: key) }
+        try vault.write(AccountSession(accessToken: "access", refreshToken: "refresh",
+                                       expiresAt: Date().timeIntervalSince1970 + 3600,
+                                       user: AccountUser(id: id, email: "me@example.com")))
+        let model = AppModel()
+        socialStub(id: id, challenge: { nil })
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        XCTAssertNil(account.lastSyncedAt)
+        await account.synchronize()
+        let synced = try XCTUnwrap(account.lastSyncedAt)
+        XCTAssertEqual(account.messageContext, .backup)
+        XCTAssertEqual(account.syncStatus, "동기화 완료")
+        XCTAssertEqual(UserDefaults.standard.object(forKey: key) as? Date, synced)
+        XCTAssertFalse(account.blocksDismissal)
+        account.updateConnection(.offline)
+        XCTAssertEqual(account.lastSyncedAt, synced)
+        await account.signOut()
+        XCTAssertNil(account.lastSyncedAt, "게스트 화면에 이전 계정의 동기화 시각을 표시하지 않음")
+        XCTAssertEqual(account.messageContext, .management)
     }
 
     func testEmailAccountWithoutGoogleCannotReauthenticateWithGoogle() async throws {
