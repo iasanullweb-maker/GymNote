@@ -35,6 +35,30 @@ final class AuthStub: URLProtocol {
 
 @MainActor
 final class AccountTests: XCTestCase {
+    func testReloadAndRelaunchPreserveWorkoutAcrossMidnight() throws {
+        let startedAt = Calendar.current.startOfDay(for: Date()).addingTimeInterval(-120)
+        let exercise = Exercise(name: "밤 운동", sets: 3, detail: "10회")
+        for done in [0, 1] {
+            let model = AppModel()
+            model.data = AppData(week: [])
+            model.data.scheduledPlans[DayKey.key(startedAt)] = DayPlan(title: "자정 전 계획", exercises: [exercise])
+            XCTAssertTrue(model.data.startWorkout(at: startedAt))
+            if done > 0 {
+                model.data.changeSets(exercise.id, by: 1, on: startedAt, actualReps: 8, at: startedAt)
+            }
+            let session = try XCTUnwrap(model.data.activeWorkout)
+            model.reload()
+            XCTAssertEqual(model.data.activeWorkout, session)
+            XCTAssertEqual(model.todayPlan, session.plan)
+            XCTAssertEqual(model.workoutDate, startedAt)
+            XCTAssertTrue(model.data.workouts.isEmpty)
+            let relaunched = AppModel()
+            relaunched.reload()
+            XCTAssertEqual(relaunched.data.activeWorkout, session, "0세트·진행 중 운동 모두 앱 재실행 후 유지")
+            XCTAssertEqual(relaunched.workoutProgress.done, done)
+        }
+    }
+
     private var folder: URL!
     override func setUp() async throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

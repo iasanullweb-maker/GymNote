@@ -93,18 +93,43 @@ struct ModelChecks {
         let finishedReload = try decoder.decode(AppData.self, from: encoder.encode(training))
         assert(finishedReload == training, "일지 저장 후 재로드")
 
-        // 날짜가 지난 운동 정리
-        var stale = AppData(week: AppData.sample.week)
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today)!
-        let staleExercise = Exercise(name: "어제 운동", sets: 3, detail: "10회", restSeconds: 0)
-        stale.scheduledPlans[DayKey.key(yesterday)] = DayPlan(title: "어제", exercises: [staleExercise])
-        assert(stale.startWorkout(at: yesterday))
-        stale.changeSets(staleExercise.id, by: 1, on: yesterday)
-        assert(stale.closeStaleWorkout(now: today) && stale.activeWorkout == nil, "어제 운동 정리")
-        assert(stale.workouts.count == 1 && stale.workouts[0].endedAt == nil, "완료 세트 있으면 일지로 저장")
-        assert(!stale.closeStaleWorkout(now: today), "정리할 운동 없음")
-        assert(stale.startWorkout(at: yesterday) == true && stale.closeStaleWorkout(now: today), "0세트 지난 운동")
-        assert(stale.workouts.count == 1, "0세트 지난 운동은 버림")
+        // 자정 전 시작한 운동은 재로드·새 운동 시작·위젯 체크 후에도 이어진다.
+        let midnight = Calendar.current.startOfDay(for: today)
+        let lateStart = midnight.addingTimeInterval(-120)
+        let afterMidnight = midnight.addingTimeInterval(300)
+        let lateExercise = Exercise(name: "밤 운동", sets: 3, detail: "10회")
+        let nextExercise = Exercise(name: "다음 날 운동", sets: 2, detail: "12회")
+        for initialSets in [0, 1] {
+            var overnight = AppData(week: [])
+            overnight.scheduledPlans[DayKey.key(lateStart)] = DayPlan(title: "밤", exercises: [lateExercise])
+            overnight.scheduledPlans[DayKey.key(afterMidnight)] = DayPlan(title: "다음 날", exercises: [nextExercise])
+            assert(overnight.startWorkout(at: lateStart))
+            if initialSets > 0 { overnight.changeSets(lateExercise.id, by: 1, on: lateStart, actualReps: 8, at: lateStart) }
+            let continuing = overnight.activeWorkout!
+            overnight = try decoder.decode(AppData.self, from: encoder.encode(overnight))
+            assert(overnight.activeWorkout == continuing && overnight.workouts.isEmpty)
+            assert(!overnight.startWorkout(at: afterMidnight) && overnight.activeWorkout == continuing,
+                   "새 날의 시작 요청도 진행 중 운동을 덮어쓰지 않음")
+            overnight.completeSetFromWidget(nextExercise.id, now: afterMidnight)
+            assert(overnight.activeWorkout == continuing, "다음 날 위젯의 오래된 버튼은 현재 운동을 바꾸지 않음")
+            overnight.completeSetFromWidget(lateExercise.id, now: afterMidnight)
+            assert(overnight.activeWorkout?.id == continuing.id && overnight.activeWorkout?.done == initialSets + 1)
+            for _ in (initialSets + 1)..<3 { overnight.completeSetFromWidget(lateExercise.id, now: afterMidnight) }
+            assert(overnight.activeWorkout == nil, "마지막 세트에서만 자동 종료")
+            assert(overnight.workouts.count == 1 && overnight.workouts[0].day == DayKey.key(lateStart))
+            assert(overnight.workouts[0].endedAt == afterMidnight && overnight.workouts[0].done == 3)
+            assert(!overnight.logs.contains { $0.day == DayKey.key(afterMidnight) }, "진행 세트는 시작한 날짜에 저장")
+            if initialSets > 0 { assert(overnight.workouts[0].repetitions(lateExercise, set: 0) == 8) }
+            assert(overnight.startWorkout(at: afterMidnight), "종료 후에만 다음 날 운동 시작")
+            assert(overnight.activeWorkout?.plan.exercises == [nextExercise])
+        }
+        var manualOvernight = AppData(week: [])
+        manualOvernight.scheduledPlans[DayKey.key(lateStart)] = DayPlan(title: "밤", exercises: [lateExercise])
+        assert(manualOvernight.startWorkout(at: lateStart))
+        manualOvernight.changeSets(lateExercise.id, by: 1, on: lateStart, actualReps: 7, at: afterMidnight)
+        assert(manualOvernight.finishWorkout(at: afterMidnight))
+        assert(manualOvernight.workouts(on: lateStart).count == 1 && manualOvernight.workouts(on: afterMidnight).isEmpty)
+        assert(manualOvernight.workouts[0].repetitions(lateExercise, set: 0) == 7)
 
         // 같은 날 두 번째 운동은 0세트부터, 이전 일지 보존
         var twice = AppData(week: AppData.sample.week)

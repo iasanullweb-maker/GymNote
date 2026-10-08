@@ -49,7 +49,7 @@ struct StartRestIntent: LiveActivityIntent {
         let snapshot = SharedStore.widgetSnapshot()
         guard generation.isEmpty || generation == snapshot.1 else { return .result() }
         let data = snapshot.0
-        let next = data.nextUp()
+        let next = data.nextUp(on: data.activeWorkout?.startedAt ?? Date())
         await RestController.start(seconds: seconds, title: next.title, info: next.info, sound: data.restSound, generation: snapshot.1)
         return .result()
     }
