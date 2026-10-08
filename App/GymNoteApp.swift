@@ -1,5 +1,11 @@
+import Combine
 import SwiftUI
 import UserNotifications
+
+extension Notification.Name {
+    /// 앱 화면 밖(알림 버튼 등)에서 저장소가 바뀌었음을 화면에 알린다.
+    static let gymnoteStoreChanged = Notification.Name("gymnote.storeChanged")
+}
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(
@@ -7,7 +13,35 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        DailyReminderScheduler.registerCategories()
         return true
+    }
+
+    /// 일상 알림 버튼: '완료'는 앱을 열지 않고 기록, '10분 뒤 다시'는 한 번 더 예약, 알림을 누르면 일상 화면으로.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let content = response.notification.request.content
+        guard [DailyReminderScheduler.itemCategory, DailyReminderScheduler.summaryCategory].contains(content.categoryIdentifier)
+        else { return }
+        let info = content.userInfo
+        switch response.actionIdentifier {
+        case DailyReminderScheduler.doneAction:
+            guard let id = (info["itemID"] as? String).flatMap(UUID.init(uuidString:)),
+                  let day = info["day"] as? String, let generation = info["generation"] as? String else { return }
+            if let saved = try? SharedStore.completeDailyFromNotification(itemID: id, day: day, generation: generation) {
+                await DailyReminderScheduler.apply(data: saved.0, generation: saved.1)
+                await DailyReminderScheduler.removeDelivered(itemID: id, day: day)
+                NotificationCenter.default.post(name: .gymnoteStoreChanged, object: nil)
+            }
+        case DailyReminderScheduler.snoozeAction:
+            await DailyReminderScheduler.snooze(content)
+        case UNNotificationDefaultActionIdentifier:
+            UserDefaults.standard.set("일상", forKey: "selectedWorkspace")
+        default:
+            break
+        }
     }
 
     // 앱을 보고 있을 때도 "휴식 끝" 알림을 띄움
@@ -58,6 +92,10 @@ struct RootView: View {
                 model.reload()
                 account.scheduleSync()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gymnoteStoreChanged).receive(on: RunLoop.main)) { _ in
+            model.reload()
+            account.scheduleSync()
         }
         .task {
             await account.bootstrap()
