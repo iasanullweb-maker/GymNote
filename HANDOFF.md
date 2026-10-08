@@ -2,8 +2,11 @@
 
 마지막 업데이트: 2026-10-08
 
-## Google·Apple 로그인 (로컬 main 통합, 배포 대기)
-- 사용자 요청: Claude 작업 완료 후 한 번에 배포. **사용자가 최종 배포를 요청하기 전에는 main push·릴리스·AltStore 소스 갱신 금지.** 이 작업은 노트북 로컬 main에만 병합됨(원격 main은 0.1.43 상태).
+## Google·Apple 로그인 (배포 0.1.50)
+- 2026-10-08 21시대 통합 배포. 원격 main `399db73`(CI 검증본) → 마지막 커밋이 `[skip ci]`라 Build IPA를 수동 1회 실행(#50) 성공: 모델 검증, Release 빌드, IPA, 릴리스 `build-50`·`latest`(1,152,179바이트, sha256 9c996067…2a3f, 동일), AltStore 소스 **0.1.50** 확인. IPA에 Supabase URL·공개 키·복귀 주소 포함 확인.
+- 사용자 설정 완료(사용자 확인): Google Cloud 브랜딩·대상·테스트 사용자·웹 클라이언트, Supabase Google provider·Redirect URL·Confirm email·수동 연결 끔, `delete-account` 대시보드에서 새 코드 배포(JWT 강제 검증 끔).
+- 서버 공개 설정 확인(/auth/v1/settings): google=true, apple=false, email=true, mailer_autoconfirm=false. Google authorize 요청은 Google로 정상 리디렉션.
+- 아직 확인 못 함: 실제 아이패드 Google 로그인과 복귀(Redirect URL 허용 여부는 실제 로그인으로만 확인), Google 계정 삭제 재인증.
 - Google: Supabase OAuth + PKCE(S256)를 `ASWebAuthenticationSession`(ephemeral)로 실행. 복귀 주소 `com.gymnote.app://auth-callback`(Info.plist 미등록, Supabase Redirect URLs에 정확히 추가 필요). 앱에 Client Secret 없음. `/auth/v1/settings`에서 서버가 켠 방식만 버튼 활성화.
 - Apple: 코드 경로는 같지만 Sign in with Apple은 Apple 공식 표상 유료 Apple Developer Program(연 99 USD) 전용 → 현재 비활성. Supabase에서 Apple을 켜면 자동 활성.
 - 로그인 완료는 이메일·소셜 공통 `completeSignIn`: 서버 검증 UUID로만 계정 전환, Keychain 저장, 동의 시에만 게스트 기록 가져오기. 이메일 문자열로 기록 합치지 않음(Supabase의 확인된 이메일 자동 연결만 같은 UUID).
