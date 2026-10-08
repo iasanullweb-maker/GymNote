@@ -14,6 +14,8 @@ enum RestDuration {
 // MARK: - 루틴
 
 struct Exercise: Codable, Identifiable, Hashable {
+    var hasPercentageTarget: Bool { detail.contains("%") || detail.contains("％") }
+
     /// Only an unambiguous repetition target supplies the default; time/ranges stay free-form.
     var plannedReps: Int? {
         guard detail.range(of: "[0-9]\\s*[-~–]\\s*[0-9]", options: .regularExpression) == nil,
@@ -26,7 +28,7 @@ struct Exercise: Codable, Identifiable, Hashable {
     var id: UUID = UUID()
     var name: String
     var sets: Int
-    var detail: String      // 예: "10회", "1분", "최대의 70%"
+    var detail: String      // 예: "10회", "1분"
     /// 예전 버전의 운동별 휴식. 지금은 쓰지 않고 설정의 기본 휴식(AppData.defaultRest) 하나로 통일.
     /// 예전 저장 파일·계정 동기화와 호환되도록 필드만 유지한다.
     var restSeconds: Int = 0
@@ -222,6 +224,7 @@ struct AppData: Codable, Equatable {
         padWeek()
         migrateSchedule()
         seedExerciseLibrary()
+        normalizePercentageTargets()
     }
 
     // 나중에 필드가 늘어나도 예전 저장 파일을 읽을 수 있게 하나씩 꺼냄
@@ -250,6 +253,7 @@ struct AppData: Codable, Equatable {
         } else {
             seedExerciseLibrary()
         }
+        normalizePercentageTargets()
     }
 
     private mutating func migrateSchedule() {
@@ -322,6 +326,27 @@ enum DayKey {
 // MARK: - 로직
 
 extension AppData {
+    /// 비율로 저장된 계획은 사용자 요청대로 10회로 통일한다. 과거 일지·실제 횟수는 보존한다.
+    mutating func normalizePercentageTargets() {
+        func normalized(_ exercise: Exercise) -> Exercise {
+            var result = exercise
+            if result.hasPercentageTarget { result.detail = "10회" }
+            return result
+        }
+        func normalizedPlan(_ plan: DayPlan) -> DayPlan {
+            var result = plan
+            result.exercises = result.exercises.map(normalized)
+            return result
+        }
+        week = week.map(normalizedPlan)
+        scheduledPlans = scheduledPlans.mapValues(normalizedPlan)
+        exerciseLibrary = exerciseLibrary.map(normalized)
+        if var workout = activeWorkout {
+            workout.plan = normalizedPlan(workout.plan)
+            activeWorkout = workout
+        }
+    }
+
     /// 시작 날짜 기준. 자정을 넘겨 종료한 운동도 시작한 날에 표시한다.
     func workouts(on date: Date) -> [WorkoutSession] {
         let day = DayKey.key(date)
@@ -543,8 +568,8 @@ extension AppData {
         }
         func upper() -> DayPlan {
             DayPlan(title: "상체", exercises: [
-                ex("푸쉬업", 5, "최대의 70%"),
-                ex("풀업", 5, "최대의 70%"),
+                ex("푸쉬업", 5, "10회"),
+                ex("풀업", 5, "10회"),
                 ex("딥스", 3, "10회"),
                 ex("플랭크", 3, "1분"),
             ])

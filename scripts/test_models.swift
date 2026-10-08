@@ -189,6 +189,34 @@ struct ModelChecks {
         assert(journal.workouts(on: calendar.date(byAdding: .day, value: -1, to: today)!).isEmpty)
         let journalReload = try decoder.decode(AppData.self, from: encoder.encode(journal))
         assert(journalReload.workouts(on: today) == [night, morning])
+        // Legacy percentage plans become 10 reps without changing recorded repetitions or past journals.
+        let percentage = Exercise(name: "푸쉬업", sets: 5, detail: "최대의 70%")
+        let fullwidthPercentage = Exercise(name: "풀업", sets: 5, detail: "최대의 70％")
+        let timed = Exercise(name: "플랭크", sets: 3, detail: "1분")
+        let legacyPlan = DayPlan(title: "상체", exercises: [percentage, fullwidthPercentage, timed])
+        var legacyTargets = AppData(week: [])
+        legacyTargets.week = [legacyPlan]
+        legacyTargets.scheduledPlans[key] = legacyPlan
+        legacyTargets.exerciseLibrary = legacyPlan.exercises
+        let recorded = WorkoutSession(startedAt: today, plan: legacyPlan,
+                                      completedSets: [percentage.id.uuidString: 1],
+                                      actualReps: [percentage.id.uuidString: [8]])
+        legacyTargets.activeWorkout = recorded
+        legacyTargets.workouts = [recorded]
+        let migratedTargets = try decoder.decode(AppData.self, from: encoder.encode(legacyTargets))
+        for exercises in [migratedTargets.week[0].exercises, migratedTargets.scheduledPlans[key]!.exercises,
+                          migratedTargets.exerciseLibrary, migratedTargets.activeWorkout!.plan.exercises] {
+            assert(exercises.map(\.detail) == ["10회", "10회", "1분"])
+            assert(exercises.map(\.id) == legacyPlan.exercises.map(\.id))
+            assert(exercises[0].plannedReps == 10 && exercises[1].plannedReps == 10)
+        }
+        assert(migratedTargets.activeWorkout!.actualReps == recorded.actualReps)
+        assert(migratedTargets.activeWorkout!.completedSets == recorded.completedSets)
+        assert(migratedTargets.workouts == [recorded], "과거 일지와 실제 횟수 보존")
+        let reloadedTargets = try decoder.decode(AppData.self, from: encoder.encode(migratedTargets))
+        assert(reloadedTargets == migratedTargets, "반복 로드에도 변환 결과 유지")
+        assert(!AppData.sample.week.flatMap(\.exercises).contains { $0.hasPercentageTarget })
+
         // Actual repetitions remain independent from the plan, survive reload, and undo with the set.
         assert(first.plannedReps == 10)
         assert(Exercise(name: "런지", sets: 2, detail: "다리당 12회").plannedReps == 12)

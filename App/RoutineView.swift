@@ -315,6 +315,10 @@ struct ExerciseDraftForm: View {
             TextField("운동 이름", text: $exercise.name).focused($nameFocused)
             Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
             TextField("횟수·시간 (예: 10회, 1분)", text: $exercise.detail)
+            if exercise.hasPercentageTarget {
+                Text("비율 대신 횟수를 입력해 주세요. 예: 10회")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
         }
         .navigationTitle(title)
         .toolbar {
@@ -323,9 +327,13 @@ struct ExerciseDraftForm: View {
                 Button("저장") {
                     exercise.name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
                     onSave(exercise)
-                }.disabled(exercise.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }.disabled(exercise.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                           || exercise.hasPercentageTarget)
             }
         }
-        .onAppear { nameFocused = exercise.name.isEmpty }
+        .onAppear {
+            if exercise.hasPercentageTarget { exercise.detail = "10회" }
+            nameFocused = exercise.name.isEmpty
+        }
     }
 }
