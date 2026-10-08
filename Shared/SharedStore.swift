@@ -162,6 +162,26 @@ enum SharedStore {
         }
     }
 
+    /// First login may queue an explicitly consented local import before the first cloud read.
+    /// Preserve both originals and add local IDs to the server snapshot before attempting CAS.
+    static func mergeInitialImport(_ cloud: AppData, version: Int64, revision: UUID, selection: StoreSelection) throws {
+        try locked {
+            guard selection.userID != nil, try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var latest = try readSnapshot(userID: selection.userID)
+            guard latest.revision == revision, latest.serverVersion == 0, latest.importedGuest else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
+            try write(cloud, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
+            latest.data = cloud.importingGuest(latest.data)
+            latest.serverVersion = version
+            latest.dirty = true
+            latest.revision = UUID()
+            try write(latest, to: url(for: selection.userID))
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     static func backupCloud(_ data: AppData, selection: StoreSelection) throws {
         try locked {
             guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }

@@ -1,12 +1,14 @@
 import SwiftUI
 
 struct AccountView: View {
+    var welcome = false
     @Environment(AccountModel.self) private var account
     @Environment(AppModel.self) private var model
     @State private var email = ""
     @State private var code = ""
     @State private var createUser = false
     @State private var consent = false
+    @State private var importDeviceRecords = false
     @State private var confirmLogout = false
     @State private var confirmImport = false
     @State private var confirmDelete = false
@@ -15,12 +17,28 @@ struct AccountView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if welcome {
+                    Section {
+                        Text("헬스노트에 오신 것을 환영해요").font(.title2.bold())
+                        Text("로그인하면 운동 기록을 계정에 저장합니다. Wi-Fi가 없을 때도 기기에 남은 기록으로 계속 운동할 수 있어요.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Button("로그인 없이 기기에서 계속하기") { account.continueAsGuest() }
+                    }
+                }
+                if !welcome {
+                    Section("저장 상태") {
+                        Label(account.modeDescription, systemImage: account.isOnline ? "wifi" : "wifi.slash")
+                        Text(account.user == nil
+                             ? "게스트 기록은 이 기기에 저장합니다. 로그인 후 기록 가져오기로 계정에 이어서 저장할 수 있어요."
+                             : "연결이 끊겨도 같은 계정의 기기 기록을 사용합니다. Wi-Fi가 다시 연결되면 변경한 기록을 자동으로 저장합니다.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
                 if let user = account.user {
                     Section("내 계정") {
                         Label(user.email ?? "로그인됨", systemImage: "person.crop.circle.fill")
-                        Text(account.syncStatus).font(.footnote).foregroundStyle(.secondary)
                         Button("지금 동기화") { Task { await account.synchronize() } }
-                            .disabled(account.needsLogin || account.isReauthenticating || account.conflict != nil)
+                            .disabled(!account.isOnline || account.needsLogin || account.isReauthenticating || account.conflict != nil)
                         if account.canImport {
                             Button("이 기기의 게스트 기록 가져오기") { confirmImport = true }
                                 .disabled(account.needsLogin || account.isReauthenticating || account.conflict != nil)
@@ -76,7 +94,7 @@ struct AccountView: View {
                 }
             }
             .disabled(account.busy || !account.initialized)
-            .navigationTitle("계정")
+            .navigationTitle(welcome ? "로그인" : "설정")
             .confirmationDialog("기기 기록을 계정으로 가져올까요?", isPresented: $confirmImport, titleVisibility: .visible) {
                 Button("가져오기") { Task { await account.importGuest() } }
             } message: { Text("원본을 보관하고 현재 계정에 추가합니다. 가져온 운동 기록은 서버에 저장됩니다.") }
@@ -102,10 +120,11 @@ struct AccountView: View {
                     .onChange(of: code) { _, value in code = String(value.filter { $0.isASCII && $0.isNumber }.prefix(6)) }
                 Button("인증번호 확인") {
                     let submitted = code
+                    let importRecords = importDeviceRecords
                     code = ""
-                    Task { await account.verify(code: submitted) }
+                    Task { await account.verify(code: submitted, importDeviceRecords: importRecords) }
                 }
-                    .disabled(code.count != 6)
+                    .disabled(code.count != 6 || !account.isOnline)
                 Button("인증번호 다시 받기") { Task { await account.sendCode(email: pending, createUser: createUser, consent: consent) } }
                 Button("이메일 다시 입력") { account.resetCode(); code = "" }
             } else {
@@ -123,7 +142,12 @@ struct AccountView: View {
                 Button("인증번호 받기") {
                     Task { await account.sendCode(email: email, createUser: createUser, consent: consent) }
                 }
-                .disabled(email.isEmpty || (createUser && !consent))
+                .disabled(!account.isOnline || email.isEmpty || (createUser && !consent))
+            }
+            if account.user == nil, account.hasGuestRecords {
+                Toggle("기기에 있던 기록을 계정에 이어서 저장", isOn: $importDeviceRecords)
+                Text("동의하면 기기의 운동·진행 기록으로 계속 운동하고, 서버 기록을 확인한 뒤 계정에 이어서 저장합니다. 원본은 보관하며, 연결이 끊겨도 다음 연결 때 다시 저장합니다.")
+                    .font(.footnote).foregroundStyle(.secondary)
             }
         } header: {
             Text(account.isReauthenticating ? "본인 확인" : "이메일로 로그인")
