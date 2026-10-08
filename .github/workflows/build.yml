@@ -43,6 +43,8 @@ jobs:
           /tmp/gymnote-model-checks
           swiftc Shared/Models.swift Shared/AccountData.swift Shared/DailyReminderPlan.swift scripts/test_daily.swift -o /tmp/daily-checks
           /tmp/daily-checks
+          swiftc Shared/Models.swift Shared/WorkoutRecords.swift scripts/test_records.swift -o /tmp/record-checks
+          /tmp/record-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/gymnote-account-checks
           /tmp/gymnote-account-checks
 
