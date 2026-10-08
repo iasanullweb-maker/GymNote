@@ -156,6 +156,15 @@ struct ModelChecks {
         noStep.removeValue(forKey: "restStep")
         let oldFile = try decoder.decode(AppData.self, from: JSONSerialization.data(withJSONObject: noStep))
         assert(oldFile.restStep == 15, "예전 파일은 15초")
+        // 운동별 휴식 제거: 예전 필드가 있어도, 없어도 읽힘 / 다른 값은 그대로 유지
+        let withRest = Exercise(name: "예전 운동", sets: 4, detail: "8회", restSeconds: 120)
+        let withRestReload = try decoder.decode(Exercise.self, from: encoder.encode(withRest))
+        assert(withRestReload == withRest, "예전 휴식 필드 유지")
+        var noRest = try JSONSerialization.jsonObject(with: encoder.encode(withRest)) as! [String: Any]
+        noRest.removeValue(forKey: "restSeconds")
+        let noRestReload = try decoder.decode(Exercise.self, from: JSONSerialization.data(withJSONObject: noRest))
+        assert(noRestReload.restSeconds == 0 && noRestReload.name == "예전 운동" && noRestReload.sets == 4 && noRestReload.id == withRest.id, "휴식 필드 없는 운동")
+        assert(Exercise(name: "새 운동", sets: 3, detail: "10회").restSeconds == 0, "새 운동은 운동별 휴식 없음")
         print("Model checks passed: migration, calendars, workout sessions, journals, persistence, stale/twice/widget/repeat")
     }
 }

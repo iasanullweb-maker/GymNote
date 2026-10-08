@@ -202,12 +202,12 @@ struct ExerciseLibraryView: View {
                 .onDelete { model.data.exerciseLibrary.remove(atOffsets: $0) }
                 .onMove { model.data.exerciseLibrary.move(fromOffsets: $0, toOffset: $1) }
                 Button {
-                    editing = Exercise(name: "", sets: 3, detail: "10회", restSeconds: model.data.defaultRest)
+                    editing = Exercise(name: "", sets: 3, detail: "10회")
                 } label: {
                     Label("운동 만들기", systemImage: "plus")
                 }
             } footer: {
-                Text("기본 세트·횟수·휴식을 저장해 두면 계획에 바로 가져올 수 있어. 수정하거나 삭제해도 이미 배정한 운동은 유지돼.")
+                Text("기본 세트·횟수를 저장해 두면 계획에 바로 가져올 수 있어. 수정하거나 삭제해도 이미 배정한 운동은 유지돼.")
             }
         }
         .navigationTitle("운동 목록")
@@ -249,7 +249,7 @@ struct ExercisePicker: View {
                 }
                 Button {
                     saveToLibrary = true
-                    draft = Exercise(name: "", sets: 3, detail: "10회", restSeconds: model.data.defaultRest)
+                    draft = Exercise(name: "", sets: 3, detail: "10회")
                 } label: { Label("새 운동 만들기", systemImage: "plus") }
             }
             .navigationTitle("운동 추가")
@@ -274,7 +274,7 @@ struct ExerciseSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(exercise.name)
-            Text("\(exercise.sets)세트 · \(exercise.detail) · 휴식 \(exercise.restSeconds)초")
+            Text("\(exercise.sets)세트 · \(exercise.detail)")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -307,7 +307,6 @@ struct ExerciseDraftForm: View {
             TextField("운동 이름", text: $exercise.name).focused($nameFocused)
             Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
             TextField("횟수·시간 (예: 10회, 1분)", text: $exercise.detail)
-            Stepper("세트 사이 휴식: \(exercise.restSeconds)초", value: $exercise.restSeconds, in: 0...600, step: 15)
         }
         .navigationTitle(title)
         .toolbar {

@@ -98,11 +98,7 @@ struct ExerciseRow: View {
 
     private var finished: Bool { done >= exercise.sets }
 
-    private var subtitle: String {
-        var text = "\(exercise.sets)세트 · \(exercise.detail)"
-        if exercise.restSeconds > 0 { text += " · 휴식 \(exercise.restSeconds)초" }
-        return text
-    }
+    private var subtitle: String { "\(exercise.sets)세트 · \(exercise.detail)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

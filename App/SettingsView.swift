@@ -14,7 +14,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Stepper("기본 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest,
+                    Stepper("세트 사이 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest,
                             in: Self.restRange, step: 5)
                     Stepper("−/+ 버튼 간격: \(model.data.restStep)초", value: $model.data.restStep,
                             in: Self.stepRange, step: 5)
@@ -22,7 +22,7 @@ struct SettingsView: View {
                 } header: {
                     Text("휴식 타이머")
                 } footer: {
-                    Text("'−/+ 버튼 간격'은 운동 탭 휴식 타이머 옆 −/+를 한 번 누를 때 바뀌는 시간이야. 5초 단위, 최소 5초. 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
+                    Text("세트 완료를 누르면 모든 운동에 이 휴식이 자동으로 시작돼. '−/+ 버튼 간격'은 운동 탭 휴식 타이머 옆 −/+를 한 번 누를 때 바뀌는 시간이야. 5초 단위, 최소 5초. 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
                 }
 
                 Section("계정") {
