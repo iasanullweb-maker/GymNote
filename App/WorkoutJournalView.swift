@@ -5,6 +5,7 @@ struct WorkoutJournalView: View {
     @State private var selectedDate = Date()
     @State private var showingCalendar = true
     @State private var detailDay: JournalDay?
+    @State private var addingWorkout = false
 
     private struct JournalDay: Identifiable {
         let date: Date
@@ -13,6 +14,11 @@ struct WorkoutJournalView: View {
 
     var body: some View {
         List {
+            Section {
+                Button { addingWorkout = true } label: {
+                    Label("지난 운동 한 번에 기록", systemImage: "square.and.pencil")
+                }
+            }
             Section {
                 Picker("일지 보기", selection: $showingCalendar) {
                     Text("캘린더").tag(true)
@@ -34,7 +40,7 @@ struct WorkoutJournalView: View {
                     Text(showingCalendar ? "이 날짜에는 운동 일지가 없어." : "아직 운동 일지가 없어.")
                         .foregroundStyle(.secondary)
                     if model.data.workouts.isEmpty {
-                        Text("운동 탭에서 시작하고 세트를 완료하면 자동으로 저장돼.")
+                        Text("운동 탭에서 실시간으로 기록하거나, 위 버튼으로 지난 운동을 한 번에 저장할 수 있어요.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
@@ -62,6 +68,13 @@ struct WorkoutJournalView: View {
                 Text(showingCalendar ? selectedDate.formatted(.dateTime.year().month().day().weekday()) : "전체 운동 일지")
             }
         }
+        .sheet(isPresented: $addingWorkout) {
+            ManualWorkoutView(date: selectedDate, userID: model.selection.userID) { date in
+                selectedDate = date
+                showingCalendar = true
+            }
+            .id(model.selection.generation)
+        }
         .sheet(item: $detailDay) { day in
             NavigationStack {
                 WorkoutJournalDayDetail(date: day.date)
@@ -83,10 +96,12 @@ private struct WorkoutJournalDayDetail: View {
             ForEach(workouts) { workout in
                 Section {
                     HStack {
-                        Text(workout.startedAt, format: .dateTime.hour().minute())
                         if let end = workout.endedAt {
+                            Text(workout.startedAt, format: .dateTime.hour().minute())
                             Text("–")
                             Text(end, format: .dateTime.hour().minute())
+                        } else {
+                            Text("시간 미기록")
                         }
                         Spacer()
                         Text("\(workout.done) / \(workout.total)세트")
@@ -128,7 +143,9 @@ private struct WorkoutJournalExerciseRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(exercise.name).font(.headline)
-                    Text("세트당 \(exercise.detail)").font(.caption).foregroundStyle(.secondary)
+                    if !exercise.detail.isEmpty {
+                        Text("세트당 \(exercise.detail)").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 Text("\(workout.doneSets(exercise)) / \(exercise.sets)세트")
@@ -157,6 +174,8 @@ struct WorkoutJournalDetail: View {
                 LabeledContent("완료 세트", value: "\(workout.done) / \(workout.total)")
                 if let end = workout.endedAt {
                     LabeledContent("운동 시간", value: "\(Int(end.timeIntervalSince(workout.startedAt)) / 60)분")
+                } else {
+                    LabeledContent("운동 시간", value: "미기록")
                 }
             }
             Section {
