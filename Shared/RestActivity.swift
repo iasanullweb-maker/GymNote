@@ -17,8 +17,12 @@ enum RestController {
     static let notificationID = "gymnote.rest.end"
 
     /// 휴식 타이머 시작: 잠금 화면 카운트다운 + 끝날 때 알림
-    static func start(seconds: Int, title: String, info: String, sound: Bool = false) async {
+    static func start(seconds: Int, title: String, info: String, sound: Bool = false, generation: String? = nil) async {
+        let owner = generation ?? (try? SharedStore.selection().generation.uuidString)
+        guard let owner else { return }
+        guard (try? SharedStore.selection().generation.uuidString) == owner else { return }
         await stop()
+        guard (try? SharedStore.selection().generation.uuidString) == owner else { return }
 
         let seconds = max(seconds, 5)
         let start = Date()
@@ -43,6 +47,10 @@ enum RestController {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(seconds), repeats: false)
         let request = UNNotificationRequest(identifier: notificationID, content: note, trigger: trigger)
         try? await UNUserNotificationCenter.current().add(request)
+        // An account switch can occur while awaiting the notification service.
+        if (try? SharedStore.selection().generation.uuidString) != owner {
+            await stop()
+        }
     }
 
     static func stop() async {
@@ -50,6 +58,7 @@ enum RestController {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notificationID])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notificationID])
     }
 
     /// 지금 돌아가는 휴식 타이머 (앱을 다시 열었을 때 화면 복원용)

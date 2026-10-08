@@ -39,8 +39,13 @@ jobs:
         run: |
           swiftc Shared/Models.swift scripts/test_models.swift -o /tmp/gymnote-model-checks
           /tmp/gymnote-model-checks
+          swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/gymnote-account-checks
+          /tmp/gymnote-account-checks
 
       - name: Build (unsigned)
+        env:
+          GYMNOTE_SUPABASE_URL: ${{ vars.GYMNOTE_SUPABASE_URL }}
+          GYMNOTE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.GYMNOTE_SUPABASE_PUBLISHABLE_KEY }}
         run: |
           xcodebuild \
             -project GymNote.xcodeproj \
@@ -55,6 +60,8 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             MARKETING_VERSION="$APP_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            GYMNOTE_SUPABASE_URL="$GYMNOTE_SUPABASE_URL" \
+            GYMNOTE_SUPABASE_PUBLISHABLE_KEY="$GYMNOTE_SUPABASE_PUBLISHABLE_KEY" \
             build
 
       # AltStore는 앱 안의 서명에서 엔타이틀먼트(App Group)를 읽어서 등록해.

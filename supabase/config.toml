@@ -1,0 +1,5 @@
+project_id = "gymnote"
+
+[functions.delete-account]
+# JWTs are explicitly verified by getUser in the handler (supports current asymmetric signing keys).
+verify_jwt = false

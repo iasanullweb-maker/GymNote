@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 }
 
 @main
+@MainActor
 struct GymNoteApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel()
@@ -28,35 +29,48 @@ struct GymNoteApp: App {
         WindowGroup {
             RootView()
                 .environment(model)
+                .environment(model.account)
         }
     }
 }
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             TodayView()
                 .tabItem { Label("운동", systemImage: "figure.strengthtraining.traditional") }
+                .tag(0)
             RoutineView()
                 .tabItem { Label("루틴", systemImage: "calendar") }
+                .tag(1)
             RecordsView()
                 .tabItem { Label("기록", systemImage: "trophy") }
+                .tag(2)
+            AccountView()
+                .tabItem { Label("계정", systemImage: "person.crop.circle") }
+                .tag(3)
         }
+        .id(model.selection.generation)
         .tint(.orange)
-        // 데이터가 바뀌면 자동 저장 + 위젯 새로고침
-        .onChange(of: model.data) { _, newValue in
-            SharedStore.save(newValue)
-        }
         // 위젯에서 체크한 내용을 앱으로 다시 불러옴
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { model.reload() }
+            if phase == .active {
+                model.reload()
+                account.scheduleSync()
+            }
         }
         .task {
             await RestController.requestPermissions()
             model.reload()
+            await account.bootstrap()
         }
+        .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
+            Button("확인", role: .cancel) { model.storageError = nil }
+        } message: { Text(model.storageError ?? "") }
     }
 }
