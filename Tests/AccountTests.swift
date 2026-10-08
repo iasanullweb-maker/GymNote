@@ -679,4 +679,39 @@ final class AccountTests: XCTestCase {
         XCTAssertTrue(account.canUseEmailForReauthentication, "예전 세션은 이메일 계정으로 간주")
         XCTAssertFalse(account.canSignIn(with: .google), "연결되지 않은 방법으로는 삭제 본인 확인 불가")
     }
+
+    // MARK: - 일상 알림 '완료' 버튼
+
+    func testDailyNotificationDoneOnlyChangesCurrentAccountOnce() throws {
+        let accountID = UUID()
+        let scope = try SharedStore.activate(userID: accountID)
+        let day = "2026-10-05"
+        let item = DailyItem(title: "독서", kind: .habit, startDate: DayKey.date(fromKey: day)!,
+                             reminderTime: ReminderTime(hour: 21, minute: 0))
+        var data = AppData.empty
+        data.saveDailyItem(item)
+        _ = try SharedStore.persistEdits(from: .empty, to: data, selection: scope)
+        let generation = scope.generation.uuidString
+
+        XCTAssertNil(try SharedStore.completeDailyFromNotification(itemID: item.id, day: day, generation: UUID().uuidString),
+                     "다른 계정·이전 세대 알림은 기록하지 않음")
+        XCTAssertTrue(try SharedStore.snapshot(userID: accountID).data.dailyCompletions.isEmpty)
+        XCTAssertNil(try SharedStore.completeDailyFromNotification(itemID: item.id, day: "bad-day", generation: generation))
+
+        let saved = try XCTUnwrap(try SharedStore.completeDailyFromNotification(itemID: item.id, day: day, generation: generation))
+        XCTAssertEqual(saved.1, generation)
+        let stored = try SharedStore.snapshot(userID: accountID)
+        XCTAssertEqual(stored.data.dailyCompletions.count, 1)
+        XCTAssertEqual(stored.data.dailyCompletions.first?.day, day)
+        XCTAssertTrue(stored.dirty, "다음 연결 때 서버에 저장")
+        XCTAssertNil(try SharedStore.completeDailyFromNotification(itemID: item.id, day: day, generation: generation),
+                     "두 번 눌러도 완료가 취소되지 않음")
+        XCTAssertEqual(try SharedStore.snapshot(userID: accountID).data.dailyCompletions.count, 1)
+        XCTAssertFalse(saved.0.plannedReminders(now: DayKey.date(fromKey: day)!).contains { $0.day == day },
+                       "완료한 날의 알림은 다시 예약하지 않음")
+
+        // 계정을 바꾸면 이전 계정 알림의 버튼은 새 계정 기록을 바꾸지 못함
+        _ = try SharedStore.activate(userID: UUID())
+        XCTAssertNil(try SharedStore.completeDailyFromNotification(itemID: item.id, day: "2026-10-06", generation: generation))
+    }
 }

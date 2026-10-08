@@ -235,6 +235,25 @@ enum SharedStore {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// 일상 알림의 '완료' 버튼. 다른 계정으로 바뀐 뒤 남은 알림은 generation이 달라 아무것도 바꾸지 않는다.
+    /// 반환값: 기록했으면 최신 데이터와 generation.
+    @discardableResult
+    static func completeDailyFromNotification(itemID: UUID, day: String, generation: String, at now: Date = Date()) throws -> (AppData, String)? {
+        guard let date = DayKey.date(fromKey: day) else { return nil }
+        let result: (AppData, String)? = try locked {
+            let selection = try readSelection()
+            guard selection.generation.uuidString == generation else { return nil }
+            var latest = try readSnapshot(userID: selection.userID)
+            guard latest.data.markDailyComplete(itemID, on: date, at: now) else { return nil }
+            latest.dirty = true
+            latest.revision = UUID()
+            try write(latest, to: url(for: selection.userID))
+            return (latest.data, generation)
+        }
+        if result != nil { WidgetCenter.shared.reloadAllTimelines() }
+        return result
+    }
+
     static func widgetSnapshot() -> (AppData, String) {
         (try? locked {
             let selection = try readSelection()
