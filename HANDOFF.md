@@ -167,3 +167,8 @@
 - 검증된 기능 코드에 인계 문서만 추가한 상태로 통합. 다른 채팅의 최신 main 변경(0.1.25 설정·휴식 −/+)과 로컬 main SMTP 문서를 모두 포함.
 - 워크트리 `GymNote.ipa`를 새 파일로 교체하고 GitHub 릴리스 SHA256 일치 확인.
 - 실제 아이패드에서 운동↔일상 전환, +에서 할 일/습관 추가, 완료→기록, 날짜 이동과 습관 건너뛰기/복원, 설정의 휴식 −/+를 확인할 것.
+## 휴식 −/+ 간격 설정 / 버튼 크기 (배포 0.1.33)
+- 사용자 의도: 운동 탭 휴식 −/+를 누를 때 바뀌는 **간격**을 설정에서 조절. `AppData.restStep`(기본 15초) 추가, 설정 탭 '−/+ 버튼 간격' 5~120초·5초 단위. 기본 휴식도 5초 단위, 최소 5초(`SettingsView.restRange` 5...600).
+- `applyingEdits`에 restStep 병합 추가, 예전 파일은 15초로 읽음. 모델·계정 회귀 검사 추가.
+- −/+ 아이콘 크기 고정(22pt, semibold)으로 두 버튼 크기 통일.
+- 작업 중 main이 0.1.28(일상 작업 통합)로 앞서 나가 `origin/main`을 브랜치에 병합. `Models.swift` CodingKeys 충돌은 restStep + dailyItems/dailyCompletions 모두 유지로 해결. 병합본 검증 빌드 성공 → main fast-forward → Actions #33 성공, **0.1.33** 배포.
