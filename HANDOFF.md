@@ -172,3 +172,11 @@
 - `applyingEdits`에 restStep 병합 추가, 예전 파일은 15초로 읽음. 모델·계정 회귀 검사 추가.
 - −/+ 아이콘 크기 고정(22pt, semibold)으로 두 버튼 크기 통일.
 - 작업 중 main이 0.1.28(일상 작업 통합)로 앞서 나가 `origin/main`을 브랜치에 병합. `Models.swift` CodingKeys 충돌은 restStep + dailyItems/dailyCompletions 모두 유지로 해결. 병합본 검증 빌드 성공 → main fast-forward → Actions #33 성공, **0.1.33** 배포.
+## 휴식 하나로 통일 / 세트 완료 시 자동 휴식
+- 사용자 요청: 운동마다 휴식을 다르게 둘 필요가 없음. 세트 완료를 누르면 설정한 휴식이 자동으로 시작.
+- `AppModel.completeSet`: 운동별 `restSeconds` 대신 `data.defaultRest`로 `startDefaultRest()`. 0초 운동도 이제 휴식이 켜짐. 마지막 세트로 운동이 일지에 저장되면 휴식 안 켬(기존과 동일).
+- 계획·운동 목록 편집창의 '세트 사이 휴식' 항목 제거, 목록·운동 탭 부제에서 휴식 표시 제거. 설정 탭 이름을 '세트 사이 휴식'으로, 설명에 모든 운동 공통 자동 시작 명시.
+- `Exercise.restSeconds`는 예전 파일·계정 동기화·다른 브랜치 호환을 위해 필드만 유지(없으면 0으로 디코딩, 기본값 0). 모델 회귀 검사 추가.
+- 위젯 세트 체크는 지금도 휴식을 켜지 않음(앱 운동 탭만 자동). 필요하면 `CompleteSetIntent`를 LiveActivityIntent로 바꿔 확장 가능.
+- 브랜치 `claude/unified-rest` Build IPA #40 성공(모델 검증·Release 빌드·IPA) → main fast-forward.
+- **codex/calendar-routines 통합 시 주의**: 그 브랜치가 `ExerciseDraftForm`/`completeSet`을 바꿨다면 운동별 휴식 Stepper가 다시 들어오지 않게 확인.
