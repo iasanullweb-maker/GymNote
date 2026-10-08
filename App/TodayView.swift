@@ -67,12 +67,16 @@ struct TodayView: View {
                             // 기본 휴식 시간 조절 (15초 단위, 설정 탭과 같은 값)
                             Button { model.adjustDefaultRest(by: -SettingsView.restStep) } label: {
                                 Image(systemName: "minus")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 22, height: 22)
                             }
                             .buttonStyle(.bordered)
                             .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
                             .accessibilityLabel("휴식 시간 15초 줄이기")
                             Button { model.adjustDefaultRest(by: SettingsView.restStep) } label: {
                                 Image(systemName: "plus")
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 22, height: 22)
                             }
                             .buttonStyle(.bordered)
                             .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
