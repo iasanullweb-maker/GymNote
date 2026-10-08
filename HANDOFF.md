@@ -65,3 +65,13 @@
 - 7일마다 갱신 필요 (AltServer 켜진 노트북 + 같은 네트워크 또는 USB)
 - 활성 앱 3개(AltStore 포함), 주당 앱 ID 10개(헬스노트는 앱+위젯 2개 사용)
 - 만료돼도 데이터는 남고, 갱신하면 다시 열림
+
+## 2026-10-08 수정본 빌드 결과 / 작업 분리
+- 별도 워크트리: `C:\Users\Donghyun\.codex\worktrees\calendar-routines\GymNote`
+- 이 채팅의 작업 브랜치: `codex/calendar-routines`. 기존 작업 폴더는 다른 채팅에서 사용 중이므로 수정하지 말 것.
+- 기능 수정 커밋: `25161b2` (main에 반영, GitHub Actions #6 성공).
+- 배포 버전: `0.1.6`, 릴리스 `build-6`, AltStore 소스 갱신 완료.
+- 새 IPA는 위 워크트리의 `GymNote.ipa`에 다운로드 (커밋 제외).
+- 검증: Swift 모델 검증(구형 데이터 이전, 완료 세트·기록 유지, 자동 주간 반복 없음, 날짜별 진행 분리, 운동 목록 독립, JSON 재로드) 통과. 앱/위젯 iOS Release 컴파일과 패키징 성공.
+- 실제 아이패드 화면, 캘린더 설정, 입력창과 휴식 표시 동작은 업데이트 후 확인 필요.
+- 현재 GitHub 인증은 `iasanullweb-maker` 계정으로 완료. 명령 실행 시 `git -c credential.username=iasanullweb-maker ...` 사용.
