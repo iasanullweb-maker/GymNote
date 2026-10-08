@@ -6,7 +6,7 @@ struct SocialRankingChecks {
         func at(_ month: Int, _ day: Int) -> Date {
             Calendar.current.date(from: DateComponents(year: 2026, month: month, day: day, hour: 18))!
         }
-        func entry(_ name: String, _ type: String, _ value: Double, _ extra: Int = 0, _ day: String, me: Bool = false) -> SocialEntry {
+        func entry(_ name: String, _ type: String, _ value: Double, _ extra: Int = 0, day: String, me: Bool = false) -> SocialEntry {
             SocialEntry(user_id: UUID(), nickname: name, is_me: me, type_id: type, value: value, extra_reps: extra, achieved_at: day)
         }
         let catalog = CatalogRecordType.defaults

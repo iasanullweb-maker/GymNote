@@ -27,6 +27,8 @@ jobs:
       - run: xcodegen generate
       - name: Model and account regression checks
         run: |
+          set -o pipefail
+          exec > >(tee /tmp/model-checks.log) 2>&1
           swiftc Shared/Models.swift scripts/test_models.swift -o /tmp/model-checks
           /tmp/model-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/account-checks
@@ -58,7 +60,7 @@ jobs:
       - name: Report test failures as annotations
         if: failure()
         run: |
-          grep -E "error:|: failed|XCTAssert|Fatal error|Test Case .* failed" /tmp/xcodebuild-test.log \
+          grep -hE "error:|: failed|XCTAssert|Fatal error|Assertion failed|Test Case .* failed" /tmp/model-checks.log /tmp/xcodebuild-test.log 2>/dev/null \
             | head -40 | sed -e 's/%/%25/g' -e 's/^/::error::/' || true
       - name: Export simulator screen captures
         if: always()
