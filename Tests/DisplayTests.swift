@@ -96,4 +96,17 @@ final class DisplayTests: XCTestCase {
         let rest = try await host(WorkoutStatusBanner(startedAt: Date(), restStart: Date(), restEnd: Date().addingTimeInterval(90), finishTitle: "운동 마치기", onSkip: {}, onFinish: {}).padding(), name: "rest-minutes-seconds")
         rest.isHidden = true
     }
+
+    func testWorkoutCapsuleRendersWorkingAndAfterRestAtNarrowWidth() async throws {
+        for resting in [true, false] {
+            let view = WorkoutStatusBanner(startedAt: Date().addingTimeInterval(-600),
+                restStart: Date().addingTimeInterval(-90),
+                restEnd: Date().addingTimeInterval(resting ? 90 : -1),
+                finishTitle: "운동 마치기", onSkip: {}, onFinish: {})
+                .frame(width: 360).padding(16)
+                .background(Color(uiColor: .systemGroupedBackground))
+            let window = try await host(view, name: resting ? "workout-capsule-resting" : "workout-capsule-working")
+            window.isHidden = true
+        }
+    }
 }
