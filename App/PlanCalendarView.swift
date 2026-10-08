@@ -2,7 +2,9 @@ import SwiftUI
 
 struct PlanCalendarView: View {
     @Environment(AppModel.self) private var model
+    enum Content { case workout, daily, all }
     @Binding var selectedDate: Date
+    var content: Content = .workout
     @State private var displayedMonth = Date()
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6, alignment: .top), count: 7)
     private let weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
@@ -53,7 +55,8 @@ struct PlanCalendarView: View {
         let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
         let inMonth = Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month)
         let today = Calendar.current.isDateInToday(date)
-        let exercises = model.data.plan(for: date).exercises
+        let exercises = content == .daily ? [] : model.data.plan(for: date).exercises
+        let dailyItems = content == .workout ? [] : model.data.dailyItems(on: date)
         return Button {
             selectedDate = date
         } label: {
@@ -62,8 +65,8 @@ struct PlanCalendarView: View {
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(selected || today ? Color.orange : Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if exercises.isEmpty {
-                    Text("휴식")
+                if exercises.isEmpty && dailyItems.isEmpty {
+                    Text(content == .workout ? "휴식" : "일정 없음")
                         .font(.system(size: 14)).foregroundStyle(.secondary)
                 } else {
                     ForEach(exercises) { exercise in
@@ -73,6 +76,11 @@ struct PlanCalendarView: View {
                             .lineLimit(2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                }
+                ForEach(dailyItems) { item in
+                    Text((model.data.isDailyComplete(item, on: date) ? "✓ " : "") + item.title)
+                        .font(.system(size: 14)).foregroundStyle(.teal).lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Spacer(minLength: 0)
             }
@@ -86,7 +94,7 @@ struct PlanCalendarView: View {
             .opacity(inMonth ? 1 : 0.4)
             .contentShape(Rectangle())
         }
-        .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + (exercises.isEmpty ? "휴식" : exercises.map(\.name).joined(separator: ", ")))
+        .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + ((exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }

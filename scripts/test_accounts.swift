@@ -99,6 +99,17 @@ struct AccountChecks {
         sameSessionSettings.defaultRest = 80
         assert(finished.applyingEdits(from: finished, to: sameSessionSettings).workouts == finished.workouts)
 
+        var dailyGuest = AppData.empty
+        let dailyItem = DailyItem(title: "독서", scheduledDate: date)
+        dailyGuest.dailyItems = [dailyItem]
+        var dailyCloud = AppData.empty
+        assert(!dailyCloud.hasImportConflict(with: dailyGuest))
+        dailyCloud = dailyCloud.importingGuest(dailyGuest)
+        assert(dailyCloud.dailyItems == [dailyItem])
+        assert(!dailyCloud.hasImportConflict(with: dailyGuest))
+        dailyCloud.dailyItems[0].title = "수정된 독서"
+        assert(dailyCloud.hasImportConflict(with: dailyGuest), "같은 일상 항목의 다른 수정은 자동으로 덮어쓰지 않음")
+
         let stored = StoredWorkout(data: imported, serverVersion: 7, dirty: true, importedGuest: true)
         let decoded = try JSONDecoder().decode(StoredWorkout.self, from: JSONEncoder().encode(stored))
         assert(decoded.revision == stored.revision && decoded.serverVersion == 7 && decoded.dirty && decoded.importedGuest)

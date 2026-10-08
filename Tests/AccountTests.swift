@@ -45,6 +45,44 @@ final class AccountTests: XCTestCase {
         try FileManager.default.removeItem(at: folder)
     }
 
+    func testDailyPersistenceImportAndAccountIsolation() throws {
+        let accountID = UUID()
+        let selected = try SharedStore.activate(userID: accountID)
+        let base = try SharedStore.snapshot(userID: accountID).data
+        var edited = base
+        let item = DailyItem(title: "독서", kind: .habit)
+        edited.saveDailyItem(item)
+        edited.toggleDailyCompletion(item.id, on: Date())
+        _ = try SharedStore.persistEdits(from: base, to: edited, selection: selected)
+        let loaded = try SharedStore.snapshot(userID: accountID).data
+        XCTAssertEqual(loaded.dailyItems, edited.dailyItems)
+        XCTAssertEqual(loaded.dailyCompletions, edited.dailyCompletions)
+        _ = try SharedStore.activate(userID: UUID())
+        XCTAssertTrue(SharedStore.load().dailyItems.isEmpty)
+        XCTAssertThrowsError(try SharedStore.persistEdits(from: base, to: edited, selection: selected))
+        let guest = try SharedStore.activate(userID: nil)
+        let guestBase = try SharedStore.snapshot(userID: nil).data
+        var guestEdited = guestBase
+        guestEdited.saveDailyItem(DailyItem(title: "정리"))
+        _ = try SharedStore.persistEdits(from: guestBase, to: guestEdited, selection: guest)
+        let active = try SharedStore.activate(userID: accountID)
+        try SharedStore.importGuest(selection: active)
+        let imported = try SharedStore.snapshot(userID: accountID).data
+        XCTAssertEqual(imported.dailyItems.count, 2)
+        XCTAssertEqual(imported.dailyCompletions, edited.dailyCompletions)
+    }
+
+    func testDailyPreviewEditsNeverWriteToStore() throws {
+        let before = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        let preview = AppModel(previewData: .empty)
+        let item = DailyItem(title: "미리보기")
+        preview.data.saveDailyItem(item)
+        preview.data.toggleDailyCompletion(item.id, on: Date())
+        XCTAssertEqual(preview.data.dailyCompletions.count, 1)
+        XCTAssertNil(preview.storageError)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), before)
+    }
+
     func testGuestMigrationAndAccountIsolation() throws {
         var legacy = AppData.sample
         legacy.records = [RecordEntry(typeID: "pushup", date: Date(), value: 42)]

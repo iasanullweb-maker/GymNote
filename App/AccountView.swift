@@ -94,7 +94,7 @@ struct AccountView: View {
                 }
             }
             .disabled(account.busy || !account.initialized)
-            .navigationTitle(welcome ? "로그인" : "설정")
+            .navigationTitle(welcome ? "로그인" : "계정")
             .confirmationDialog("기기 기록을 계정으로 가져올까요?", isPresented: $confirmImport, titleVisibility: .visible) {
                 Button("가져오기") { Task { await account.importGuest() } }
             } message: { Text("원본을 보관하고 현재 계정에 추가합니다. 가져온 운동 기록은 서버에 저장됩니다.") }

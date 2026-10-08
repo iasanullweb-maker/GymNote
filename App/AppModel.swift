@@ -5,12 +5,13 @@ import Observation
 @MainActor
 final class AppModel {
     @ObservationIgnored private var replacingData = false
+    @ObservationIgnored private var previewOnly = false
     @ObservationIgnored lazy var account = AccountModel(model: self)
     private(set) var selection = StoreSelection(userID: nil)
     var storageError: String?
     var data: AppData = .empty {
         didSet {
-            guard !replacingData, oldValue != data else { return }
+            guard !previewOnly, !replacingData, oldValue != data else { return }
             do {
                 let saved = try SharedStore.persistEdits(from: oldValue, to: data, selection: selection)
                 if saved != data { replaceData(saved) }
@@ -42,6 +43,7 @@ final class AppModel {
 
     // 미리보기에서는 실제 계정 저장소를 열거나 샘플 데이터로 덮어쓰지 않음.
     init(previewData: AppData) {
+        previewOnly = true
         replaceData(previewData)
     }
 
@@ -118,6 +120,11 @@ final class AppModel {
     func startDefaultRest() {
         let next = data.nextUp(on: workoutDate)
         startRest(seconds: data.defaultRest, title: next.title, info: next.info)
+    }
+
+    func adjustDefaultRest(by delta: Int) {
+        let range = SettingsView.restRange
+        data.defaultRest = min(max(data.defaultRest + delta, range.lowerBound), range.upperBound)
     }
 
     func stopRest() {

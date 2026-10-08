@@ -40,6 +40,7 @@ final class AccountModel {
         guard let data = try? SharedStore.snapshot(userID: nil).data else { return false }
         return !data.records.isEmpty || !data.workouts.isEmpty || !data.logs.isEmpty
             || data.activeWorkout != nil || !data.scheduledPlans.isEmpty || !data.exerciseLibrary.isEmpty
+            || !data.dailyItems.isEmpty || !data.dailyCompletions.isEmpty
     }
     private func importConsentKey(_ id: UUID) -> String {
         "com.gymnote.importConsent.\(client?.config.url.host ?? "unconfigured").\(id.uuidString)"

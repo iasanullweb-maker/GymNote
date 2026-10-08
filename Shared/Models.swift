@@ -139,9 +139,11 @@ struct AppData: Codable, Equatable {
     var exerciseLibrary: [Exercise] = []
     var activeWorkout: WorkoutSession?
     var workouts: [WorkoutSession] = []
+    var dailyItems: [DailyItem] = []
+    var dailyCompletions: [DailyCompletion] = []
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary, activeWorkout, workouts
+        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary, activeWorkout, workouts, dailyItems, dailyCompletions
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -168,6 +170,8 @@ struct AppData: Codable, Equatable {
         restSound = try c.decodeIfPresent(Bool.self, forKey: .restSound) ?? false
         activeWorkout = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeWorkout)
         workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
+        dailyItems = try c.decodeIfPresent([DailyItem].self, forKey: .dailyItems) ?? []
+        dailyCompletions = try c.decodeIfPresent([DailyCompletion].self, forKey: .dailyCompletions) ?? []
         padWeek()
         if let saved = try c.decodeIfPresent([String: DayPlan].self, forKey: .scheduledPlans) {
             scheduledPlans = saved
@@ -459,5 +463,112 @@ extension AppData {
         ])
         let rest = DayPlan(title: "휴식", exercises: [])
         return AppData(week: [rest, upper(), lower(), cindy, upper(), lower(), test])
+    }
+}
+
+// MARK: - 일상: 할 일과 반복 습관
+
+struct DailyItem: Codable, Identifiable, Equatable {
+    enum Kind: String, Codable, CaseIterable {
+        case task, habit
+        var title: String { self == .task ? "할 일" : "습관" }
+    }
+    enum RepeatRule: String, Codable, CaseIterable {
+        case daily, weekdays, interval
+        var title: String {
+            switch self {
+            case .daily: return "매일"
+            case .weekdays: return "지정 요일"
+            case .interval: return "며칠 간격"
+            }
+        }
+    }
+    var id = UUID()
+    var title: String
+    var note = ""
+    var kind: Kind = .task
+    var scheduledDate: Date?
+    var startDate = Date()
+    var repeatRule: RepeatRule = .daily
+    var weekdays: [Int] = [1, 2, 3, 4, 5]
+    var intervalDays = 2
+    var skippedDays: Set<String> = []
+
+    func occurs(on date: Date) -> Bool {
+        let calendar = Calendar.current
+        if kind == .task {
+            return scheduledDate.map { calendar.isDate($0, inSameDayAs: date) } ?? false
+        }
+        let start = calendar.startOfDay(for: startDate)
+        let day = calendar.startOfDay(for: date)
+        guard day >= start, !skippedDays.contains(DayKey.key(date)) else { return false }
+        switch repeatRule {
+        case .daily: return true
+        case .weekdays: return weekdays.contains(DayKey.weekdayIndex(date))
+        case .interval:
+            let distance = calendar.dateComponents([.day], from: start, to: day).day ?? 0
+            return distance % max(intervalDays, 1) == 0
+        }
+    }
+
+    var scheduleDescription: String {
+        if kind == .task {
+            return scheduledDate?.formatted(.dateTime.month().day()) ?? "날짜 미정"
+        }
+        switch repeatRule {
+        case .daily: return "매일"
+        case .weekdays:
+            return [1, 2, 3, 4, 5, 6, 0].filter { weekdays.contains($0) }
+                .map { DayKey.weekdayNames[$0] }.joined(separator: " · ")
+        case .interval: return "\(max(intervalDays, 1))일마다"
+        }
+    }
+}
+
+// 완료 당시 내용을 보존하여 계획의 수정·삭제와 독립적으로 표시.
+struct DailyCompletion: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var itemID: UUID
+    var title: String
+    var note: String
+    var kind: DailyItem.Kind
+    var day: String
+    var completedAt: Date
+}
+
+extension AppData {
+    func dailyItems(on date: Date, includeUndated: Bool = false) -> [DailyItem] {
+        dailyItems.filter { $0.occurs(on: date) || (includeUndated && $0.kind == .task && $0.scheduledDate == nil) }
+    }
+
+    func isDailyComplete(_ item: DailyItem, on date: Date) -> Bool {
+        dailyCompletions.contains {
+            $0.itemID == item.id && (item.kind == .task || $0.day == DayKey.key(date))
+        }
+    }
+
+    mutating func saveDailyItem(_ item: DailyItem) {
+        guard !item.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        var saved = item
+        saved.title = saved.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let index = dailyItems.firstIndex(where: { $0.id == item.id }) { dailyItems[index] = saved }
+        else { dailyItems.append(saved) }
+    }
+
+    mutating func toggleDailyCompletion(_ id: UUID, on date: Date, at timestamp: Date = Date()) {
+        guard let item = dailyItems.first(where: { $0.id == id }),
+              item.occurs(on: date) || (item.kind == .task && item.scheduledDate == nil) else { return }
+        if isDailyComplete(item, on: date) {
+            dailyCompletions.removeAll { $0.itemID == id && (item.kind == .task || $0.day == DayKey.key(date)) }
+        } else {
+            dailyCompletions.append(DailyCompletion(itemID: id, title: item.title, note: item.note,
+                kind: item.kind, day: DayKey.key(date), completedAt: timestamp))
+        }
+    }
+
+    mutating func skipDailyHabit(_ id: UUID, on date: Date) {
+        guard let index = dailyItems.firstIndex(where: { $0.id == id && $0.kind == .habit }),
+              !isDailyComplete(dailyItems[index], on: date) else { return }
+        dailyItems[index].skippedDays.insert(DayKey.key(date))
     }
 }

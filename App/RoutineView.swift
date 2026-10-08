@@ -2,15 +2,17 @@ import SwiftUI
 
 struct RoutineView: View {
     @Environment(AppModel.self) private var model
-    @State private var selectedDate = Date()
+    @Binding var selectedDate: Date
     @State private var confirmingRepeat = false
+    @State private var showAll = false
 
     var body: some View {
         @Bindable var model = model
         NavigationStack {
             List {
                 Section("캘린더") {
-                    PlanCalendarView(selectedDate: $selectedDate)
+                    Toggle("운동·일상 함께 보기", isOn: $showAll)
+                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout)
                         .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
                     NavigationLink {
                         ScheduledDayEditor(date: selectedDate)
@@ -62,13 +64,6 @@ struct RoutineView: View {
                     }
                 } footer: {
                     Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 자동으로 반복되지 않으니 '다음 주에도 반복'을 써 줘.")
-                }
-                Section("설정") {
-                    Stepper("기본 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest, in: 15...600, step: 15)
-                    Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
-                }
-                Section("진단") {
-                    LabeledContent("위젯 공유 저장소", value: SharedStore.diagnostics).font(.caption)
                 }
             }
             .navigationTitle("계획")
