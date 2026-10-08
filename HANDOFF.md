@@ -2,6 +2,16 @@
 
 마지막 업데이트: 2026-10-09
 
+## 친구·그룹 경쟁 (로컬 main 통합, 미배포·서버 SQL 미적용)
+- 사용자 결정(2026-10-09): 1:1 친구 추가 + 그룹을 만들고 친구를 초대, 경쟁 항목은 공통 종목 최고기록, 공개는 자동(끌 수 있음).
+- 서버 `supabase/migrations/202610090001_social.sql`(기존 Supabase 사용, 추가 서버 없음): `social_profiles`(닉네임·8자리 친구 코드·공개 설정), `social_friendships`, `social_groups`/`social_group_members`, `social_records`. 테이블 직접 접근 차단, `social_*` 함수가 활성 세션·auth.uid()로 호출자 판단, 기록은 나·친구·같은 그룹원만 열람, 이메일 비노출, 계정 삭제 cascade. 적용 절차·보안 설명은 `docs/SOCIAL_SETUP.md`.
+- 앱: `App/SocialModel.swift`(친구 정보·순위·자동 공개), `App/FriendsView.swift`(기록 탭 '친구' 세그먼트: 닉네임·친구 코드 복사/공유, 공개 토글, 내 친구 전체/그룹별 공통 종목 순위, 친구 요청·수락·끊기, 그룹 만들기·초대·참여·나가기), `Shared/SocialRanking.swift`(순위·공개 값·응답 형식).
+- 자동 공개: 닉네임을 정하고 공개를 켠 계정만. 기록·일지 변경 3초 뒤 또는 앱 활성화 때, 마지막 공개 내용과 다를 때만 업로드. 값은 기록 탭과 동일(횟수 종목은 직접 기록과 운동 일지 중 높은 한 세트). 공개 끄면 서버 기록 즉시 삭제.
+- `AccountModel.validSession` 갱신을 단일 요청으로 묶음(백업 동기화와 친구 기능이 같은 refresh token을 동시에 쓰지 않게). `socialAccess()` 추가.
+- 서버 SQL 적용 전 앱은 404를 '친구 기능 서버 준비 중'으로 표시(다른 기능 영향 없음).
+- 검증: `codex/friends` Validate GymNote #52(모델·계정·일상·기록·순위 검사, iPad 시뮬레이터 XCTest(서버 호출 경로·본문·404·권한), DB: 기존 + `scripts/test_social.sql` 권한 검사), Build IPA #80 성공. SQL 검사는 로컬 PostgreSQL 16에서도 통과. 모델 검사 실패도 annotation으로 표시하도록 CI 개선.
+- 남은 일: 실제 Supabase에 SQL 적용(사용자 승인 필요), 배포, 두 계정으로 친구 요청·그룹 초대·순위 실제 확인.
+
 ## 설정의 관리자 계정 표시 (2026-10-09 로컬 수정)
 - 설정 → 계정에 서버에서 확인한 `canManageCatalog`가 참이면 주황색 방패 아이콘과 **관리자 계정**을 별도 행으로 표시한다. 설정 진입·로그인 사용자 변경 시 기존 공통 목록/관리자 권한 조회를 실행한다. 이메일로 관리자 권한을 추정하지 않으며 오프라인·재로그인 필요 상태에서는 기존 권한 조건에 따라 표시하지 않는다.
 - 작은 UI 변경으로 코드 검토·Swift 문법 비교·diff 검사 후 기존 main에 로컬 통합. 전체 iOS 빌드·XCTest·실기기 화면 확인은 미실행, 원격 push·배포 없음.
