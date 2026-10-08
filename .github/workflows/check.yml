@@ -87,4 +87,6 @@ jobs:
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/auth_test_schema.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610080001_accounts.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610080002_record_catalog.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_auth_policies.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_record_catalog.sql

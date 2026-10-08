@@ -91,6 +91,7 @@ struct RootView: View {
             if phase == .active {
                 model.reload()
                 account.scheduleSync()
+                Task { await account.refreshRecordCatalog() }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gymnoteStoreChanged).receive(on: RunLoop.main)) { _ in
