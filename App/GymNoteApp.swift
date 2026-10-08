@@ -73,6 +73,7 @@ struct RootView: View {
     @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
+    @State private var tabScreenVersions = [0, 0, 0, 0]
     @State private var selectedDate = Date()
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
@@ -91,6 +92,16 @@ struct RootView: View {
             .environment(\.gymnoteCompactLayout, geometry.size.width < 600)
         }
         .tint(.orange)
+        .onChange(of: selectedTab) { previous, _ in
+            // 떠난 탭의 상세 화면과 임시 화면 상태를 정리한다.
+            // 운동 진행과 선택 날짜는 상위 모델/RootView에 보존된다.
+            tabScreenVersions[previous] += 1
+        }
+        .onChange(of: workspace) { _, _ in
+            for index in tabScreenVersions.indices {
+                tabScreenVersions[index] += 1
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 model.reload()
@@ -137,18 +148,22 @@ struct RootView: View {
                     if workspace == "일상" { DailyTodayView() }
                     else { TodayView() }
                 }
+                .id("today-\(tabScreenVersions[0])")
                 .tabItem { Label("실행", systemImage: "checkmark.circle") }.tag(0)
                 Group {
                     if workspace == "일상" { DailyPlansView(selectedDate: $selectedDate) }
                     else { RoutineView(selectedDate: $selectedDate) }
                 }
+                .id("plans-\(tabScreenVersions[1])")
                 .tabItem { Label("계획", systemImage: "calendar") }.tag(1)
                 Group {
                     if workspace == "일상" { DailyHistoryView() }
                     else { RecordsView() }
                 }
+                .id("records-\(tabScreenVersions[2])")
                 .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
                 SettingsView()
+                    .id("settings-\(tabScreenVersions[3])")
                     .tabItem { Label("설정", systemImage: "gearshape") }.tag(3)
             }
         }
