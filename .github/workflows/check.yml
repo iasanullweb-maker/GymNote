@@ -31,7 +31,7 @@ jobs:
           /tmp/model-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/account-checks
           /tmp/account-checks
-          swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_daily.swift -o /tmp/daily-checks
+          swiftc Shared/Models.swift Shared/AccountData.swift Shared/DailyReminderPlan.swift scripts/test_daily.swift -o /tmp/daily-checks
           /tmp/daily-checks
       - name: Select available iPad simulator
         run: |
