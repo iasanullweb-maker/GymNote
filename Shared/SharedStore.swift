@@ -1,17 +1,25 @@
 import Foundation
 import WidgetKit
+import Darwin
 
-/// 앱과 위젯이 같이 쓰는 저장소 (App Group 컨테이너 안의 JSON 파일 하나)
+/// 앱과 위젯이 같이 쓰는 계정별 저장소. 인증 토큰은 이 컨테이너에 저장하지 않는다.
 enum SharedStore {
     /// project.yml의 엔타이틀먼트와 같은 값이어야 함
     static let baseGroupID = "group.com.gymnote.app"
     static let fileName = "gymnote-data.json"
+
+    #if DEBUG
+    static var testingDirectory: URL?
+    #endif
 
     /// AltStore는 다시 서명할 때 그룹 ID 뒤에 팀 ID를 붙이고(예: group.com.gymnote.app.ABCDE12345),
     /// 실제 ID를 Info.plist의 ALTAppGroups에 적어둠. 그래서 실행 중에 진짜 ID를 찾아서 씀.
     static let groupID: String? = resolveGroupID()
 
     static var directory: URL {
+        #if DEBUG
+        if let testingDirectory { return testingDirectory }
+        #endif
         if let id = groupID,
            let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) {
             return url
@@ -23,38 +31,183 @@ enum SharedStore {
     }
 
     static var fileURL: URL { directory.appendingPathComponent(fileName) }
+    private static var selectionURL: URL { directory.appendingPathComponent("active-account.json") }
 
-    static func load() -> AppData {
-        let url = fileURL
-        guard let raw = try? Data(contentsOf: url) else {
-            let initial = AppData.sample
-            save(initial, reloadWidgets: false)
-            return initial
-        }
-        if let decoded = try? JSONDecoder().decode(AppData.self, from: raw) {
-            // 이전 요일 루틴을 날짜 일정으로 옮긴 결과를 즉시 저장해 다음 주에 다시 이관하지 않음.
-            if let fields = try? JSONSerialization.jsonObject(with: raw) as? [String: Any],
-               fields["scheduledPlans"] == nil || fields["exerciseLibrary"] == nil {
-                save(decoded, reloadWidgets: false)
-            }
-            return decoded
-        }
-        // 파일이 깨졌으면 덮어쓰기 전에 백업
-        let backup = directory.appendingPathComponent("gymnote-data.broken.json")
-        try? FileManager.default.removeItem(at: backup)
-        try? FileManager.default.copyItem(at: url, to: backup)
-        return AppData.sample
+    /// The lock covers selection, read/modify/write, and sync acknowledgements across app + widget.
+    private static func locked<T>(_ action: () throws -> T) throws -> T {
+        let lockURL = directory.appendingPathComponent("gymnote-store.lock")
+        let descriptor = open(lockURL.path, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR)
+        guard descriptor >= 0 else { throw CocoaError(.fileWriteUnknown) }
+        defer { close(descriptor) }
+        guard flock(descriptor, LOCK_EX) == 0 else { throw CocoaError(.fileWriteUnknown) }
+        defer { flock(descriptor, LOCK_UN) }
+        return try action()
     }
 
-    static func save(_ appData: AppData, reloadWidgets: Bool = true) {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        if let raw = try? encoder.encode(appData) {
-            try? raw.write(to: fileURL, options: .atomic)
+    private static func readSelection() throws -> StoreSelection {
+        guard FileManager.default.fileExists(atPath: selectionURL.path) else { return StoreSelection(userID: nil) }
+        return try JSONDecoder().decode(StoreSelection.self, from: Data(contentsOf: selectionURL))
+    }
+
+    static func selection() throws -> StoreSelection { try locked { try readSelection() } }
+
+    private static func url(for userID: UUID?) -> URL {
+        guard let id = userID else { return fileURL }
+        return directory.appendingPathComponent("account-\(id.uuidString.lowercased()).json")
+    }
+
+    private static func write<T: Encodable>(_ value: T, to url: URL) throws {
+        let raw = try JSONEncoder().encode(value)
+        guard raw.count <= 2_000_000 else { throw CocoaError(.fileWriteOutOfSpace) }
+        try raw.write(to: url, options: [.atomic, .completeFileProtection])
+        var protectedURL = url
+        var properties = URLResourceValues()
+        properties.isExcludedFromBackup = true
+        // Account caches have a cloud backup; legacy guest records still need device backups.
+        if url.lastPathComponent != fileName { try protectedURL.setResourceValues(properties) }
+    }
+
+    private static func readSnapshot(userID: UUID?) throws -> StoredWorkout {
+        let file = url(for: userID)
+        guard FileManager.default.fileExists(atPath: file.path) else {
+            var initial = StoredWorkout(data: userID == nil ? .sample : .empty)
+            initial.dirty = userID == nil
+            try write(initial, to: file)
+            return initial
         }
-        if reloadWidgets {
-            WidgetCenter.shared.reloadAllTimelines()
+        let raw = try Data(contentsOf: file)
+        guard raw.count <= 2_000_000 else { throw CocoaError(.fileReadCorruptFile) }
+        let decoder = JSONDecoder()
+        if let snapshot = try? decoder.decode(StoredWorkout.self, from: raw) { return snapshot }
+        // Migrate legacy JSON only for the guest. Corrupt account caches must never become sample data.
+        guard userID == nil,
+              let fields = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
+              fields["data"] == nil, fields["revision"] == nil, fields["week"] != nil
+        else { throw CocoaError(.fileReadCorruptFile) }
+        let legacy = try decoder.decode(AppData.self, from: raw)
+        let backup = directory.appendingPathComponent("guest-before-accounts.json")
+        if !FileManager.default.fileExists(atPath: backup.path) { try write(legacy, to: backup) }
+        let migrated = StoredWorkout(data: legacy)
+        try write(migrated, to: file)
+        return migrated
+    }
+
+    static func snapshot(userID: UUID?) throws -> StoredWorkout {
+        try locked { try readSnapshot(userID: userID) }
+    }
+
+    @discardableResult
+    static func activate(userID: UUID?) throws -> StoreSelection {
+        let selection = try locked {
+            // Returning to guest must hide the previous account even if the guest file is corrupt.
+            if userID != nil { _ = try readSnapshot(userID: userID) }
+            let next = StoreSelection(userID: userID)
+            try write(next, to: selectionURL)
+            return next
         }
+        WidgetCenter.shared.reloadAllTimelines()
+        return selection
+    }
+
+    static func persistEdits(from base: AppData, to edited: AppData, selection: StoreSelection) throws -> AppData {
+        let result = try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var latest = try readSnapshot(userID: selection.userID)
+            latest.data = latest.data.applyingEdits(from: base, to: edited)
+            latest.dirty = true
+            latest.revision = UUID()
+            try write(latest, to: url(for: selection.userID))
+            return latest.data
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        return result
+    }
+
+    static func replaceWithCloud(_ cloud: AppData, version: Int64, revision: UUID, selection: StoreSelection) throws {
+        try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var latest = try readSnapshot(userID: selection.userID)
+            guard latest.revision == revision else { throw CocoaError(.fileWriteUnknown) }
+            if latest.dirty {
+                try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
+            }
+            latest.data = cloud
+            latest.serverVersion = version
+            latest.dirty = false
+            latest.revision = UUID()
+            try write(latest, to: url(for: selection.userID))
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static func acknowledge(version: Int64, revision: UUID, selection: StoreSelection) throws {
+        try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var latest = try readSnapshot(userID: selection.userID)
+            latest.serverVersion = version
+            if latest.revision == revision { latest.dirty = false }
+            try write(latest, to: url(for: selection.userID))
+        }
+    }
+
+    static func backupCloud(_ data: AppData, selection: StoreSelection) throws {
+        try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            try write(data, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
+        }
+    }
+
+    static func importGuest(selection: StoreSelection) throws {
+        try locked {
+            guard selection.userID != nil, try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var account = try readSnapshot(userID: selection.userID)
+            guard !account.importedGuest else { return }
+            let guest = try readSnapshot(userID: nil)
+            try write(guest, to: directory.appendingPathComponent("import-\(selection.scope).json"))
+            account.data = account.data.importingGuest(guest.data)
+            account.importedGuest = true
+            account.dirty = true
+            account.revision = UUID()
+            try write(account, to: url(for: selection.userID))
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static func eraseAccount(_ userID: UUID) throws {
+        try locked {
+            let scope = userID.uuidString.lowercased()
+            for file in try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
+                if file.lastPathComponent == "account-\(scope).json" || file.lastPathComponent == "import-\(scope).json"
+                    || file.lastPathComponent.hasPrefix("backup-\(scope)-") {
+                    try FileManager.default.removeItem(at: file)
+                }
+            }
+        }
+    }
+
+    static func load() -> AppData {
+        (try? locked { try readSnapshot(userID: readSelection().userID).data }) ?? .empty
+    }
+
+    /// Stale widget buttons carry a generation, so they cannot change a different account.
+    static func completeSet(_ exerciseID: UUID, generation: String) throws {
+        try locked {
+            let selection = try readSelection()
+            guard selection.generation.uuidString == generation else { return }
+            var latest = try readSnapshot(userID: selection.userID)
+            latest.data.changeSets(exerciseID, by: 1, wrap: true)
+            latest.dirty = true
+            latest.revision = UUID()
+            try write(latest, to: url(for: selection.userID))
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static func widgetSnapshot() -> (AppData, String) {
+        (try? locked {
+            let selection = try readSelection()
+            return (try readSnapshot(userID: selection.userID).data, selection.generation.uuidString)
+        }) ?? (.empty, "")
     }
 
     static var diagnostics: String {

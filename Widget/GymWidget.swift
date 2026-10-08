@@ -5,6 +5,7 @@ import WidgetKit
 struct GymEntry: TimelineEntry {
     let date: Date
     let data: AppData
+    var generation: String = ""
 }
 
 struct GymProvider: TimelineProvider {
@@ -13,12 +14,14 @@ struct GymProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (GymEntry) -> Void) {
-        completion(GymEntry(date: Date(), data: context.isPreview ? .sample : SharedStore.load()))
+        let snapshot = SharedStore.widgetSnapshot()
+        completion(GymEntry(date: Date(), data: context.isPreview ? .sample : snapshot.0, generation: snapshot.1))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<GymEntry>) -> Void) {
         let now = Date()
-        let entry = GymEntry(date: now, data: SharedStore.load())
+        let snapshot = SharedStore.widgetSnapshot()
+        let entry = GymEntry(date: now, data: snapshot.0, generation: snapshot.1)
         // 자정이 지나면 다음 날 루틴으로 바꿈 (체크하면 앱/인텐트가 바로 새로고침함)
         let startOfToday = Calendar.current.startOfDay(for: now)
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: startOfToday) ?? now.addingTimeInterval(3600)
@@ -163,7 +166,7 @@ struct GymWidgetView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Button(intent: StartRestIntent(seconds: entry.data.defaultRest)) {
+                Button(intent: StartRestIntent(seconds: entry.data.defaultRest, generation: entry.generation)) {
                     Label("\(entry.data.defaultRest)초", systemImage: "timer")
                         .font(.caption.bold())
                 }
@@ -176,7 +179,7 @@ struct GymWidgetView: View {
     private func exerciseButton(_ exercise: Exercise) -> some View {
         let done = entry.data.doneSets(exercise, on: entry.date)
         let finished = done >= exercise.sets
-        return Button(intent: CompleteSetIntent(exerciseID: exercise.id.uuidString)) {
+        return Button(intent: CompleteSetIntent(exerciseID: exercise.id.uuidString, generation: entry.generation)) {
             HStack(spacing: 6) {
                 Image(systemName: finished ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(finished ? Color.green : Color.secondary)
@@ -199,6 +202,7 @@ struct GymWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "GymWidget", provider: GymProvider()) { entry in
             GymWidgetView(entry: entry)
+                .privacySensitive()
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("오늘 운동")

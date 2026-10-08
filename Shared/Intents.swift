@@ -9,17 +9,19 @@ struct CompleteSetIntent: AppIntent {
     @Parameter(title: "운동 ID")
     var exerciseID: String
 
+    @Parameter(title: "계정 전환 확인")
+    var generation: String
+
     init() {}
 
-    init(exerciseID: String) {
+    init(exerciseID: String, generation: String) {
         self.exerciseID = exerciseID
+        self.generation = generation
     }
 
     func perform() async throws -> some IntentResult {
-        var data = SharedStore.load()
         if let id = UUID(uuidString: exerciseID) {
-            data.changeSets(id, by: 1, wrap: true)
-            SharedStore.save(data)
+            try SharedStore.completeSet(id, generation: generation)
         }
         return .result()
     }
@@ -33,16 +35,22 @@ struct StartRestIntent: LiveActivityIntent {
     @Parameter(title: "휴식 시간(초)", default: 90)
     var seconds: Int
 
+    @Parameter(title: "계정 전환 확인", default: "")
+    var generation: String
+
     init() {}
 
-    init(seconds: Int) {
+    init(seconds: Int, generation: String = "") {
         self.seconds = seconds
+        self.generation = generation
     }
 
     func perform() async throws -> some IntentResult {
-        let data = SharedStore.load()
+        let snapshot = SharedStore.widgetSnapshot()
+        guard generation.isEmpty || generation == snapshot.1 else { return .result() }
+        let data = snapshot.0
         let next = data.nextUp()
-        await RestController.start(seconds: seconds, title: next.title, info: next.info, sound: data.restSound)
+        await RestController.start(seconds: seconds, title: next.title, info: next.info, sound: data.restSound, generation: snapshot.1)
         return .result()
     }
 }

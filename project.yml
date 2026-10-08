@@ -16,6 +16,8 @@ settings:
     TARGETED_DEVICE_FAMILY: "1,2"
     CODE_SIGN_STYLE: Manual
     DEVELOPMENT_TEAM: ""
+    GYMNOTE_SUPABASE_URL: ""
+    GYMNOTE_SUPABASE_PUBLISHABLE_KEY: ""
 
 targets:
   GymNote:
@@ -34,6 +36,8 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         NSSupportsLiveActivities: true
+        GYMNOTE_SUPABASE_URL: "$(GYMNOTE_SUPABASE_URL)"
+        GYMNOTE_SUPABASE_PUBLISHABLE_KEY: "$(GYMNOTE_SUPABASE_PUBLISHABLE_KEY)"
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
@@ -56,7 +60,23 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - target: GymNoteWidget
-    scheme: {}
+    scheme:
+      testTargets:
+        - GymNoteTests
+
+  GymNoteTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: GymNote
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymnote.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/GymNote.app/GymNote"
+        BUNDLE_LOADER: "$(TEST_HOST)"
 
   GymNoteWidget:
     type: app-extension

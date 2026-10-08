@@ -9,3 +9,6 @@ Payload/
 DerivedData/
 
 .DS_Store
+
+# Local syntax/database validation dependencies
+.validation-tools/
