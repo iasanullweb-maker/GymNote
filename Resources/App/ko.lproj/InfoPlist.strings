@@ -1,0 +1,2 @@
+/* 홈 화면에 보이는 이름 (Info.plist에는 영문 이름이 들어가야 AltStore 설치가 됨) */
+"CFBundleDisplayName" = "헬스노트";
