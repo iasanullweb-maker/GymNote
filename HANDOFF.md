@@ -136,3 +136,11 @@
 - 기존 main에 fast-forward 통합 후 main Actions #18 성공. **0.1.18** / `build-18` 릴리스와 AltStore 소스 게시 확인.
 - 워크트리의 `GymNote.ipa`를 0.1.18로 교체하고 공개 릴리스 SHA256 일치 확인.
 - 로컬 Windows에서는 Xcode 시뮬레이터/Canvas 실행 불가. Mac에서는 `App/PlanCalendarView.swift`의 '계획 캘린더' Preview로 설치 없이 월 이동·날짜 선택을 확인할 수 있다. 실제 화면 시각 검토는 아직 하지 않았으며 GitHub 시뮬레이터 테스트 성공과 구분할 것.
+## 앱 점검 수정 5건 / 배포 0.1.20
+- 브랜치 `claude/app-fixes`(워크트리)에서 수정 → 브랜치 검증 빌드(모델 회귀 검사 포함) 성공 → 검토 → main fast-forward 통합 → main Actions #20 성공, **0.1.20** 배포·AltStore 소스 갱신.
+1. 기록 파일 보호 등급 `completeUntilFirstUserAuthentication`으로 변경 + 기존 json 파일 변환(`relaxProtection`, activate 시). 잠금 상태에서도 위젯 표시. 토큰은 키체인 유지. LOGIN_SETUP.md 문구 갱신.
+2. 위젯 세트 체크(`completeSetFromWidget`): 진행 중 운동이 없고 오늘 저장한 일지도 없으면 운동 자동 시작 → 일지에 남음. 이미 저장한 날은 기존처럼 체크만.
+3. 날짜가 지난 진행 중 운동(`closeStaleWorkout`): 앱 reload·운동 시작·위젯 체크 때 정리. 완료 세트 있으면 일지 저장(endedAt 없음 → 운동 시간 미표시), 0세트면 버림.
+4. 하루 여러 운동: 저장 후 운동 탭에 '새 운동 시작'. 새 운동은 그날 계획 운동의 완료 세트를 0으로 초기화하고 시작, 이전 일지는 보존.
+5. 계획 탭 '이 주 계획을 다음 주에도 반복' (1/2/4/8주). 오늘 이후 날짜만 덮어씀, 복사본은 새 운동 ID.
+- 실제 아이패드 확인 필요: 잠금 화면 위젯 표시, 위젯 첫 체크 후 운동 탭 '운동 중' 표시, 주간 반복.
