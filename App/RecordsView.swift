@@ -5,7 +5,6 @@ struct RecordsView: View {
     @Environment(AppModel.self) private var model
     @State private var showingAdd = false
     @State private var showingTypes = false
-    @State private var editing: RecordEntry?
     @State private var prMessage: String?
 
     var body: some View {
@@ -16,7 +15,7 @@ struct RecordsView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(model.data.recordTypes) { type in
-                    RecordSection(type: type) { editing = $0 }
+                    RecordSection(type: type)
                 }
             }
             .navigationTitle("기록")
@@ -36,11 +35,6 @@ struct RecordsView: View {
                     if model.addRecord(entry), let type = model.data.recordType(entry.typeID) {
                         prMessage = "\(type.name) \(type.display(entry))"
                     }
-                }
-            }
-            .sheet(item: $editing) { entry in
-                AddRecordView(types: model.data.recordTypes, existing: entry) { updated in
-                    model.data.updateRecord(updated)
                 }
             }
             .sheet(isPresented: $showingTypes) {
@@ -65,12 +59,10 @@ struct RecordsView: View {
 struct RecordSection: View {
     @Environment(AppModel.self) private var model
     let type: RecordType
-    let onEdit: (RecordEntry) -> Void
 
     var body: some View {
         let entries = model.data.entries(type)
         let best = model.data.best(type)
-        let yLabel = type.style == .rounds ? "총 반복" : "기록"
 
         Section(type.name) {
             HStack {
@@ -84,7 +76,7 @@ struct RecordSection: View {
                 }
                 Spacer()
                 if let best = best {
-                    Text(best.date, format: .dateTime.month().day())
+                    Text(best.date, format: .dateTime.year().month().day())
                         .foregroundStyle(.secondary)
                 }
             }
@@ -93,28 +85,22 @@ struct RecordSection: View {
                 Chart(entries) { entry in
                     LineMark(
                         x: .value("날짜", entry.date),
-                        y: .value(yLabel, type.score(entry))
+                        y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
                     )
                     PointMark(
                         x: .value("날짜", entry.date),
-                        y: .value(yLabel, type.score(entry))
+                        y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
                     )
                 }
                 .foregroundStyle(.orange)
                 .frame(height: 140)
             }
 
-            ForEach(Array(entries.reversed().prefix(5))) { entry in
-                RecordRow(type: type, entry: entry) { onEdit(entry) }
-            }
-
-            if !entries.isEmpty {
-                NavigationLink {
-                    RecordHistoryView(typeID: type.id)
-                } label: {
-                    Text("전체 기록 보기 (\(entries.count)개)")
-                        .foregroundStyle(.secondary)
-                }
+            NavigationLink {
+                RecordHistoryView(typeID: type.id)
+            } label: {
+                Text("전체 기록 보기 (\(entries.count)개)")
+                    .foregroundStyle(.secondary)
             }
         }
     }
