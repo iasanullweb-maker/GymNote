@@ -20,16 +20,17 @@ struct LoginView: View {
         ScrollView {
             VStack(spacing: 28) {
                 header
-                if showingEmail { emailForm }
-                else { providers }
-                if let message = account.message {
+                if showingEmail { emailForm.disabled(account.busy) }
+                else { providers.disabled(account.busy) }
+                if account.messageContext != .backup, let message = account.message {
                     Text(message)
                         .font(.callout).foregroundStyle(.secondary)
                         .accessibilityAddTraits(.updatesFrequently)
                 }
-                if account.busy { ProgressView("처리 중…") }
+                if account.busy { ProgressView(account.operationTitle) }
                 if welcome {
                     Button("로그인 없이 시작") { account.continueAsGuest() }
+                        .disabled(account.busy)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 8)
@@ -45,7 +46,7 @@ struct LoginView: View {
         }
         .background(Color(uiColor: .systemGroupedBackground))
         .scrollDismissesKeyboard(.interactively)
-        .disabled(account.busy || !account.initialized)
+        .disabled(!account.initialized)
         .onChange(of: account.pendingEmail) { _, pending in
             code = ""
             focusedField = pending == nil ? .email : .code
@@ -163,14 +164,11 @@ struct LoginView: View {
                 primaryButton("확인하고 시작하기", disabled: code.count != 6 || !account.isOnline) {
                     let submitted = code
                     let importRecords = importDeviceRecords
-                    code = ""
                     focusedField = nil
                     Task { await account.verify(code: submitted, importDeviceRecords: importRecords) }
                 }
-                Button("인증번호 다시 받기") {
-                    Task { await account.sendCode(email: pending, createUser: createUser, consent: consent) }
-                }.disabled(!account.isOnline)
-                Button("다른 이메일 사용") { account.resetCode() }
+                AccountResendButton(email: pending, createUser: createUser, consent: consent)
+                Button("다른 이메일 사용") { account.resetCode() }.disabled(account.busy)
             } else {
                 Picker("이메일 계정", selection: $createUser) {
                     Text("로그인").tag(false)
@@ -188,9 +186,13 @@ struct LoginView: View {
                     Text("가입 후 계정의 기록은 서버에 저장됩니다. 기존 기기 기록은 아래에서 동의한 경우에만 가져옵니다.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                primaryButton("인증번호 받기", disabled: !account.isOnline || email.isEmpty || (createUser && !consent)) {
-                    focusedField = nil
-                    Task { await account.sendCode(email: email, createUser: createUser, consent: consent) }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let seconds = account.resendSeconds(at: context.date)
+                    primaryButton(seconds > 0 ? "인증번호 받기 · \(seconds)초 후" : "인증번호 받기",
+                                  disabled: !account.isOnline || email.isEmpty || (createUser && !consent) || seconds > 0) {
+                        focusedField = nil
+                        Task { await account.sendCode(email: email, createUser: createUser, consent: consent) }
+                    }
                 }
             }
             if account.hasGuestRecords { importToggle }
