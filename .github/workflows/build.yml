@@ -41,6 +41,8 @@ jobs:
         run: |
           swiftc Shared/Models.swift scripts/test_models.swift -o /tmp/gymnote-model-checks
           /tmp/gymnote-model-checks
+          swiftc Shared/Models.swift Shared/AccountData.swift Shared/ManualWorkout.swift scripts/test_manual_workout.swift -o /tmp/gymnote-manual-checks
+          /tmp/gymnote-manual-checks
           swiftc Shared/Models.swift Shared/AccountData.swift Shared/DailyReminderPlan.swift scripts/test_daily.swift -o /tmp/daily-checks
           /tmp/daily-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/gymnote-account-checks

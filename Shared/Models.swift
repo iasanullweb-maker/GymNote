@@ -162,6 +162,7 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
     var completedSets: [String: Int] = [:]
     // Missing entries mean the actual count was not recorded (older journals).
     var actualReps: [String: [Int?]] = [:]
+    var actualWeights: [String: [Double?]] = [:] // 세트별 kg. 이전 일지는 미기록.
 
     var day: String { DayKey.key(startedAt) }
     var done: Int { plan.exercises.reduce(0) { $0 + doneSets($1) } }
@@ -178,7 +179,7 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
 }
 
 extension WorkoutSession {
-    private enum CodingKeys: String, CodingKey { case id, startedAt, endedAt, plan, completedSets, actualReps }
+    private enum CodingKeys: String, CodingKey { case id, startedAt, endedAt, plan, completedSets, actualReps, actualWeights }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -188,6 +189,7 @@ extension WorkoutSession {
         plan = try c.decode(DayPlan.self, forKey: .plan)
         completedSets = try c.decodeIfPresent([String: Int].self, forKey: .completedSets) ?? [:]
         actualReps = try c.decodeIfPresent([String: [Int?]].self, forKey: .actualReps) ?? [:]
+        actualWeights = try c.decodeIfPresent([String: [Double?]].self, forKey: .actualWeights) ?? [:]
     }
 }
 
