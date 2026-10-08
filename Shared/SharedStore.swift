@@ -59,7 +59,8 @@ enum SharedStore {
     private static func write<T: Encodable>(_ value: T, to url: URL) throws {
         let raw = try JSONEncoder().encode(value)
         guard raw.count <= 2_000_000 else { throw CocoaError(.fileWriteOutOfSpace) }
-        try raw.write(to: url, options: [.atomic, .completeFileProtection])
+        // 잠긴 상태에서도 위젯이 읽을 수 있게: 재부팅 후 첫 잠금 해제부터 접근 가능 (로그인 토큰은 키체인에 따로 보관)
+        try raw.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         var protectedURL = url
         var properties = URLResourceValues()
         properties.isExcludedFromBackup = true
@@ -100,6 +101,7 @@ enum SharedStore {
     static func activate(userID: UUID?) throws -> StoreSelection {
         let selection = try locked {
             // Returning to guest must hide the previous account even if the guest file is corrupt.
+            relaxProtection()
             if userID != nil { _ = try readSnapshot(userID: userID) }
             let next = StoreSelection(userID: userID)
             try write(next, to: selectionURL)
@@ -107,6 +109,16 @@ enum SharedStore {
         }
         WidgetCenter.shared.reloadAllTimelines()
         return selection
+    }
+
+    /// 예전 버전이 '잠금 해제 중에만 읽기'로 저장한 파일을 위젯이 읽을 수 있는 등급으로 바꿈
+    private static func relaxProtection() {
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for file in files where file.pathExtension == "json" {
+            try? fm.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                                  ofItemAtPath: file.path)
+        }
     }
 
     static func persistEdits(from base: AppData, to edited: AppData, selection: StoreSelection) throws -> AppData {
@@ -195,7 +207,7 @@ enum SharedStore {
             let selection = try readSelection()
             guard selection.generation.uuidString == generation else { return }
             var latest = try readSnapshot(userID: selection.userID)
-            latest.data.changeSets(exerciseID, by: 1, wrap: true)
+            latest.data.completeSetFromWidget(exerciseID)
             latest.dirty = true
             latest.revision = UUID()
             try write(latest, to: url(for: selection.userID))

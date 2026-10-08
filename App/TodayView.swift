@@ -26,8 +26,16 @@ struct TodayView: View {
                                 .buttonStyle(.bordered)
                         }
                     } else if model.savedToday {
-                        Label("운동 일지에 저장됨", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        HStack {
+                            Label("운동 일지에 저장됨", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Spacer()
+                            Button { model.startWorkout() } label: {
+                                Label("새 운동 시작", systemImage: "plus")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(plan.isRestDay)
+                        }
                     } else {
                         Button { model.startWorkout() } label: {
                             Label("운동 시작", systemImage: "play.fill")
