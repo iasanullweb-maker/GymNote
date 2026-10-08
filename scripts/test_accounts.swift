@@ -21,6 +21,10 @@ struct AccountChecks {
         assert(imported.records.contains(entry) && imported.records.contains(own))
         assert(imported.defaultRest == 45, "계정 설정 유지")
         assert(imported == imported.importingGuest(guest), "재가져오기 중복 방지")
+        assert(!account.hasImportConflict(with: guest), "서로 다른 기록 ID는 함께 가져올 수 있음")
+        var changedGuest = guest
+        changedGuest.records[0].value = 99
+        assert(guest.hasImportConflict(with: changedGuest), "같은 ID의 다른 기록은 자동 덮어쓰지 않음")
         assert(imported.doneSets(exercise, on: date) == 2)
         assert(account.records == [own] && guest.records == [entry], "원본 유지")
 
@@ -34,6 +38,7 @@ struct AccountChecks {
 
         var widget = guest
         widget.changeSets(exercise.id, by: 1, on: date)
+        assert(widget.hasImportConflict(with: guest), "같은 운동의 서로 다른 진행은 확인 필요")
         var appEdit = guest
         appEdit.defaultRest = 75
         appEdit.restStep = 10
@@ -95,6 +100,17 @@ struct AccountChecks {
         var sameSessionSettings = finished
         sameSessionSettings.defaultRest = 80
         assert(finished.applyingEdits(from: finished, to: sameSessionSettings).workouts == finished.workouts)
+
+        var dailyGuest = AppData.empty
+        let dailyItem = DailyItem(title: "독서", scheduledDate: date)
+        dailyGuest.dailyItems = [dailyItem]
+        var dailyCloud = AppData.empty
+        assert(!dailyCloud.hasImportConflict(with: dailyGuest))
+        dailyCloud = dailyCloud.importingGuest(dailyGuest)
+        assert(dailyCloud.dailyItems == [dailyItem])
+        assert(!dailyCloud.hasImportConflict(with: dailyGuest))
+        dailyCloud.dailyItems[0].title = "수정된 독서"
+        assert(dailyCloud.hasImportConflict(with: dailyGuest), "같은 일상 항목의 다른 수정은 자동으로 덮어쓰지 않음")
 
         let stored = StoredWorkout(data: imported, serverVersion: 7, dirty: true, importedGuest: true)
         let decoded = try JSONDecoder().decode(StoredWorkout.self, from: JSONEncoder().encode(stored))

@@ -20,6 +20,8 @@ env:
 
 jobs:
   build:
+    # This chat's login work is validation-only until the user's combined release is ready.
+    if: github.ref != 'refs/heads/codex/login'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4

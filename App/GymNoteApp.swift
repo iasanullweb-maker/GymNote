@@ -40,25 +40,40 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
     @State private var selectedDate = Date()
-    @State private var showingSettings = false
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 16) {
-                Picker("분야", selection: $workspace) {
-                    Text("운동").tag("운동")
-                    Text("일상").tag("일상")
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 360)
-                Spacer(minLength: 0)
-                Button { showingSettings = true } label: {
-                    Image(systemName: "gearshape").font(.title2)
-                }
-                .accessibilityLabel("설정")
+        Group {
+            if !account.initialized || account.connection == .checking {
+                ProgressView("기기 기록을 불러오는 중…")
+            } else if account.showsWelcome {
+                AccountView(welcome: true)
+            } else {
+                mainTabs
             }
-            .padding(.horizontal).padding(.vertical, 8)
+        }
+        .tint(.orange)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                model.reload()
+                account.scheduleSync()
+            }
+        }
+        .task {
+            await account.bootstrap()
+            model.reload()
+            await RestController.requestPermissions()
+        }
+        .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
+            Button("확인", role: .cancel) { model.storageError = nil }
+        } message: { Text(model.storageError ?? "") }
+    }
+
+    private var mainTabs: some View {
+        VStack(spacing: 0) {
+            WorkspaceSwitcher(selection: $workspace)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             if workspace == "일상", model.data.activeWorkout != nil {
                 Button {
                     workspace = "운동"
@@ -85,31 +100,19 @@ struct RootView: View {
                     else { RecordsView() }
                 }
                 .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
+                SettingsView()
+                    .tabItem { Label("설정", systemImage: "gearshape") }.tag(3)
             }
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-                .safeAreaInset(edge: .bottom) {
-                    Button("닫기") { showingSettings = false }
-                        .frame(maxWidth: .infinity).padding().background(.regularMaterial)
-                }
         }
         .id(model.selection.generation)
-        .tint(.orange)
-        // 위젯에서 체크한 내용을 앱으로 다시 불러옴
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                model.reload()
-                account.scheduleSync()
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !account.isOnline {
+                Label("오프라인 · 기기 기록으로 계속 진행", systemImage: "wifi.slash")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(.thinMaterial)
             }
         }
-        .task {
-            await RestController.requestPermissions()
-            model.reload()
-            await account.bootstrap()
-        }
-        .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
-            Button("확인", role: .cancel) { model.storageError = nil }
-        } message: { Text(model.storageError ?? "") }
     }
 }

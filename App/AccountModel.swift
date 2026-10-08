@@ -2,6 +2,8 @@ import Foundation
 import Observation
 import Network
 
+enum AccountConnection { case checking, offline, online }
+
 @Observable
 @MainActor
 final class AccountModel {
@@ -15,6 +17,8 @@ final class AccountModel {
     private(set) var message: String?
     private(set) var syncStatus = "기기에 저장 중"
     private(set) var cloudChecked = false
+    private(set) var connection: AccountConnection
+    private(set) var guestSelected = false
     @ObservationIgnored private unowned let model: AppModel
     @ObservationIgnored private let client: AuthClient?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
@@ -26,28 +30,44 @@ final class AccountModel {
     var configured: Bool { client != nil }
     var user: AccountUser? { session?.user }
     var isReauthenticating: Bool { needsLogin || deleting }
+    var isOnline: Bool { connection == .online }
+    var showsWelcome: Bool { initialized && configured && isOnline && user == nil && !guestSelected }
+    var modeDescription: String {
+        if !isOnline { return "오프라인 모드 · 기기에 저장 중" }
+        return user == nil ? "게스트 모드 · 기기에 저장 중" : syncStatus
+    }
+    var hasGuestRecords: Bool {
+        guard let data = try? SharedStore.snapshot(userID: nil).data else { return false }
+        return !data.records.isEmpty || !data.workouts.isEmpty || !data.logs.isEmpty
+            || data.activeWorkout != nil || !data.scheduledPlans.isEmpty || !data.exerciseLibrary.isEmpty
+            || !data.dailyItems.isEmpty || !data.dailyCompletions.isEmpty
+    }
+    private func importConsentKey(_ id: UUID) -> String {
+        "com.gymnote.importConsent.\(client?.config.url.host ?? "unconfigured").\(id.uuidString)"
+    }
     private var vault: SessionVault? { client.map { SessionVault(project: $0.config.url.host!) } }
     var canImport: Bool {
         guard cloudChecked, let id = user?.id else { return false }
         return (try? SharedStore.snapshot(userID: id).importedGuest) == false
     }
 
-    init(model: AppModel, client: AuthClient? = AuthConfiguration.current.map { AuthClient(config: $0) }) {
+    init(model: AppModel, client: AuthClient? = AuthConfiguration.current.map { AuthClient(config: $0) },
+         initialConnection: AccountConnection = .checking, monitorConnectivity: Bool = true) {
         self.model = model
         self.client = client
+        connection = initialConnection
         connectivity.pathUpdateHandler = { [weak self] path in
-            guard path.status == .satisfied else { return }
-            Task { @MainActor [weak self] in self?.scheduleSync() }
+            let connected = path.status == .satisfied && (path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet))
+            Task { @MainActor [weak self] in self?.updateConnection(connected ? .online : .offline) }
         }
-        connectivity.start(queue: DispatchQueue(label: "com.gymnote.connectivity"))
+        if monitorConnectivity { connectivity.start(queue: DispatchQueue(label: "com.gymnote.connectivity")) }
     }
     deinit { connectivity.cancel(); syncTask?.cancel() }
 
     func bootstrap() async {
         guard !initialized else { return }
-        initialized = true
         busy = true
-        defer { finishOperation() }
+        defer { initialized = true; finishOperation(); scheduleSync() }
         do {
             if let stored = try vault?.read() {
                 session = stored
@@ -58,11 +78,30 @@ final class AccountModel {
             message = AccountError.storage.localizedDescription
         }
         // A cached account may work offline; all cloud access still requires server authentication.
-        scheduleSync()
+    }
+
+    func updateConnection(_ next: AccountConnection) {
+        connection = next
+        if isOnline { scheduleSync() }
+        else {
+            // Do not cancel an in-flight upload: it may already have committed on the server.
+            if !busy { syncTask?.cancel() }
+            syncStatus = "오프라인 모드 · 연결되면 자동 저장"
+        }
+    }
+
+    func continueAsGuest() { guestSelected = true; resetCode() }
+
+    private func requireConnection() -> Bool {
+        guard isOnline else {
+            message = "이 계정 작업은 Wi-Fi 연결이 필요해요. 기존 기록은 기기에 계속 저장됩니다."
+            return false
+        }
+        return true
     }
 
     func scheduleSync() {
-        guard initialized, session != nil, !needsLogin, !deleting, conflict == nil else { return }
+        guard initialized, isOnline, session != nil, !needsLogin, !deleting, conflict == nil else { return }
         // Never cancel a running upload: the server may commit it even if its response is cancelled.
         if busy { syncRequested = true; return }
         syncTask?.cancel()
@@ -84,6 +123,7 @@ final class AccountModel {
 
     func sendCode(email raw: String, createUser: Bool, consent: Bool) async {
         guard !busy, let client else { return }
+        guard requireConnection() else { return }
         let email = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard email.count <= 254, email.contains("@"), !email.contains(where: { $0.isWhitespace }),
               !createUser || consent else { message = AccountError.invalidInput.localizedDescription; return }
@@ -106,18 +146,20 @@ final class AccountModel {
     }
 
     /// Verification is also the fresh authentication step required before deleting an account.
-    func verify(code: String) async {
+    func verify(code: String, importDeviceRecords: Bool = false) async {
         guard !busy, let client, let email = pendingEmail else { return }
+        guard requireConnection() else { return }
         guard code.count == 6, code.allSatisfy({ $0.isASCII && $0.isNumber }) else {
             message = AccountError.invalidInput.localizedDescription; return
         }
         busy = true
         defer { finishOperation() }
         do {
+            let wasGuest = model.selection.userID == nil
             let verified = try await client.verify(email: email, code: code)
             let identity = try await client.user(token: verified.accessToken)
             guard identity.id == verified.user.id, (!deleting || identity.id == user?.id) else { throw AccountError.unauthorized }
-            _ = try SharedStore.snapshot(userID: identity.id)
+            let beforeImport = try SharedStore.snapshot(userID: identity.id)
             try vault?.write(verified)
             if model.selection.userID != identity.id {
                 cloudChecked = false
@@ -125,10 +167,19 @@ final class AccountModel {
                 try await model.switchAccount(identity.id)
             }
             session = verified
+            if wasGuest, !deleting, importDeviceRecords {
+                try SharedStore.importGuest(selection: model.selection)
+                if !beforeImport.importedGuest, beforeImport.serverVersion == 0, !beforeImport.dirty {
+                    UserDefaults.standard.set(true, forKey: importConsentKey(identity.id))
+                }
+                model.reload()
+            }
             needsLogin = false
             pendingEmail = nil
             generation = UUID()
-            message = deleting ? "본인 확인을 마쳤어요. 계정 삭제를 다시 눌러 완료해 주세요." : "로그인했어요. 기존 기기 기록은 가져오기를 선택할 때만 계정에 추가됩니다."
+            message = deleting ? "본인 확인을 마쳤어요. 계정 삭제를 다시 눌러 완료해 주세요."
+                : (wasGuest && importDeviceRecords ? "로그인했어요. 기기 기록을 가져왔고, 연결되면 서버에 이어서 저장합니다."
+                    : "로그인했어요. 기존 기기 기록은 설정에서 가져올 수 있어요.")
             if deleting { deletionVerifiedAt = Date() }
             else { scheduleSync() }
         } catch { show(error) }
@@ -149,7 +200,7 @@ final class AccountModel {
     }
 
     func synchronize() async {
-        guard !busy, !needsLogin, !deleting, conflict == nil, session != nil, let client else { return }
+        guard !busy, isOnline, !needsLogin, !deleting, conflict == nil, session != nil, let client else { return }
         busy = true
         defer { finishOperation() }
         let operation = generation
@@ -157,10 +208,23 @@ final class AccountModel {
         do {
             let current = try await validSession()
             guard current.user.id == selection.userID else { throw AccountError.stale }
-            let local = try SharedStore.snapshot(userID: selection.userID)
+            var local = try SharedStore.snapshot(userID: selection.userID)
             let remote = try await client.download(token: current.accessToken)
             guard generation == operation, model.selection == selection else { throw AccountError.stale }
             cloudChecked = true
+            if UserDefaults.standard.bool(forKey: importConsentKey(current.user.id)) {
+                if let remote, local.serverVersion == 0, remote.version != local.serverVersion {
+                    if remote.payload.hasImportConflict(with: local.data) {
+                        conflict = remote
+                        syncStatus = "다른 기기의 변경 확인 필요"
+                        return
+                    }
+                    try SharedStore.mergeInitialImport(remote.payload, version: remote.version, revision: local.revision, selection: selection)
+                    local = try SharedStore.snapshot(userID: selection.userID)
+                    model.reload()
+                }
+                UserDefaults.standard.removeObject(forKey: importConsentKey(current.user.id))
+            }
             if let remote, remote.version != local.serverVersion {
                 if local.dirty {
                     conflict = remote
@@ -196,6 +260,7 @@ final class AccountModel {
     /// Both choices preserve a local backup; replacing the cloud uses the version the user reviewed.
     func resolveConflict(useCloud: Bool) async {
         guard !busy, !needsLogin, let remote = conflict, let client else { return }
+        guard requireConnection() else { return }
         busy = true
         defer { finishOperation() }
         let selection = model.selection
@@ -227,8 +292,8 @@ final class AccountModel {
         busy = true
         syncTask?.cancel()
         defer { finishOperation() }
-        var serverLogoutFailed = false
-        if let client, session != nil {
+        var serverLogoutFailed = !isOnline && session != nil
+        if isOnline, let client, session != nil {
             do {
                 let fresh = try await validSession()
                 try await client.signOut(token: fresh.accessToken)
@@ -236,6 +301,7 @@ final class AccountModel {
         }
         do {
             try vault?.clear()
+            if let id = session?.user.id { UserDefaults.standard.removeObject(forKey: importConsentKey(id)) }
             session = nil
             cloudChecked = false
             generation = UUID()
@@ -245,6 +311,7 @@ final class AccountModel {
             deleting = false
             deletionVerifiedAt = nil
             needsLogin = false
+            guestSelected = true
             syncStatus = "기기에 저장 중"
             try await model.switchAccount(nil)
             message = serverLogoutFailed ? "이 기기에서 로그아웃했어요. 서버 세션 종료는 확인하지 못했어요. 계정 기록은 다음 로그인까지 숨겨집니다." : "로그아웃했어요. 계정 기록은 다음 로그인까지 숨겨집니다."
@@ -266,6 +333,7 @@ final class AccountModel {
 
     func deleteAccount() async {
         guard !busy, let client, let current = session else { return }
+        guard requireConnection() else { return }
         guard readyToDelete else {
             deletionVerifiedAt = nil
             message = "본인 확인이 만료됐어요. 인증번호를 다시 받아 확인해 주세요."
@@ -275,6 +343,7 @@ final class AccountModel {
         defer { finishOperation() }
         do {
             try await client.deleteAccount(token: current.accessToken)
+            UserDefaults.standard.removeObject(forKey: importConsentKey(current.user.id))
             var cleanupError: Error?
             do { try vault?.clear() } catch { cleanupError = error }
             session = nil

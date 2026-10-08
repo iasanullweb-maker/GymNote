@@ -13,6 +13,9 @@ struct SettingsView: View {
         @Bindable var model = model
         NavigationStack {
             Form {
+                Section("저장 상태") {
+                    Label(account.modeDescription, systemImage: account.isOnline ? "icloud" : "wifi.slash")
+                }
                 Section {
                     Stepper("세트 사이 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest,
                             in: Self.restRange, step: 5)

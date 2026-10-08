@@ -15,6 +15,20 @@ final class AuthStub: URLProtocol {
         } catch { client?.urlProtocol(self, didFailWithError: error) }
     }
     override func stopLoading() {}
+    static func body(of request: URLRequest) -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+        var result = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count > 0 else { break }
+            result.append(contentsOf: buffer.prefix(count))
+        }
+        return result
+    }
 }
 
 @MainActor
@@ -226,7 +240,7 @@ final class AccountTests: XCTestCase {
         let model = AppModel()
         let entry = RecordEntry(typeID: "pushup", date: Date(), value: 42)
         model.data.records = [entry]
-        let account = AccountModel(model: model, client: client)
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
         await account.bootstrap()
         await account.sendCode(email: "test@example.com", createUser: true, consent: true)
         await account.verify(code: "123456")
@@ -240,5 +254,177 @@ final class AccountTests: XCTestCase {
         XCTAssertNil(try vault.read())
         XCTAssertNil(model.selection.userID)
         XCTAssertEqual(model.data.records, [entry])
+    }
+
+    private func stubClient() -> AuthClient {
+        let settings = URLSessionConfiguration.ephemeral
+        settings.protocolClasses = [AuthStub.self]
+        return AuthClient(config: AuthConfiguration(url: URL(string: "https://test-\(UUID().uuidString.lowercased()).supabase.co")!,
+                                                    publicKey: "sb_publishable_test"), configuration: settings)
+    }
+
+    func testOfflineGuestStartsWithLocalRecordsAndOnlineShowsLogin() async throws {
+        let model = AppModel()
+        let record = RecordEntry(typeID: "pushup", date: Date(), value: 17)
+        model.data.records = [record]
+        let account = AccountModel(model: model, client: stubClient(), initialConnection: .offline, monitorConnectivity: false)
+        AuthStub.reply = { _ in XCTFail("오프라인에서는 인증 요청을 보내지 않음"); throw URLError(.notConnectedToInternet) }
+        await account.bootstrap()
+        XCTAssertTrue(account.initialized)
+        XCTAssertFalse(account.showsWelcome)
+        XCTAssertEqual(model.data.records, [record])
+        await account.sendCode(email: "test@example.com", createUser: true, consent: true)
+        XCTAssertNil(account.pendingEmail)
+        account.updateConnection(.online)
+        XCTAssertTrue(account.showsWelcome)
+        account.continueAsGuest()
+        XCTAssertFalse(account.showsWelcome)
+        XCTAssertNil(model.selection.userID)
+        XCTAssertEqual(model.data.records, [record])
+    }
+
+    func testOfflineAccountKeepsIdentityAndUploadsWhenWiFiReturns() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        let scope = try SharedStore.activate(userID: id)
+        let original = RecordEntry(typeID: "pushup", date: Date(), value: 21)
+        var data = AppData.empty
+        data.records = [original]
+        _ = try SharedStore.persistEdits(from: .empty, to: data, selection: scope)
+        try vault.write(AccountSession(accessToken: "expired", refreshToken: "cached-refresh", expiresAt: 0,
+                                       user: AccountUser(id: id, email: "test@example.com")))
+        let model = AppModel()
+        let guestRecord = RecordEntry(typeID: "pushup", date: Date(), value: 99)
+        model.data.records = [guestRecord]
+        let account = AccountModel(model: model, client: client, initialConnection: .offline, monitorConnectivity: false)
+        var requestCount = 0
+        AuthStub.reply = { request in
+            requestCount += 1
+            switch request.url!.path {
+            case "/auth/v1/token":
+                return (200, try JSONSerialization.data(withJSONObject: ["access_token": "fresh", "refresh_token": "rotated", "expires_in": 3600,
+                    "user": ["id": id.uuidString, "email": "test@example.com"]]))
+            case "/rest/v1/rpc/load_workout": return (200, Data("[]".utf8))
+            case "/rest/v1/rpc/save_workout":
+                let body = try JSONSerialization.jsonObject(with: AuthStub.body(of: request)) as! [String: Any]
+                let payload = body["p_payload"] as! [String: Any]
+                XCTAssertEqual((payload["records"] as! [Any]).count, 2)
+                return (200, try JSONSerialization.data(withJSONObject: [["version": 1, "payload": payload]]))
+            default: throw URLError(.badURL)
+            }
+        }
+        await account.bootstrap()
+        XCTAssertEqual(requestCount, 0, "만료된 세션도 오프라인에서 서버 검증을 시도하지 않음")
+        XCTAssertEqual(account.user?.id, id)
+        XCTAssertEqual(model.selection.userID, id)
+        XCTAssertEqual(model.data.records, [original])
+        XCTAssertFalse(account.showsWelcome)
+        let offlineRecord = RecordEntry(typeID: "pushup", date: Date(), value: 30)
+        model.data.records.append(offlineRecord)
+        await account.synchronize()
+        XCTAssertEqual(requestCount, 0)
+        XCTAssertTrue(try SharedStore.snapshot(userID: id).dirty)
+        account.updateConnection(.online)
+        await account.synchronize()
+        XCTAssertEqual(requestCount, 3)
+        XCTAssertFalse(try SharedStore.snapshot(userID: id).dirty)
+        XCTAssertEqual(model.data.records, [original, offlineRecord])
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.records, [guestRecord], "게스트 기록과 계정 기록을 섞지 않음")
+    }
+
+    func testConsentedGuestImportRetriesAfterReconnection() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        let model = AppModel()
+        let record = RecordEntry(typeID: "pushup", date: Date(), value: 42)
+        model.data.records = [record]
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        var serverAvailable = false
+        var uploadedRecords = 0
+        AuthStub.reply = { request in
+            switch request.url!.path {
+            case "/auth/v1/otp": return (200, Data("{}".utf8))
+            case "/auth/v1/verify":
+                return (200, try JSONSerialization.data(withJSONObject: ["access_token": "verified", "refresh_token": "refresh", "expires_in": 3600,
+                    "user": ["id": id.uuidString, "email": "test@example.com"]]))
+            case "/auth/v1/user": return (200, try JSONEncoder().encode(AccountUser(id: id, email: "test@example.com")))
+            case "/rest/v1/rpc/load_workout":
+                guard serverAvailable else { throw URLError(.notConnectedToInternet) }
+                return (200, Data("[]".utf8))
+            case "/rest/v1/rpc/save_workout":
+                let body = try JSONSerialization.jsonObject(with: AuthStub.body(of: request)) as! [String: Any]
+                let payload = body["p_payload"] as! [String: Any]
+                uploadedRecords = (payload["records"] as! [Any]).count
+                return (200, try JSONSerialization.data(withJSONObject: [["version": 1, "payload": payload]]))
+            default: throw URLError(.badURL)
+            }
+        }
+        await account.bootstrap()
+        await account.sendCode(email: "test@example.com", createUser: true, consent: true)
+        await account.verify(code: "123456", importDeviceRecords: true)
+        await account.synchronize()
+        XCTAssertEqual(model.data.records, [record], "첫 서버 읽기가 실패해도 동의한 기기 기록으로 계속 진행")
+        account.updateConnection(.offline)
+        let reopenedModel = AppModel()
+        let reopenedAccount = AccountModel(model: reopenedModel, client: client, initialConnection: .offline, monitorConnectivity: false)
+        await reopenedAccount.bootstrap()
+        XCTAssertEqual(reopenedModel.data.records, [record], "앱 재실행 후에도 가져온 기록 복원")
+        serverAvailable = true
+        reopenedAccount.updateConnection(.online)
+        await reopenedAccount.synchronize()
+        XCTAssertEqual(reopenedModel.data.records, [record])
+        XCTAssertTrue(try SharedStore.snapshot(userID: id).importedGuest)
+        XCTAssertEqual(uploadedRecords, 1)
+        XCTAssertFalse(try SharedStore.snapshot(userID: id).dirty)
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.records, [record])
+    }
+
+    func testInitialGuestImportAddsToExistingCloudBeforeUpload() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let id = UUID()
+        let model = AppModel()
+        let guest = RecordEntry(typeID: "pushup", date: Date(), value: 15)
+        let serverRecord = RecordEntry(typeID: "pushup", date: Date(), value: 50)
+        model.data.records = [guest]
+        var cloud = AppData.empty
+        cloud.records = [serverRecord]
+        var uploaded = false
+        AuthStub.reply = { request in
+            switch request.url!.path {
+            case "/auth/v1/otp": return (200, Data("{}".utf8))
+            case "/auth/v1/verify":
+                return (200, try JSONSerialization.data(withJSONObject: ["access_token": "verified", "refresh_token": "refresh", "expires_in": 3600,
+                    "user": ["id": id.uuidString, "email": "test@example.com"]]))
+            case "/auth/v1/user": return (200, try JSONEncoder().encode(AccountUser(id: id, email: "test@example.com")))
+            case "/rest/v1/rpc/load_workout": return (200, try JSONEncoder().encode([CloudWorkout(version: 3, payload: cloud)]))
+            case "/rest/v1/rpc/save_workout":
+                let body = try JSONSerialization.jsonObject(with: AuthStub.body(of: request)) as! [String: Any]
+                XCTAssertEqual(body["p_expected_version"] as? Int, 3)
+                let payload = body["p_payload"] as! [String: Any]
+                XCTAssertEqual((payload["records"] as! [Any]).count, 2)
+                uploaded = true
+                return (200, try JSONSerialization.data(withJSONObject: [["version": 4, "payload": payload]]))
+            default: throw URLError(.badURL)
+            }
+        }
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        await account.sendCode(email: "test@example.com", createUser: true, consent: true)
+        await account.verify(code: "123456", importDeviceRecords: true)
+        await account.synchronize()
+        XCTAssertTrue(uploaded)
+        XCTAssertNil(account.conflict)
+        XCTAssertEqual(Set(model.data.records.map(\.id)), Set([guest.id, serverRecord.id]))
+        XCTAssertEqual(try SharedStore.snapshot(userID: id).serverVersion, 4)
+        XCTAssertFalse(try SharedStore.snapshot(userID: id).dirty)
+        let backups = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("backup-\(id.uuidString.lowercased())-") }
+        XCTAssertEqual(backups.count, 2)
     }
 }

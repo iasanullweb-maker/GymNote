@@ -16,6 +16,38 @@ struct StoreSelection: Codable, Equatable {
 }
 
 extension AppData {
+    /// An initial import may add IDs automatically, but must not choose between divergent edits.
+    func hasImportConflict(with local: AppData) -> Bool {
+        for entry in local.dailyItems {
+            if let remote = dailyItems.first(where: { $0.id == entry.id }), remote != entry { return true }
+        }
+        for entry in local.dailyCompletions {
+            if let remote = dailyCompletions.first(where: { $0.id == entry.id || ($0.itemID == entry.itemID && $0.day == entry.day) }), remote != entry { return true }
+        }
+        if let remoteSession = activeWorkout, let localSession = local.activeWorkout, remoteSession != localSession { return true }
+        for entry in local.records {
+            if let remote = records.first(where: { $0.id == entry.id }), remote != entry { return true }
+        }
+        for entry in local.workouts {
+            if let remote = workouts.first(where: { $0.id == entry.id }), remote != entry { return true }
+        }
+        for log in local.logs {
+            if let remote = logs.first(where: { $0.day == log.day }) {
+                for (id, count) in log.doneSets {
+                    if let remoteCount = remote.doneSets[id], remoteCount != count { return true }
+                }
+            }
+        }
+        for (day, plan) in local.scheduledPlans {
+            if let remote = scheduledPlans[day] {
+                for exercise in plan.exercises {
+                    if let remoteExercise = remote.exercises.first(where: { $0.id == exercise.id }), remoteExercise != exercise { return true }
+                }
+            }
+        }
+        return false
+    }
+
     static var empty: AppData {
         var result = AppData(week: Array(repeating: DayPlan(title: "휴식", exercises: []), count: 7))
         result.scheduledPlans = [:]

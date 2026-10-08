@@ -34,7 +34,9 @@ struct GymWidgetView: View {
     let entry: GymEntry
 
     private var plan: DayPlan { entry.data.plan(for: entry.date) }
-    private var progress: (done: Int, total: Int) { entry.data.progress(on: entry.date) }
+    private var exerciseLine: String {
+        plan.exercises.map(\.name).joined(separator: " · ")
+    }
     private var dayTitle: String {
         "\(DayKey.weekdayName(entry.date)) · \(plan.isRestDay ? "휴식일" : plan.title)"
     }
@@ -47,7 +49,7 @@ struct GymWidgetView: View {
     var body: some View {
         switch family {
         case .accessoryInline:
-            Text(plan.isRestDay ? "휴식일" : "\(plan.title) \(progress.done)/\(progress.total)")
+            Text(plan.isRestDay ? "휴식일" : "\(plan.title) · \(exerciseLine)")
         case .accessoryCircular:
             circular
         case .accessoryRectangular:
@@ -64,12 +66,13 @@ struct GymWidgetView: View {
     // MARK: 잠금 화면
 
     private var circular: some View {
-        Gauge(value: Double(progress.done), in: 0...Double(max(progress.total, 1))) {
+        VStack(spacing: 2) {
             Image(systemName: "dumbbell")
-        } currentValueLabel: {
-            Text(plan.isRestDay ? "휴식" : "\(progress.done)")
+            Text(plan.isRestDay ? "휴식" : plan.title)
+                .font(.caption2)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
         }
-        .gaugeStyle(.accessoryCircularCapacity)
     }
 
     private var rectangular: some View {
@@ -78,8 +81,9 @@ struct GymWidgetView: View {
                 .font(.headline)
                 .lineLimit(1)
             if !plan.isRestDay {
-                Text("\(progress.done)/\(progress.total) 세트")
+                Text(exerciseLine)
                     .font(.caption)
+                    .lineLimit(1)
             }
             Text(prLine)
                 .font(.caption2)
@@ -102,11 +106,10 @@ struct GymWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text("\(progress.done)/\(progress.total) 세트")
+                Text(exerciseLine)
                     .font(.caption)
-                    .foregroundStyle(.orange)
-                ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
-                    .tint(.orange)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
             Spacer(minLength: 0)
             ForEach(entry.data.widgetTypes()) { t in
@@ -134,8 +137,6 @@ struct GymWidgetView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
-                    ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
-                        .tint(.orange)
                     ForEach(plan.exercises.prefix(maxItems)) { exercise in
                         exerciseButton(exercise)
                     }
@@ -188,9 +189,10 @@ struct GymWidgetView: View {
                     .lineLimit(1)
                     .strikethrough(finished)
                 Spacer(minLength: 2)
-                Text("\(done)/\(exercise.sets)")
-                    .font(.caption2.monospacedDigit())
+                Text(exercise.detail)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             .contentShape(Rectangle())
         }
@@ -206,7 +208,7 @@ struct GymWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("오늘 운동")
-        .description("오늘 루틴, 세트 체크, 최고 기록")
+        .description("오늘 운동 이름·횟수와 최고 기록, 운동 체크와 휴식 타이머")
         .supportedFamilies([
             .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge,
             .accessoryRectangular, .accessoryInline, .accessoryCircular,
