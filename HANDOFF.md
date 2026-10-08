@@ -144,3 +144,10 @@
 4. 하루 여러 운동: 저장 후 운동 탭에 '새 운동 시작'. 새 운동은 그날 계획 운동의 완료 세트를 0으로 초기화하고 시작, 이전 일지는 보존.
 5. 계획 탭 '이 주 계획을 다음 주에도 반복' (1/2/4/8주). 오늘 이후 날짜만 덮어씀, 복사본은 새 운동 ID.
 - 실제 아이패드 확인 필요: 잠금 화면 위젯 표시, 위젯 첫 체크 후 운동 탭 '운동 중' 표시, 주간 반복.
+
+## 설정 탭 / 운동 탭 휴식 −/+ (배포 0.1.25)
+- 계정 탭 → **설정 탭**(`App/SettingsView.swift`): 기본 휴식(15초 단위, 15~600초), 휴식 끝 알림 소리, 계정(기존 `AccountView`를 시트로 열기, 코드 변경 없음), 진단.
+- 운동 탭 휴식 타이머 행 오른쪽에 −/+ (`AppModel.adjustDefaultRest`, 범위는 `SettingsView.restRange/restStep` 공용).
+- 계획 탭의 설정·진단 섹션 제거(설정 탭으로 이동).
+- 브랜치 `claude/settings-tab` 검증 빌드 성공 → main fast-forward → main Actions #25 성공, 0.1.25 배포.
+- **codex/calendar-routines 통합 시 주의**: `App/GymNoteApp.swift` RootView에서 충돌 (main은 4번째 탭이 `SettingsView`, 그 브랜치는 탭을 없애고 사람 아이콘으로 `AccountView` 시트). 그 구조를 쓸 경우 아이콘을 설정(gearshape)으로 바꾸고 시트에 `SettingsView()`를 띄우면 휴식 설정·계정·진단이 모두 유지됨. `RoutineView`는 자동 병합됨.
