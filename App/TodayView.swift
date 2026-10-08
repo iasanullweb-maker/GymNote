@@ -91,6 +91,14 @@ struct TodayView: View {
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
+            .alert("🎉 신기록!", isPresented: Binding(
+                get: { model.recordMessage != nil },
+                set: { if !$0 { model.recordMessage = nil } }
+            )) {
+                Button("확인") { model.recordMessage = nil }
+            } message: {
+                Text((model.recordMessage ?? "") + "\n기록 탭의 최고 기록에 자동으로 반영했어요.")
+            }
         }
     }
 }
@@ -237,6 +245,8 @@ struct CompletedRepetitionRows: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(0..<session.doneSets(exercise), id: \.self) { index in
                 let actual = session.repetitions(exercise, set: index)
+                let weights = session.actualWeights[exercise.id.uuidString] ?? []
+                let weight = index < weights.count ? weights[index] : nil
                 if exercise.plannedReps != nil || actual != nil {
                     Button { editingSet = index } label: {
                         HStack {
@@ -254,6 +264,16 @@ struct CompletedRepetitionRows: View {
                     }
                     .buttonStyle(.borderless)
                     .accessibilityHint("눌러서 실제 횟수 수정")
+                } else {
+                    HStack {
+                        Text("\(index + 1)세트")
+                        Spacer()
+                        Text(exercise.detail)
+                    }.font(.subheadline).foregroundStyle(.secondary)
+                }
+                if let weight {
+                    Text("무게 \(RecordType.number(weight))kg")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

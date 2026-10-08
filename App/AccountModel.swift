@@ -545,6 +545,7 @@ final class AccountModel {
         defer { finishOperation() }
         do {
             try await client.deleteAccount(token: current.accessToken)
+            UserDefaults.standard.removeObject(forKey: ManualWorkoutDraft.storageKey(userID: current.user.id))
             UserDefaults.standard.removeObject(forKey: importConsentKey(current.user.id))
             var cleanupError: Error?
             do { try vault?.clear() } catch { cleanupError = error }

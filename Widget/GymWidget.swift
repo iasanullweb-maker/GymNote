@@ -40,10 +40,14 @@ struct GymWidgetView: View {
     private var dayTitle: String {
         "\(DayKey.weekdayName(entry.date)) · \(plan.isRestDay ? "휴식일" : plan.title)"
     }
+    /// 그날 계획한 운동의 '한 세트 / 하루 총량' 최고기록 (운동이 없는 날은 기록 목록 위 종목)
+    private var records: [RecordSummary] { entry.data.recordSummaries(on: entry.date) }
     private var prLine: String {
-        entry.data.widgetTypes()
-            .map { t in "\(t.name) \(entry.data.best(t).map { t.shortDisplay($0) } ?? "–")" }
+        records.map { "\($0.name) \($0.setText)" + ($0.dayText.map { "/\($0)" } ?? "") }
             .joined(separator: " · ")
+    }
+    private func recordValue(_ summary: RecordSummary) -> String {
+        summary.dayText.map { "세트 \(summary.setText) · 하루 \($0)" } ?? summary.setText
     }
 
     var body: some View {
@@ -112,16 +116,19 @@ struct GymWidgetView: View {
                     .lineLimit(2)
             }
             Spacer(minLength: 0)
-            ForEach(entry.data.widgetTypes()) { t in
+            ForEach(records) { summary in
                 HStack {
-                    Text(t.name)
+                    Text(summary.name)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer()
-                    Text(entry.data.best(t).map { t.shortDisplay($0) } ?? "–")
+                    Text(summary.dayText.map { "\(summary.setText)·\($0)" } ?? summary.setText)
                         .font(.caption.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
+                .accessibilityLabel("\(summary.name) 최고기록 \(recordValue(summary))")
             }
         }
     }
@@ -154,16 +161,16 @@ struct GymWidgetView: View {
                 Text("최고 기록")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                ForEach(entry.data.widgetTypes()) { t in
+                ForEach(records) { summary in
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(t.name)
+                        Text(summary.name)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
-                        Text(entry.data.best(t).map { t.display($0) } ?? "–")
+                        Text(recordValue(summary))
                             .font(.subheadline.bold())
                             .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            .minimumScaleFactor(0.6)
                     }
                 }
                 Spacer(minLength: 0)

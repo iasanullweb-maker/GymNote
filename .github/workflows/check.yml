@@ -33,6 +33,8 @@ jobs:
           /tmp/account-checks
           swiftc Shared/Models.swift Shared/AccountData.swift Shared/DailyReminderPlan.swift scripts/test_daily.swift -o /tmp/daily-checks
           /tmp/daily-checks
+          swiftc Shared/Models.swift Shared/WorkoutRecords.swift scripts/test_records.swift -o /tmp/record-checks
+          /tmp/record-checks
       - name: Select available iPad simulator
         run: |
           python3 - <<'PY'

@@ -26,14 +26,19 @@ struct RecordsView: View {
                         if let message = account.catalogMessage {
                             Text(message).font(.footnote).foregroundStyle(.secondary)
                         }
+                        let autoRecords = model.data.exerciseRecords()
                         if account.catalogTypes.filter(\.active).isEmpty {
                             Text("현재 사용할 수 있는 공통 종목이 없어요.").foregroundStyle(.secondary)
                         }
                         ForEach(account.catalogTypes.filter(\.active)) { definition in
-                            RecordSection(type: definition.recordType) { addingFor = definition.recordType }
+                            RecordSection(type: definition.recordType,
+                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords)) {
+                                addingFor = definition.recordType
+                            }
                         }
                         ForEach(account.catalogTypes.filter { !$0.active && !model.data.entries($0.recordType).isEmpty }) { definition in
-                            RecordSection(type: definition.recordType, allowsAdding: false) {}
+                            RecordSection(type: definition.recordType, allowsAdding: false,
+                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords)) {}
                         }
                         if !legacyTypes.isEmpty {
                             Section {
@@ -44,12 +49,22 @@ struct RecordsView: View {
                                 Text("기존 기록은 보존됩니다. 새 기록은 공통 종목에 입력해 주세요.")
                             }
                         }
+                        let unlinked = unlinkedAutoRecords(autoRecords)
+                        if !unlinked.isEmpty {
+                            Section {
+                                ForEach(unlinked) { record in AutoRecordRow(record: record) }
+                            } header: {
+                                Text("운동 일지 자동 기록").font(.title3.bold()).textCase(nil)
+                            } footer: {
+                                Text("개인 운동 일지에서 계산한 기록이에요. 공통 종목과 같은 이름의 횟수 운동은 해당 종목에 함께 표시됩니다.")
+                            }
+                        }
                         Section {
                             Button { showingTypes = true } label: {
                                 Label(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내", systemImage: "list.bullet")
                             }
                         } footer: {
-                            Text("사용 중인 공통 종목의 앞 3개가 위젯에 표시돼요.")
+                            Text("운동 일지의 실제 횟수로 한 세트·하루 총량 최고 기록을 자동 계산해요. 위젯은 그날 계획한 운동을 표시하고, 운동이 없는 날에는 사용 중인 공통 종목의 앞 3개를 표시해요.")
                         }
                     }
                 }
@@ -81,6 +96,12 @@ struct RecordsView: View {
             }
         }
     }
+    private func unlinkedAutoRecords(_ records: [String: ExerciseRecords]) -> [ExerciseRecords] {
+        var display = model.data
+        display.recordTypes = account.catalogTypes.map(\.recordType)
+        return display.unlinkedExerciseRecords(records)
+    }
+
     private var legacyTypes: [RecordType] {
         let commonIDs = Set(account.catalogTypes.map(\.id))
         return model.data.recordTypes.filter { !commonIDs.contains($0.id) && !model.data.entries($0).isEmpty }
@@ -92,6 +113,7 @@ struct RecordSection: View {
     @Environment(AppModel.self) private var model
     let type: RecordType
     var allowsAdding = true
+    var auto: ExerciseRecords? = nil
     let onAdd: () -> Void
 
     var body: some View {
@@ -99,23 +121,39 @@ struct RecordSection: View {
         let best = model.data.best(type)
 
         Section {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("최고 기록")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(best.map { type.display($0) } ?? "아직 없음")
-                        .font(.title2)
-                        .bold()
-                }
-                Spacer()
-                if let best = best {
-                    Text(best.date, format: .dateTime.year().month().day())
-                        .foregroundStyle(.secondary)
+            if let auto {
+                // 수동 기록과 운동 일지 중 더 높은 한 세트 + 운동 일지의 하루 총량
+                let combined = model.data.combinedBestSet(for: type, auto: auto)
+                let unit = type.unit.isEmpty ? "회" : type.unit
+                RecordValueRow(title: "한 세트 최고",
+                               value: combined.map { RecordType.number($0.value) + unit },
+                               date: combined?.date,
+                               source: combined?.fromJournal == true ? "운동 일지" : "직접 기록")
+                RecordValueRow(title: "하루 총량 최고", value: auto.bestDay.map { "\($0.value)\(unit)" },
+                               date: auto.bestDay?.date, source: "운동 일지")
+            } else {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("최고 기록")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(best.map { type.display($0) } ?? "아직 없음")
+                            .font(.title2)
+                            .bold()
+                    }
+                    Spacer()
+                    if let best = best {
+                        Text(best.date, format: .dateTime.year().month().day())
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
-            if !entries.isEmpty {
+            if entries.isEmpty, auto != nil {
+                Text("그래프는 직접 추가한 기록으로 그려요. 운동 일지 기록은 위 최고 기록에 자동으로 반영돼요.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !entries.isEmpty {
                 Chart(entries) { entry in
                     if entries.count >= 2 {
                         LineMark(
@@ -338,5 +376,54 @@ struct AddRecordView: View {
         }
         onSave(entry)
         dismiss()
+    }
+}
+
+/// 최고 기록 한 줄: 제목, 값, 달성 날짜, 출처
+struct RecordValueRow: View {
+    let title: String
+    let value: String?
+    let date: Date?
+    var source: String? = nil
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                Text(value ?? "아직 없음").font(.title2).bold()
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                if let date { Text(date, format: .dateTime.year().month().day()).foregroundStyle(.secondary) }
+                if value != nil, let source { Text(source).font(.caption2).foregroundStyle(.tertiary) }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// 수동 종목이 없는 운동의 자동 기록
+struct AutoRecordRow: View {
+    let record: ExerciseRecords
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(record.name).font(.headline)
+            HStack(spacing: 16) {
+                summary("한 세트 최고", record.bestSet)
+                summary("하루 총량 최고", record.bestDay)
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func summary(_ title: String, _ value: AutoRecord?) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(value.map { "\($0.value)회" } ?? "–").font(.title3.bold())
+            if let value { Text(value.date, format: .dateTime.month().day()).font(.caption2).foregroundStyle(.secondary) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
