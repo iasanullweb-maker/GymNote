@@ -246,3 +246,10 @@
 - 검증: `codex/final-integration`에서 Build IPA #42(모델 검증·앱/위젯 Release 빌드·IPA, 릴리스 단계 건너뜀)와 Validate GymNote #19(ios 시뮬레이터 회귀, database 권한, account-deletion) 모두 성공.
 - main fast-forward 후 main Actions #43 한 번만 실행, 성공 → 0.1.43 릴리스·AltStore 소스 게시 확인.
 - `build.yml`의 `codex/login` 빌드 건너뛰기 조건은 배포와 무관하므로 유지.
+
+## 세트별 실제 횟수 기록
+- 계획에 명확한 횟수(10회, 다리당 12회 등)가 있으면 운동 화면에서 계획을 기본값으로 실제 횟수 −/+ 및 숫자 탭 직접 입력 제공. 다음 세트는 계획 횟수로 초기화, 완료 버튼에 실제 횟수 표시.
+- WorkoutSession.actualReps에 세트별 값을 저장. 계획 스냅샷 유지, 되돌리기 시 해당 기록 제거, 완료한 세트와 저장된 일지에서 실제 / 계획 비교 및 수정 지원. 시간·범위·최대 비율 문구는 기존 세트 완료 방식 유지.
+- 구형 일지는 actualReps 없이 디코딩하며 실제 횟수는 미기록으로 표시. 앱·위젯 동시 체크 시 실제 횟수를 합쳐 보존.
+- 검증: 변경 Swift 파일 7개 Tree-sitter 구문 검사 및 git diff --check 통과. 모델/계정 회귀 검사 추가. Windows에 Swift/Xcode가 없어 회귀 실행·전체 iOS 빌드·실제 화면 검증은 미실행. 다음 통합 빌드에서 실행 필요.
+- 기존 작업 폴더 main에 로컬 통합. 원격 push·배포 없음.

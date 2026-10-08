@@ -176,11 +176,40 @@ extension AppData {
         let touchedSessionIDs = Set([base.activeWorkout?.id, edited.activeWorkout?.id].compactMap { $0 })
         func withMergedProgress(_ session: WorkoutSession) -> WorkoutSession {
             var copy = session
+            let beforeSession = base.activeWorkout.flatMap { $0.id == session.id ? $0 : nil }
+            let editedSession = edited.activeWorkout.flatMap { $0.id == session.id ? $0 : nil }
+                ?? edited.workouts.first { $0.id == session.id }
+            let latestSession = activeWorkout.flatMap { $0.id == session.id ? $0 : nil }
+                ?? workouts.first { $0.id == session.id }
             let counts = result.logs.first { $0.day == session.day }?.doneSets ?? [:]
             for exercise in session.plan.exercises {
                 if let count = counts[exercise.id.uuidString] {
                     copy.completedSets[exercise.id.uuidString] = min(max(count, 0), max(exercise.sets, 0))
                 }
+                if let beforeSession, let editedSession, let latestSession {
+                    let key = exercise.id.uuidString
+                    var values = latestSession.actualReps[key] ?? []
+                    let beforeCount = beforeSession.doneSets(exercise)
+                    let editedCount = editedSession.doneSets(exercise)
+                    let latestCount = latestSession.doneSets(exercise)
+                    while values.count < latestCount { values.append(nil) }
+                    // Concurrent completions append after the widget's new sets.
+                    if editedCount > beforeCount {
+                        for index in beforeCount..<editedCount {
+                            values.append(editedSession.repetitions(exercise, set: index))
+                        }
+                    }
+                    for index in 0..<min(beforeCount, editedCount) {
+                        let value = editedSession.repetitions(exercise, set: index)
+                        if value != beforeSession.repetitions(exercise, set: index) {
+                            while values.count <= index { values.append(nil) }
+                            values[index] = value
+                        }
+                    }
+                    copy.actualReps[key] = values
+                }
+                let key = exercise.id.uuidString
+                copy.actualReps[key] = copy.actualReps[key].map { Array($0.prefix(copy.doneSets(exercise))) }
             }
             return copy
         }
