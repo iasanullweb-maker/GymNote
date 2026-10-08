@@ -20,6 +20,14 @@ extension AppData {
         var result = AppData(week: Array(repeating: DayPlan(title: "휴식", exercises: []), count: 7))
         result.scheduledPlans = [:]
         result.exerciseLibrary = []
+        for item in guest.dailyItems where !result.dailyItems.contains(where: { $0.id == item.id }) {
+            result.dailyItems.append(item)
+        }
+        for completion in guest.dailyCompletions where !result.dailyCompletions.contains(where: {
+            $0.id == completion.id || ($0.itemID == completion.itemID && $0.day == completion.day)
+        }) {
+            result.dailyCompletions.append(completion)
+        }
         return result
     }
 
@@ -82,6 +90,8 @@ extension AppData {
     /// Apply only the app's edits to the latest disk snapshot, preserving concurrent widget checks.
     func applyingEdits(from base: AppData, to edited: AppData) -> AppData {
         var result = self
+        result.dailyItems = mergeDailyEdits(latest: result.dailyItems, base: base.dailyItems, edited: edited.dailyItems)
+        result.dailyCompletions = mergeDailyEdits(latest: result.dailyCompletions, base: base.dailyCompletions, edited: edited.dailyCompletions)
         if base.week != edited.week { result.week = edited.week }
         if base.recordTypes != edited.recordTypes { result.recordTypes = edited.recordTypes }
         if base.records != edited.records { result.records = edited.records }
@@ -161,4 +171,16 @@ extension AppData {
         }
         return result
     }
+}
+
+private func mergeDailyEdits<T: Identifiable & Equatable>(latest: [T], base: [T], edited: [T]) -> [T] {
+    var result = latest
+    for previous in base where !edited.contains(where: { $0.id == previous.id }) {
+        result.removeAll { $0.id == previous.id }
+    }
+    for value in edited where base.first(where: { $0.id == value.id }) != value {
+        if let index = result.firstIndex(where: { $0.id == value.id }) { result[index] = value }
+        else { result.append(value) }
+    }
+    return result
 }
