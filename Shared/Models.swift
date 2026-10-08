@@ -420,7 +420,7 @@ extension AppData {
     }
 
     /// 세트 수를 delta만큼 바꿈. wrap이 true면 다 채운 상태에서 +1 할 때 0으로 돌아감 (위젯에서 되돌리기용)
-    mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date(), actualReps: Int? = nil) {
+    mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date(), actualReps: Int? = nil, at completedAt: Date = Date()) {
         let currentPlan = activeWorkout.flatMap { $0.day == DayKey.key(date) ? $0.plan : nil } ?? plan(for: date)
         guard let exercise = currentPlan.exercises.first(where: { $0.id == exerciseID }) else { return }
         let key = DayKey.key(date)
@@ -444,7 +444,7 @@ extension AppData {
             }
             activeWorkout?.actualReps[exerciseID.uuidString] = values
             if delta > 0, let session = activeWorkout, session.total > 0, session.done == session.total {
-                finishWorkout()
+                finishWorkout(at: completedAt)
             }
         }
 
@@ -473,20 +473,8 @@ extension AppData {
         return workouts.contains { $0.day == key }
     }
 
-    /// 날짜가 지난 진행 중 운동을 정리. 완료 세트가 있으면 일지로 저장(끝난 시각은 모름), 없으면 버림.
-    @discardableResult
-    mutating func closeStaleWorkout(now: Date = Date()) -> Bool {
-        guard let session = activeWorkout, session.day != DayKey.key(now) else { return false }
-        if session.done > 0 && !workouts.contains(where: { $0.id == session.id }) {
-            workouts.append(session)
-        }
-        activeWorkout = nil
-        return true
-    }
-
     @discardableResult
     mutating func startWorkout(at date: Date = Date()) -> Bool {
-        closeStaleWorkout(now: date)
         guard activeWorkout == nil else { return false }
         let currentPlan = plan(for: date)
         guard !currentPlan.isRestDay else { return false }
@@ -519,12 +507,13 @@ extension AppData {
 
     /// 위젯에서 세트를 체크할 때: 진행 중 운동이 없으면 자동으로 시작해서 운동 일지에 남게 함
     mutating func completeSetFromWidget(_ exerciseID: UUID, now: Date = Date()) {
-        closeStaleWorkout(now: now)
         if activeWorkout == nil, !hasSavedWorkout(on: now) {
             let current = progress(on: now)
             if current.total > 0, current.done < current.total { startWorkout(at: now) }
         }
-        changeSets(exerciseID, by: 1, wrap: true, on: now)
+        // 자정 이후에도 시작한 날의 진행 중 운동을 체크한다.
+        let workoutDate = activeWorkout?.startedAt ?? now
+        changeSets(exerciseID, by: 1, wrap: true, on: workoutDate, at: now)
     }
 
     /// 선택한 주(월~일)의 계획을 이후 몇 주에 복사. 오늘 이후 날짜만 바꾸고, 지난 날짜·오늘은 건드리지 않음.

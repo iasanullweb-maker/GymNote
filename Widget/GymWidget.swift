@@ -33,15 +33,16 @@ struct GymWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: GymEntry
 
-    private var plan: DayPlan { entry.data.plan(for: entry.date) }
+    private var workoutDate: Date { entry.data.activeWorkout?.startedAt ?? entry.date }
+    private var plan: DayPlan { entry.data.activeWorkout?.plan ?? entry.data.plan(for: entry.date) }
     private var exerciseLine: String {
         plan.exercises.map(\.name).joined(separator: " · ")
     }
     private var dayTitle: String {
-        "\(DayKey.weekdayName(entry.date)) · \(plan.isRestDay ? "휴식일" : plan.title)"
+        "\(DayKey.weekdayName(workoutDate)) · \(plan.isRestDay ? "휴식일" : plan.title)"
     }
     /// 그날 계획한 운동의 '한 세트 / 하루 총량' 최고기록 (운동이 없는 날은 기록 목록 위 종목)
-    private var records: [RecordSummary] { entry.data.recordSummaries(on: entry.date) }
+    private var records: [RecordSummary] { entry.data.recordSummaries(on: workoutDate) }
     private var prLine: String {
         records.map { "\($0.name) \($0.setText)" + ($0.dayText.map { "/\($0)" } ?? "") }
             .joined(separator: " · ")
@@ -185,7 +186,7 @@ struct GymWidgetView: View {
     }
 
     private func exerciseButton(_ exercise: Exercise) -> some View {
-        let done = entry.data.doneSets(exercise, on: entry.date)
+        let done = entry.data.doneSets(exercise, on: workoutDate)
         let finished = done >= exercise.sets
         return Button(intent: CompleteSetIntent(exerciseID: exercise.id.uuidString, generation: entry.generation)) {
             HStack(spacing: 6) {

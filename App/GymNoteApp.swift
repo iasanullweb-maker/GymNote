@@ -113,15 +113,20 @@ struct RootView: View {
             WorkspaceSwitcher(selection: $workspace)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
+            if model.data.activeWorkout != nil || model.restEnd != nil {
+                WorkoutStatusBanner(
+                    startedAt: model.data.activeWorkout?.startedAt,
+                    restStart: model.restStart, restEnd: model.restEnd,
+                    finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
+                    onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() }
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
             if workspace == "일상", model.data.activeWorkout != nil {
-                Button {
-                    workspace = "운동"
-                    selectedTab = 0
-                } label: {
-                    Label("진행 중인 운동으로 돌아가기", systemImage: "figure.strengthtraining.traditional")
-                        .font(.subheadline).frame(maxWidth: .infinity).padding(8)
-                }
-                .background(Color.orange.opacity(0.1))
+                Button("진행 중인 운동으로 돌아가기") { workspace = "운동"; selectedTab = 0 }
+                    .font(.subheadline).padding(.bottom, 8)
             }
             TabView(selection: $selectedTab) {
                 Group {

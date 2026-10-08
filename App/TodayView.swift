@@ -75,21 +75,6 @@ struct TodayView: View {
                     }
                 }
             }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                if model.data.activeWorkout != nil || model.restEnd != nil {
-                    WorkoutStatusBanner(
-                        startedAt: model.data.activeWorkout?.startedAt,
-                        restStart: model.restStart,
-                        restEnd: model.restEnd,
-                        finishTitle: progress.done == 0 ? "시작 취소" : "운동 마치기",
-                        onSkip: { model.stopRest() },
-                        onFinish: { model.finishWorkout() }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color(.systemGroupedBackground))
-                }
-            }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { model.recordMessage != nil },
@@ -313,7 +298,14 @@ struct WorkoutStatusBanner: View {
                 }
             }
             .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: 720, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(Color.orange.opacity(resting ? 0.5 : 0.25), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: resting)
         }
     }
