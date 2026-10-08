@@ -34,6 +34,11 @@ struct SettingsView: View {
                 dailyReminderSection
 
                 Section("계정") {
+                    if account.canManageCatalog {
+                        Label("관리자 계정", systemImage: "checkmark.shield.fill")
+                            .font(.headline)
+                            .foregroundStyle(.orange)
+                    }
                     Button { showingAccount = true } label: {
                         HStack {
                             Label(account.user?.email ?? "로그인 안 함 (이 기기에 저장 중)", systemImage: "person.crop.circle")
@@ -52,6 +57,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("설정")
+            .task(id: account.user?.id) { await account.refreshRecordCatalog() }
             .task { notificationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
             .sheet(isPresented: $showingAccount, onDismiss: { account.closeAccountScreen() }) {
                 AccountView()
