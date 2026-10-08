@@ -135,13 +135,14 @@ struct AppData: Codable, Equatable {
     var logs: [DayLog]
     var defaultRest: Int
     var restSound: Bool          // 휴식 끝 알림 소리 (기본: 끔)
+    var restStep: Int = 15       // 운동 탭 휴식 −/+ 한 번에 바뀌는 초 (5초 단위, 최소 5초)
     var scheduledPlans: [String: DayPlan] = [:] // 날짜별 일정, 자동으로 반복하지 않음
     var exerciseLibrary: [Exercise] = []
     var activeWorkout: WorkoutSession?
     var workouts: [WorkoutSession] = []
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary, activeWorkout, workouts
+        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -166,6 +167,7 @@ struct AppData: Codable, Equatable {
         logs = try c.decodeIfPresent([DayLog].self, forKey: .logs) ?? []
         defaultRest = try c.decodeIfPresent(Int.self, forKey: .defaultRest) ?? 90
         restSound = try c.decodeIfPresent(Bool.self, forKey: .restSound) ?? false
+        restStep = try c.decodeIfPresent(Int.self, forKey: .restStep) ?? 15
         activeWorkout = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeWorkout)
         workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
         padWeek()

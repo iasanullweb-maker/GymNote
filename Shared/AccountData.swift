@@ -87,6 +87,7 @@ extension AppData {
         if base.records != edited.records { result.records = edited.records }
         if base.defaultRest != edited.defaultRest { result.defaultRest = edited.defaultRest }
         if base.restSound != edited.restSound { result.restSound = edited.restSound }
+        if base.restStep != edited.restStep { result.restStep = edited.restStep }
         if base.scheduledPlans != edited.scheduledPlans { result.scheduledPlans = edited.scheduledPlans }
         if base.exerciseLibrary != edited.exerciseLibrary { result.exerciseLibrary = edited.exerciseLibrary }
         let days = Set(base.logs.map(\.day) + edited.logs.map(\.day))
