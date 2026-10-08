@@ -74,6 +74,9 @@ struct PlanCalendarView: View {
         let journalNames = Array(Set(workouts.flatMap { workout in
             workout.plan.exercises.filter { workout.doneSets($0) > 0 }.map(\.name)
         })).sorted()
+        let summary = content == .journal
+            ? "운동 일지 \(workouts.count)개, " + journalNames.joined(separator: ", ")
+            : (exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")
         return Button {
             selectedDate = date
         } label: {
@@ -83,35 +86,9 @@ struct PlanCalendarView: View {
                     .foregroundStyle(selected || today ? Color.orange : Color.primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if content == .journal {
-                    if workouts.isEmpty {
-                        Text("기록 없음").font(.system(size: 14)).foregroundStyle(.secondary)
-                    } else {
-                        Text("\(workouts.count)회 · \(workouts.reduce(0) { $0 + $1.done })세트")
-                            .font(.system(size: 14, weight: .semibold)).foregroundStyle(.orange)
-                        ForEach(journalNames.prefix(3), id: \.self) { name in
-                            Text(name).font(.system(size: 14)).lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        if journalNames.count > 3 {
-                            Text("+\(journalNames.count - 3)개 더").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                } else if exercises.isEmpty && dailyItems.isEmpty {
-                    Text(content == .workout ? "휴식" : "일정 없음")
-                        .font(.system(size: 14)).foregroundStyle(.secondary)
+                    journalContent(workouts: workouts, names: journalNames)
                 } else {
-                    ForEach(exercises) { exercise in
-                        Text(exercise.name)
-                            .font(.system(size: 14))
-                            .foregroundStyle(.primary)
-                            .lineLimit(2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                ForEach(dailyItems) { item in
-                    Text((model.data.isDailyComplete(item, on: date) ? "✓ " : "") + item.title)
-                        .font(.system(size: 14)).foregroundStyle(.teal).lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    planContent(exercises: exercises, dailyItems: dailyItems, date: date)
                 }
                 Spacer(minLength: 0)
             }
@@ -125,10 +102,44 @@ struct PlanCalendarView: View {
             .opacity(inMonth ? 1 : 0.4)
             .contentShape(Rectangle())
         }
-        .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + (content == .journal
-            ? "운동 일지 \(workouts.count)개, " + journalNames.joined(separator: ", ")
-            : (exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")))
+        .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + summary)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+
+    @ViewBuilder
+    private func journalContent(workouts: [WorkoutSession], names: [String]) -> some View {
+        if workouts.isEmpty {
+            Text("기록 없음").font(.system(size: 14)).foregroundStyle(.secondary)
+        } else {
+            let done = workouts.reduce(0) { $0 + $1.done }
+            Text("\(workouts.count)회 · \(done)세트")
+                .font(.system(size: 14, weight: .semibold)).foregroundStyle(.orange)
+            ForEach(names.prefix(3), id: \.self) { name in
+                Text(name).font(.system(size: 14)).lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if names.count > 3 {
+                Text("+\(names.count - 3)개 더").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func planContent(exercises: [Exercise], dailyItems: [DailyItem], date: Date) -> some View {
+        if exercises.isEmpty && dailyItems.isEmpty {
+            Text(content == .workout ? "휴식" : "일정 없음")
+                .font(.system(size: 14)).foregroundStyle(.secondary)
+        } else {
+            ForEach(exercises) { exercise in
+                Text(exercise.name).font(.system(size: 14)).foregroundStyle(.primary)
+                    .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        ForEach(dailyItems) { item in
+            Text((model.data.isDailyComplete(item, on: date) ? "✓ " : "") + item.title)
+                .font(.system(size: 14)).foregroundStyle(.teal).lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
