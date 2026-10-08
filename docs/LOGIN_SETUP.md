@@ -28,11 +28,13 @@ Supabase SQL Editor에서 `supabase/migrations/202610080001_accounts.sql`을 한
 
 Authentication의 Email provider를 켜고 이메일 확인을 유지한다. 사용할 로그인 방식은 6자리 이메일 OTP다.
 
+- **먼저 Custom SMTP를 연결한다.** [Supabase의 2026-06-03 변경](https://supabase.com/changelog?tags=platform)에 따라 이후 생성된 Free 프로젝트는 기본 SMTP 사용 중 이메일 템플릿을 수정할 수 없다. Source 버튼이 비활성화돼 있으면 이 제한부터 확인한다.
+- SMTP 메일 발송 서비스에서 제공하는 host, port, username, password와 검증된 발신 주소를 Supabase의 SMTP 설정에 입력한다. 비밀번호와 발송 서비스 키는 Supabase 설정에만 보관하며 앱·GitHub 코드·채팅에 넣지 않는다. [SMTP 설정 안내](https://supabase.com/docs/guides/auth/auth-smtp)
 - **Confirm signup**과 **Magic Link** 두 이메일 템플릿에 인증번호 `{{ .Token }}`을 넣는다. 로그인 링크 대신 앱에 입력할 코드를 안내한다.
 - OTP 유효기간은 5분, 재발송 간격은 60초 이상으로 설정한다.
 - JWT 유효기간은 15분 정도로 설정하고 refresh token rotation을 유지한다.
 - 발송·검증의 서버 요청 제한을 유지한다. 앱의 60초 제한은 사용 편의를 위한 것으로 서버 제한을 대체하지 않는다.
-- 기본 테스트 메일 서비스에는 수신자/발송 제한이 있으므로 실제 사용에는 SMTP 발송 서비스를 연결한다. 발송 서비스의 키는 Supabase 설정에만 입력한다.
+- 기본 테스트 메일 서비스는 프로젝트 팀원의 이메일로만 보낼 수 있으며 발송량도 제한된다. 공개용 API 키만으로는 SMTP 설정을 변경할 수 없다.
 - 현재 UI는 CAPTCHA 챌린지를 지원하지 않는다. 공개 배포 전에 발송 남용 방어를 검토하고 CAPTCHA를 켜려면 챌린지 처리도 먼저 연결한다.
 
 ## 4. 계정 삭제 함수 배포
