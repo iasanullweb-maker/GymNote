@@ -9,18 +9,22 @@ struct RoutineView: View {
     var body: some View {
         @Bindable var model = model
         NavigationStack {
-            List {
-                Section("캘린더") {
+            CalendarScrollView {
+                CalendarSection("캘린더") {
                     Toggle("운동·일상 함께 보기", isOn: $showAll)
                     PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout)
-                        .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
+                    Divider()
                     NavigationLink {
                         ScheduledDayEditor(date: selectedDate)
                     } label: {
-                        Label("선택한 날짜 계획 설정", systemImage: "calendar.badge.plus")
+                        HStack {
+                            Label("선택한 날짜 계획 설정", systemImage: "calendar.badge.plus")
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        }
                     }
                 }
-                Section {
+                CalendarSection("선택한 주의 운동") {
                     ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
                         NavigationLink {
                             ScheduledDayEditor(date: date)
@@ -43,27 +47,31 @@ struct RoutineView: View {
                                 if Calendar.current.isDateInToday(date) {
                                     Text("오늘").font(.caption).foregroundStyle(.orange)
                                 }
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                             }
                         }
+                        Divider()
                     }
                     Button {
                         confirmingRepeat = true
                     } label: {
                         Label("이 주 계획을 다음 주에도 반복", systemImage: "arrow.triangle.2.circlepath")
                     }
-                } header: {
-                    Text("선택한 주의 운동")
-                } footer: {
                     Text("반복하면 이후 주의 같은 요일 계획을 덮어써. 오늘과 지난 날짜는 바뀌지 않아.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
-                Section {
+                CalendarSection("운동 목록") {
                     NavigationLink {
                         ExerciseLibraryView()
                     } label: {
-                        Label("운동 목록", systemImage: "list.bullet.rectangle")
+                        HStack {
+                            Label("운동 목록", systemImage: "list.bullet.rectangle")
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        }
                     }
-                } footer: {
                     Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 자동으로 반복되지 않으니 '다음 주에도 반복'을 써 줘.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("계획")

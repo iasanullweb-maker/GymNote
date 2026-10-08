@@ -33,8 +33,7 @@ struct PlanCalendarView: View {
                     displayedMonth = selectedDate
                 }
             }
-            // List 안의 큰 한 행이다. 모든 주의 높이를 처음부터 측정해
-            // 스크롤 중 lazy 행의 추정 높이가 바뀌는 것을 막는다.
+            // 모든 주의 높이를 처음부터 측정해 스크롤 중 높이 추정을 막는다.
             Grid(alignment: .topLeading, horizontalSpacing: 6, verticalSpacing: 6) {
                 GridRow {
                     ForEach(weekdayOrder, id: \.self) { index in

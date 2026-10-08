@@ -10,6 +10,9 @@ final class DisplayTests: XCTestCase {
         let moves = (1...8).map { Exercise(name: "긴 이름 운동 \($0) · 스쿼트와 스트레칭", sets: 3, detail: "10회") }
         for (index, date) in DayKey.monthDates(containing: Date()).enumerated() {
             data.scheduledPlans[DayKey.key(date)] = DayPlan(title: "검증 계획", exercises: index % 2 == 0 ? moves : Array(moves.prefix(1)))
+            data.dailyItems += (1...(index % 2 == 0 ? 8 : 1)).map {
+                DailyItem(title: "긴 이름 일상 \($0) · 독서와 스트레칭", scheduledDate: date, startDate: date)
+            }
         }
         let day = Calendar.current.startOfDay(for: Date())
         data.workouts = [
@@ -23,7 +26,7 @@ final class DisplayTests: XCTestCase {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(x: 0, y: 0, width: 834, height: 1194)
-        window.rootViewController = UIHostingController(rootView: view)
+        window.rootViewController = UIHostingController(rootView: view.tint(.orange))
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
         try await Task.sleep(nanoseconds: 500_000_000)
@@ -56,6 +59,19 @@ final class DisplayTests: XCTestCase {
         let model = AppModel(previewData: fixture())
         let window = try await host(RoutineView(selectedDate: .constant(Date())).environment(model), name: "plan-top")
         defer { window.isHidden = true }
+        try await checkScroll(window)
+        capture(window, name: "plan-scrolled")
+    }
+
+    func testDailyPlanCalendarScrollSettlesWithoutHeightChanges() async throws {
+        let model = AppModel(previewData: fixture())
+        let window = try await host(DailyPlansView(selectedDate: .constant(Date())).environment(model), name: "daily-plan-top")
+        defer { window.isHidden = true }
+        try await checkScroll(window)
+        capture(window, name: "daily-plan-scrolled")
+    }
+
+    private func checkScroll(_ window: UIWindow) async throws {
         let scroll = try XCTUnwrap(scrollingView(in: window))
         let initialHeight = scroll.contentSize.height
         let maximum = max(0, initialHeight - scroll.bounds.height + scroll.adjustedContentInset.bottom)
@@ -69,7 +85,6 @@ final class DisplayTests: XCTestCase {
             XCTAssertEqual(scroll.contentSize.height, height, accuracy: 1)
             XCTAssertEqual(height, initialHeight, accuracy: 2, "캘린더를 스크롤해도 전체 높이가 바뀌지 않아야 함")
         }
-        capture(window, name: "plan-scrolled")
     }
 
     func testJournalAndRecordScreensRender() async throws {
