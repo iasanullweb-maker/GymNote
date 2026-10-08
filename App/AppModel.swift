@@ -7,6 +7,7 @@ final class AppModel {
     @ObservationIgnored private var replacingData = false
     @ObservationIgnored private var previewOnly = false
     @ObservationIgnored lazy var account = AccountModel(model: self)
+    @ObservationIgnored lazy var social = SocialModel(model: self)
     private(set) var selection = StoreSelection(userID: nil)
     var storageError: String?
     var data: AppData = .empty {
@@ -14,6 +15,10 @@ final class AppModel {
             if !previewOnly, oldValue.dailyItems != data.dailyItems || oldValue.dailyCompletions != data.dailyCompletions
                 || oldValue.dailyReminders != data.dailyReminders {
                 refreshReminders()
+            }
+            // 공통 종목 최고기록이 바뀔 수 있는 변경이면 친구 공개를 예약(공개를 켠 계정만 실제로 올림)
+            if !previewOnly, !replacingData, oldValue.records != data.records || oldValue.workouts != data.workouts {
+                social.schedulePublish()
             }
             guard !previewOnly, !replacingData, oldValue != data else { return }
             do {

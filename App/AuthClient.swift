@@ -4,7 +4,7 @@ import Security
 
 enum AccountError: LocalizedError {
     case notConfigured, invalidInput, unauthorized, rateLimited, server, storage, conflict, stale
-    case cancelled, providerUnavailable, browserUnavailable, wrongAccount
+    case cancelled, providerUnavailable, browserUnavailable, wrongAccount, featureUnavailable
     var errorDescription: String? {
         switch self {
         case .notConfigured: return "계정 연결을 준비 중입니다. 지금은 기기에 운동 기록을 저장할 수 있어요."
@@ -19,6 +19,7 @@ enum AccountError: LocalizedError {
         case .providerUnavailable: return "이 로그인 방식은 아직 준비되지 않았어요. 다른 방법으로 로그인해 주세요."
         case .browserUnavailable: return "로그인 창을 열지 못했어요. 잠시 후 다시 시도해 주세요."
         case .wrongAccount: return "현재 계정과 다른 계정으로 인증했어요. 이 계정에 연결된 로그인 방법으로 다시 확인해 주세요."
+        case .featureUnavailable: return "친구 기능 서버가 아직 준비되지 않았어요. 기기의 기록은 그대로예요."
         }
     }
 }
@@ -201,6 +202,8 @@ final class AuthClient {
         case 200..<300: return data
         case 401, 403: throw AccountError.unauthorized
         case 429: throw AccountError.rateLimited
+        // 서버에 친구 기능 함수가 아직 없을 때(마이그레이션 적용 전)
+        case 404 where path.hasPrefix("/rest/v1/rpc/social_"): throw AccountError.featureUnavailable
         case 400, 422:
             if path.hasPrefix("/auth/v1/verify") || path.hasPrefix("/auth/v1/token") { throw AccountError.unauthorized }
             throw AccountError.invalidInput
@@ -317,5 +320,59 @@ final class AuthClient {
             throw AccountError.conflict
         }
         return saved
+    }
+
+    // MARK: 친구·그룹 경쟁 (Supabase RPC, 모두 서버가 세션과 소유자를 확인)
+
+    private func socialCall(_ name: String, token: String, body: Data = Data("{}".utf8)) async throws -> Data {
+        try await request(path: "/rest/v1/rpc/\(name)", token: token, body: body)
+    }
+    private func json(_ object: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: object) }
+
+    func socialOverview(token: String) async throws -> SocialOverview {
+        try JSONDecoder().decode(SocialOverview.self, from: await socialCall("social_overview", token: token))
+    }
+    func saveSocialProfile(nickname: String, share: Bool, token: String) async throws -> SocialOverview.Profile {
+        let data = try await socialCall("social_save_profile", token: token,
+                                        body: json(["p_nickname": nickname, "p_share": share]))
+        guard let profile = try JSONDecoder().decode([SocialOverview.Profile].self, from: data).first else { throw AccountError.server }
+        return profile
+    }
+    func sendFriendRequest(code: String, token: String) async throws -> String {
+        try JSONDecoder().decode(String.self, from: await socialCall("social_send_friend_request", token: token,
+                                                                       body: json(["p_code": code])))
+    }
+    func respondFriendRequest(from user: UUID, accept: Bool, token: String) async throws -> Bool {
+        try JSONDecoder().decode(Bool.self, from: await socialCall("social_respond_friend_request", token: token,
+            body: json(["p_requester": user.uuidString, "p_accept": accept])))
+    }
+    func removeFriend(_ user: UUID, token: String) async throws -> Bool {
+        try JSONDecoder().decode(Bool.self, from: await socialCall("social_remove_friend", token: token,
+                                                                     body: json(["p_user": user.uuidString])))
+    }
+    func createGroup(name: String, token: String) async throws -> UUID {
+        try JSONDecoder().decode(UUID.self, from: await socialCall("social_create_group", token: token,
+                                                                     body: json(["p_name": name])))
+    }
+    func inviteToGroup(_ group: UUID, user: UUID, token: String) async throws -> Bool {
+        try JSONDecoder().decode(Bool.self, from: await socialCall("social_invite_to_group", token: token,
+            body: json(["p_group": group.uuidString, "p_user": user.uuidString])))
+    }
+    func respondGroupInvite(_ group: UUID, accept: Bool, token: String) async throws -> Bool {
+        try JSONDecoder().decode(Bool.self, from: await socialCall("social_respond_group_invite", token: token,
+            body: json(["p_group": group.uuidString, "p_accept": accept])))
+    }
+    func leaveGroup(_ group: UUID, token: String) async throws -> Bool {
+        try JSONDecoder().decode(Bool.self, from: await socialCall("social_leave_group", token: token,
+                                                                     body: json(["p_group": group.uuidString])))
+    }
+    func publishRecords(_ records: [PublishedRecord], token: String) async throws -> Int {
+        struct Body: Encodable { let p_records: [PublishedRecord] }
+        return try JSONDecoder().decode(Int.self, from: await socialCall("social_publish_records", token: token,
+                                                                           body: JSONEncoder().encode(Body(p_records: records))))
+    }
+    func leaderboard(group: UUID?, token: String) async throws -> [SocialEntry] {
+        let body = try json(group.map { ["p_group": $0.uuidString] } ?? [:])
+        return try JSONDecoder().decode([SocialEntry].self, from: await socialCall("social_leaderboard", token: token, body: body))
     }
 }

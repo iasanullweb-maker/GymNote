@@ -859,4 +859,51 @@ final class AccountTests: XCTestCase {
         _ = try SharedStore.activate(userID: UUID())
         XCTAssertNil(try SharedStore.completeDailyFromNotification(itemID: item.id, day: "2026-10-06", generation: generation))
     }
+
+    // MARK: - 친구·그룹 서버 호출
+
+    func testSocialCallsSendOwnTokenAndMapMissingServer() async throws {
+        let client = stubClient()
+        var seen: [(String, [String: Any])] = []
+        AuthStub.reply = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer social-token")
+            let body = (try? JSONSerialization.jsonObject(with: AuthStub.body(of: request))) as? [String: Any] ?? [:]
+            seen.append((request.url!.path, body))
+            switch request.url!.path {
+            case "/rest/v1/rpc/social_overview":
+                return (200, Data(#"{"profile":{"nickname":"수혁","friend_code":"ABCD2345","share_records":true},"friends":[],"groups":[]}"#.utf8))
+            case "/rest/v1/rpc/social_send_friend_request": return (200, Data(#""sent""#.utf8))
+            case "/rest/v1/rpc/social_create_group": return (200, Data(#""00000000-0000-0000-0000-0000000000aa""#.utf8))
+            case "/rest/v1/rpc/social_publish_records": return (200, Data("1".utf8))
+            case "/rest/v1/rpc/social_leaderboard": return (200, Data("[]".utf8))
+            default: return (404, Data(#"{"code":"PGRST202"}"#.utf8))
+            }
+        }
+        let overview = try await client.socialOverview(token: "social-token")
+        XCTAssertEqual(overview.profile?.friend_code, "ABCD2345")
+        let sent = try await client.sendFriendRequest(code: "ABCD2345", token: "social-token")
+        XCTAssertEqual(sent, "sent")
+        let created = try await client.createGroup(name: "헬스 동아리", token: "social-token")
+        XCTAssertEqual(created, UUID(uuidString: "00000000-0000-0000-0000-0000000000aa"))
+        let record = PublishedRecord(type_id: "common-pushup-v1", value: 30, extra_reps: 0, achieved_at: "2026-10-05")
+        let published = try await client.publishRecords([record], token: "social-token")
+        XCTAssertEqual(published, 1)
+        _ = try await client.leaderboard(group: nil, token: "social-token")
+        let group = UUID()
+        _ = try await client.leaderboard(group: group, token: "social-token")
+        XCTAssertEqual(seen[1].1["p_code"] as? String, "ABCD2345")
+        XCTAssertNil(seen[3].1["p_user_id"], "요청 본문에 내 사용자 ID를 보내지 않음(서버가 토큰으로 판단)")
+        XCTAssertEqual((seen[3].1["p_records"] as? [[String: Any]])?.first?["type_id"] as? String, "common-pushup-v1")
+        XCTAssertTrue(seen[4].1.isEmpty, "친구 전체 순위는 그룹 없이 요청")
+        XCTAssertEqual(seen[5].1["p_group"] as? String, group.uuidString)
+        do {
+            _ = try await client.leaveGroup(group, token: "social-token")
+            XCTFail("서버 함수가 없으면 준비 중으로 처리")
+        } catch AccountError.featureUnavailable {} catch { XCTFail("Unexpected: \(error)") }
+        AuthStub.reply = { _ in (403, Data()) }
+        do {
+            _ = try await client.socialOverview(token: "social-token")
+            XCTFail("권한 오류")
+        } catch AccountError.unauthorized {} catch { XCTFail("Unexpected: \(error)") }
+    }
 }
