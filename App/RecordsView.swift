@@ -134,10 +134,12 @@ struct RecordSection: View {
         } header: {
             HStack {
                 Text(type.name)
+                    .font(.title3.bold())
                 Spacer()
                 Button(action: onAdd) {
-                    Label("기록", systemImage: "plus.circle.fill")
-                        .font(.subheadline.bold())
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 26, weight: .semibold))
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.borderless)
                 .tint(.orange)

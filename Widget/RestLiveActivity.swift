@@ -16,8 +16,8 @@ struct RestLiveActivity: Widget {
                     Label("휴식", systemImage: "timer")
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(timerInterval: context.attributes.startDate...context.state.endDate, countsDown: true)
-                        .monospacedDigit()
+                    RestActivityCountdown(end: context.state.endDate, finished: context.isStale)
+                        .frame(width: 130, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text("다음: \(context.state.title)")
@@ -25,9 +25,9 @@ struct RestLiveActivity: Widget {
             } compactLeading: {
                 Image(systemName: "timer")
             } compactTrailing: {
-                Text(timerInterval: context.attributes.startDate...context.state.endDate, countsDown: true)
-                    .monospacedDigit()
-                    .frame(maxWidth: 48)
+                RestActivityCountdown(end: context.state.endDate, finished: context.isStale)
+                    .font(.caption2)
+                    .frame(width: 72, alignment: .trailing)
             } minimal: {
                 Image(systemName: "timer")
             }
@@ -56,12 +56,30 @@ struct RestLockScreenView: View {
                 }
             }
             Spacer()
-            Text(timerInterval: context.attributes.startDate...context.state.endDate, countsDown: true)
-                .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+            RestActivityCountdown(end: context.state.endDate, finished: context.isStale)
+                .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.trailing)
-                .frame(width: 140, alignment: .trailing)
+                .frame(width: 180, alignment: .trailing)
         }
         .padding(16)
+    }
+}
+
+/// 시스템의 relative 표시는 앱이 멈춰 있어도 갱신된다.
+/// staleDate (= end) 이후에는 경과 시간이 늘어나지 않도록 0초로 고정한다.
+private struct RestActivityCountdown: View {
+    let end: Date
+    let finished: Bool
+
+    var body: some View {
+        Group {
+            if finished { Text("0초") }
+            else { Text(end, style: .relative) }
+        }
+        .environment(\.locale, Locale(identifier: "ko_KR"))
+        .monospacedDigit()
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
     }
 }

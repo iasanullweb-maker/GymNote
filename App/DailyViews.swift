@@ -106,16 +106,15 @@ struct DailyPlansView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("캘린더") {
+            CalendarScrollView {
+                CalendarSection("캘린더") {
                     Toggle("운동·일상 함께 보기", isOn: $showAll)
                     PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .daily)
-                        .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
                     if showAll {
                         Text("운동은 기본 글씨, 일상은 청록색으로 표시해요.").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                Section {
+                CalendarSection(selectedDate.formatted(.dateTime.year().month().day().weekday())) {
                     let items = model.data.dailyItems(on: selectedDate)
                     if items.isEmpty { Text("예정된 항목이 없어요.").foregroundStyle(.secondary) }
                     ForEach(items) { item in
@@ -124,10 +123,10 @@ struct DailyPlansView: View {
                     Button {
                         editing = DailyItem(title: "", scheduledDate: selectedDate, startDate: selectedDate)
                     } label: { Label("이 날짜에 추가", systemImage: "plus") }
-                } header: { Text(selectedDate.formatted(.dateTime.year().month().day().weekday())) }
+                }
                 let skipped = model.data.dailyItems.filter { $0.kind == .habit && $0.skippedDays.contains(DayKey.key(selectedDate)) }
                 if !skipped.isEmpty {
-                    Section("건너뛴 습관") {
+                    CalendarSection("건너뛴 습관") {
                         ForEach(skipped) { item in
                             Button("\(item.title) · 다시 예정하기") {
                                 guard let index = model.data.dailyItems.firstIndex(where: { $0.id == item.id }) else { return }
@@ -136,7 +135,7 @@ struct DailyPlansView: View {
                         }
                     }
                 }
-                Section("선택한 주") {
+                CalendarSection("선택한 주") {
                     ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
                         Button { selectedDate = date } label: {
                             HStack {
@@ -147,9 +146,18 @@ struct DailyPlansView: View {
                             }
                             .foregroundStyle(.primary)
                         }
+                        Divider()
                     }
                 }
-                NavigationLink("할 일·습관 관리") { DailyLibraryView() }
+                CalendarSection("관리") {
+                    NavigationLink { DailyLibraryView() } label: {
+                        HStack {
+                            Text("할 일·습관 관리")
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             .navigationTitle("일상 계획")
             .sheet(item: $editing) { DailyItemEditor(item: $0) }
