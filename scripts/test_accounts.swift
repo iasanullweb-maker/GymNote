@@ -72,10 +72,20 @@ struct AccountChecks {
         assert(started.activeWorkout == training.activeWorkout, "운동 시작이 계정 파일에 저장")
         var appTraining = training
         var widgetTraining = training
-        appTraining.changeSets(exercise.id, by: 1, on: date)
+        appTraining.changeSets(exercise.id, by: 1, on: date, actualReps: 8)
         widgetTraining.changeSets(exercise.id, by: 1, on: date)
         let mergedTraining = widgetTraining.applyingEdits(from: training, to: appTraining)
         assert(mergedTraining.activeWorkout?.done == 2, "진행 중 운동도 앱·위젯 체크 둘 다 유지")
+        assert(mergedTraining.activeWorkout?.repetitions(exercise, set: 1) == 8, "위젯 체크 뒤에 앱의 실제 횟수 보존")
+        var corrected = mergedTraining
+        let repetitionSessionID = mergedTraining.activeWorkout!.id
+        corrected.updateRepetitions(sessionID: repetitionSessionID, exerciseID: exercise.id, set: 0, value: 7)
+        var concurrentCheck = mergedTraining
+        concurrentCheck.changeSets(exercise.id, by: 1, on: date)
+        let correctedMerge = concurrentCheck.applyingEdits(from: mergedTraining, to: corrected)
+        assert(correctedMerge.activeWorkout?.done == 3)
+        assert(correctedMerge.activeWorkout?.repetitions(exercise, set: 0) == 7)
+        assert(correctedMerge.activeWorkout?.repetitions(exercise, set: 1) == 8)
         training = mergedTraining
         training.changeSets(exercise.id, by: 2, on: date)
         appTraining = training

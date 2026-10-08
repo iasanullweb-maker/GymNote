@@ -63,7 +63,10 @@ struct WorkoutJournalView: View {
 }
 
 struct WorkoutJournalDetail: View {
-    let workout: WorkoutSession
+    @Environment(AppModel.self) private var model
+    private let original: WorkoutSession
+    init(workout: WorkoutSession) { original = workout }
+    private var workout: WorkoutSession { model.data.workouts.first { $0.id == original.id } ?? original }
 
     var body: some View {
         List {
@@ -76,20 +79,23 @@ struct WorkoutJournalDetail: View {
             }
             Section {
                 ForEach(workout.plan.exercises) { exercise in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(exercise.name).font(.headline)
-                            Text("세트당 \(exercise.detail)").font(.caption).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(exercise.name).font(.headline)
+                                Text("세트당 \(exercise.detail)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text("\(workout.doneSets(exercise)) / \(exercise.sets)세트")
+                                .monospacedDigit()
                         }
-                        Spacer()
-                        Text("\(workout.doneSets(exercise)) / \(exercise.sets)세트")
-                            .monospacedDigit()
+                        CompletedRepetitionRows(session: workout, exercise: exercise)
                     }
                 }
             } header: {
                 Text("운동별 기록")
             } footer: {
-                Text("횟수·시간은 운동 시작 당시 계획에 적힌 세트당 기준이야. 이후 계획을 바꿔도 이 일지는 유지돼.")
+                Text("횟수는 실제 / 계획 순서예요. 세트를 누르면 실제 횟수를 수정할 수 있어요. 예전 일지의 미기록 횟수와 시간은 계획 기준만 남아 있어요.")
             }
         }
         .navigationTitle(workout.plan.title)

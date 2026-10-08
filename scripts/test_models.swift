@@ -189,6 +189,35 @@ struct ModelChecks {
         assert(journal.workouts(on: calendar.date(byAdding: .day, value: -1, to: today)!).isEmpty)
         let journalReload = try decoder.decode(AppData.self, from: encoder.encode(journal))
         assert(journalReload.workouts(on: today) == [night, morning])
-        print("Model checks passed: migration, calendars, workout sessions, journals, persistence, stale/twice/widget/repeat")
+        // Actual repetitions remain independent from the plan, survive reload, and undo with the set.
+        assert(first.plannedReps == 10)
+        assert(Exercise(name: "런지", sets: 2, detail: "다리당 12회").plannedReps == 12)
+        for detail in ["1분", "최대의 70%", "8~12회", "10회 + 5회", "1.5회", "-10회"] {
+            assert(Exercise(name: "기준", sets: 1, detail: detail).plannedReps == nil)
+        }
+        var repetitions = AppData(week: [])
+        repetitions.scheduledPlans[key] = DayPlan(title: "실제 횟수", exercises: [first, second])
+        repetitions.startWorkout(at: today)
+        let sessionID = repetitions.activeWorkout!.id
+        repetitions.changeSets(first.id, by: 1, on: today, actualReps: 8)
+        assert(repetitions.activeWorkout!.repetitions(first, set: 0) == 8)
+        assert(repetitions.activeWorkout!.plan.exercises[0].detail == "10회")
+        repetitions.changeSets(first.id, by: 1, on: today, actualReps: 12)
+        repetitions.changeSets(first.id, by: -1, on: today)
+        assert(repetitions.activeWorkout!.actualReps[first.id.uuidString] == [8])
+        repetitions.changeSets(first.id, by: 1, on: today)
+        assert(repetitions.activeWorkout!.repetitions(first, set: 1) == 10, "다음 세트는 계획 기준")
+        repetitions.updateRepetitions(sessionID: sessionID, exerciseID: first.id, set: 0, value: 0)
+        assert(repetitions.activeWorkout!.repetitions(first, set: 0) == 0)
+        repetitions.changeSets(second.id, by: 1, on: today)
+        assert(repetitions.workouts[0].repetitions(second, set: 0) == nil, "시간을 횟수로 기록하지 않음")
+        repetitions.updateRepetitions(sessionID: sessionID, exerciseID: first.id, set: 1, value: 9)
+        let repetitionsReload = try decoder.decode(AppData.self, from: encoder.encode(repetitions))
+        assert(repetitionsReload == repetitions && repetitionsReload.workouts[0].repetitions(first, set: 1) == 9)
+        var oldSession = try JSONSerialization.jsonObject(with: encoder.encode(repetitions.workouts[0])) as! [String: Any]
+        oldSession.removeValue(forKey: "actualReps")
+        let legacySession = try decoder.decode(WorkoutSession.self, from: JSONSerialization.data(withJSONObject: oldSession))
+        assert(legacySession.done == 3 && legacySession.repetitions(first, set: 0) == nil, "예전 일지 실제 횟수는 미기록")
+        print("Model checks passed: migration, calendars, workout sessions, journals, persistence, repetitions, stale/twice/widget/repeat")
     }
 }

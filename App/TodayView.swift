@@ -40,9 +40,11 @@ struct TodayView: View {
                             ExerciseRow(
                                 exercise: exercise,
                                 done: model.data.doneSets(exercise, on: model.workoutDate),
-                                onComplete: { model.completeSet(exercise) },
+                                session: model.data.activeWorkout,
+                                onComplete: { model.completeSet(exercise, actualReps: $0) },
                                 onUndo: { model.undoSet(exercise) }
                             ).disabled(model.data.activeWorkout == nil)
+                                .id("\(model.data.activeWorkout?.id.uuidString ?? "idle")-\(exercise.id)")
                         }
                     }
                 }
@@ -96,10 +98,14 @@ struct TodayView: View {
 struct ExerciseRow: View {
     let exercise: Exercise
     let done: Int
-    let onComplete: () -> Void
+    let session: WorkoutSession?
+    let onComplete: (Int?) -> Void
     let onUndo: () -> Void
+    @State private var draftReps: Int?
+    @State private var editingReps = false
 
     private var finished: Bool { done >= exercise.sets }
+    private var actualReps: Int? { draftReps ?? exercise.plannedReps }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -121,6 +127,34 @@ struct ExerciseRow: View {
             .accessibilityLabel("세트 진행")
             .accessibilityValue("\(exercise.sets)세트 중 \(done)세트 완료")
 
+            if !finished, let value = actualReps {
+                Text("\(done + 1)세트 · 계획 \(exercise.detail)")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                HStack(spacing: 16) {
+                    Text("실제 횟수").font(.headline)
+                    Spacer(minLength: 0)
+                    Button { draftReps = max(0, value - 1) } label: {
+                        Image(systemName: "minus").frame(width: 32, height: 36)
+                    }
+                    .buttonStyle(.bordered).disabled(value == 0)
+                    .accessibilityLabel("실제 횟수 1회 줄이기")
+                    Button { editingReps = true } label: {
+                        Text("\(value)회").font(.title2.bold().monospacedDigit())
+                            .frame(minWidth: 64, minHeight: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("실제 횟수 \(value)회, 직접 입력")
+                    Button { draftReps = min(9999, value + 1) } label: {
+                        Image(systemName: "plus").frame(width: 32, height: 36)
+                    }
+                    .buttonStyle(.bordered).disabled(value == 9999)
+                    .accessibilityLabel("실제 횟수 1회 늘리기")
+                }
+            }
+            if let session, done > 0 {
+                CompletedRepetitionRows(session: session, exercise: exercise)
+            }
+
             HStack(spacing: 12) {
                 Button(action: onUndo) {
                     Image(systemName: "arrow.uturn.backward")
@@ -131,8 +165,8 @@ struct ExerciseRow: View {
                 .disabled(done == 0)
                 .accessibilityLabel("세트 완료 되돌리기")
 
-                Button(action: onComplete) {
-                    Text(finished ? "완료" : "세트 완료")
+                Button { onComplete(actualReps) } label: {
+                    Text(finished ? "완료" : actualReps.map { "\($0)회로 세트 완료" } ?? "세트 완료")
                         .font(.title3.bold())
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
@@ -141,6 +175,96 @@ struct ExerciseRow: View {
             }
         }
         .padding(.vertical, 10)
+        .onChange(of: done) { _, _ in draftReps = nil }
+        .onChange(of: exercise.detail) { _, _ in draftReps = nil }
+        .sheet(isPresented: $editingReps) {
+            RepetitionEditor(title: "\(done + 1)세트 실제 횟수", initialValue: actualReps ?? 0) {
+                draftReps = $0
+            }
+        }
+    }
+}
+
+struct RepetitionEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let onSave: (Int) -> Void
+    @State private var input: String
+    @FocusState private var focused: Bool
+
+    init(title: String, initialValue: Int, onSave: @escaping (Int) -> Void) {
+        self.title = title
+        self.onSave = onSave
+        _input = State(initialValue: String(initialValue))
+    }
+
+    private var value: Int? {
+        guard let number = Int(input), (0...9999).contains(number) else { return nil }
+        return number
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("실제 횟수", text: $input)
+                        .keyboardType(.numberPad).focused($focused)
+                        .accessibilityLabel("실제 횟수")
+                } footer: { Text("0~9999회까지 입력할 수 있어요. 계획 횟수는 바뀌지 않아요.") }
+            }
+            .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("저장") {
+                        if let value { onSave(value); dismiss() }
+                    }.disabled(value == nil)
+                }
+            }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+struct CompletedRepetitionRows: View {
+    @Environment(AppModel.self) private var model
+    let session: WorkoutSession
+    let exercise: Exercise
+    @State private var editingSet: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(0..<session.doneSets(exercise), id: \.self) { index in
+                let actual = session.repetitions(exercise, set: index)
+                if exercise.plannedReps != nil || actual != nil {
+                    Button { editingSet = index } label: {
+                        HStack {
+                            Text("\(index + 1)세트")
+                            Spacer()
+                            if let actual, let planned = exercise.plannedReps {
+                                Text("\(actual) / \(planned)회")
+                            } else if let actual {
+                                Text("\(actual)회")
+                            } else {
+                                Text("횟수 미기록")
+                            }
+                            Image(systemName: "pencil").accessibilityHidden(true)
+                        }.font(.subheadline).monospacedDigit()
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityHint("눌러서 실제 횟수 수정")
+                }
+            }
+        }
+        .sheet(isPresented: Binding(get: { editingSet != nil }, set: { if !$0 { editingSet = nil } })) {
+            if let index = editingSet {
+                RepetitionEditor(title: "\(index + 1)세트 실제 횟수",
+                                 initialValue: session.repetitions(exercise, set: index) ?? exercise.plannedReps ?? 0) {
+                    model.data.updateRepetitions(sessionID: session.id, exerciseID: exercise.id, set: index, value: $0)
+                }
+            }
+        }
     }
 }
 

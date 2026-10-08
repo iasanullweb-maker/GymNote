@@ -98,7 +98,7 @@ struct DailyWidgetView: View {
                         }
                     }
                     Spacer(minLength: 0)
-                    Text(isUndated(item) ? "미정" : item.kind.title)
+                    Text(isUndated(item) ? "미정" : (item.reminderTime?.label ?? item.kind.title))
                         .font(.caption2).foregroundStyle(.secondary)
                 }
                 .font(.caption)
@@ -107,7 +107,7 @@ struct DailyWidgetView: View {
                 Text("+\(items.count - maxItems)개 더").font(.caption2).foregroundStyle(.secondary)
             }
             if items.isEmpty {
-                Text(scheduled.isEmpty ? "앱에서 할 일이나 습관을 추가해 보세요." : "오늘 예정된 일을 모두 마쳤어요.")
+                Text(scheduled.isEmpty ? "앱에서 일상을 추가해 보세요." : "오늘 예정된 일을 모두 마쳤어요.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -124,7 +124,7 @@ struct DailyWidget: Widget {
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("오늘 일상")
-        .description("오늘 남은 할 일과 반복 습관, 날짜 미정 할 일을 확인해요.")
+        .description("오늘 남은 일상과 날짜 미정 일상을 확인해요.")
         .supportedFamilies([
             .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge,
             .accessoryRectangular, .accessoryInline, .accessoryCircular,

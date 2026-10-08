@@ -11,6 +11,10 @@ final class AppModel {
     var storageError: String?
     var data: AppData = .empty {
         didSet {
+            if !previewOnly, oldValue.dailyItems != data.dailyItems || oldValue.dailyCompletions != data.dailyCompletions
+                || oldValue.dailyReminders != data.dailyReminders {
+                refreshReminders()
+            }
             guard !previewOnly, !replacingData, oldValue != data else { return }
             do {
                 let saved = try SharedStore.persistEdits(from: oldValue, to: data, selection: selection)
@@ -22,6 +26,7 @@ final class AppModel {
             }
         }
     }
+    @ObservationIgnored private var reminderTask: Task<Void, Never>?
     var restStart: Date?
     var restEnd: Date?
 
@@ -54,6 +59,17 @@ final class AppModel {
         } catch { storageError = "기록을 읽지 못했어요. 원본을 덮어쓰지 않고 보관합니다." }
     }
 
+    /// 일상 알림을 현재 계정·데이터 기준으로 다시 예약한다. 연속 변경은 잠깐 모아서 한 번에 처리.
+    func refreshReminders() {
+        guard !previewOnly else { return }
+        reminderTask?.cancel()
+        reminderTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard let self, !Task.isCancelled else { return }
+            DailyReminderScheduler.refresh(data: self.data, generation: self.selection.generation.uuidString)
+        }
+    }
+
     func replaceData(_ value: AppData) {
         replacingData = true
         data = value
@@ -73,6 +89,7 @@ final class AppModel {
             throw error
         }
         storageError = nil
+        refreshReminders() // 이전 계정의 알림 정리
     }
 
     func reload() {
@@ -90,14 +107,15 @@ final class AppModel {
             restEnd = nil
             Task { await RestController.stop() }
         }
+        refreshReminders() // 날짜가 바뀌었거나 위젯·알림 버튼으로 바뀐 기록 반영
     }
 
     /// 세트 완료 → 기록하고 설정한 기본 휴식(모든 운동 공통) 타이머 시작.
     /// 마지막 세트까지 끝나 운동이 일지로 저장되면 휴식은 켜지 않는다.
-    func completeSet(_ exercise: Exercise) {
+    func completeSet(_ exercise: Exercise, actualReps: Int? = nil) {
         guard data.activeWorkout != nil else { return }
         let date = workoutDate
-        data.changeSets(exercise.id, by: 1, on: date)
+        data.changeSets(exercise.id, by: 1, on: date, actualReps: actualReps)
         if data.activeWorkout == nil { stopRest(); return }
         let progress = workoutProgress
         guard progress.done < progress.total else { return }
