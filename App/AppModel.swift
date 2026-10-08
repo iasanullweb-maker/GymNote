@@ -38,7 +38,8 @@ final class AppModel {
         let now = Date()
         restStart = now
         restEnd = now.addingTimeInterval(TimeInterval(max(seconds, 5)))
-        Task { await RestController.start(seconds: seconds, title: title, info: info) }
+        let sound = data.restSound
+        Task { await RestController.start(seconds: seconds, title: title, info: info, sound: sound) }
     }
 
     func startDefaultRest() {

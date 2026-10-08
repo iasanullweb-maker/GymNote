@@ -17,7 +17,7 @@ enum RestController {
     static let notificationID = "gymnote.rest.end"
 
     /// 휴식 타이머 시작: 잠금 화면 카운트다운 + 끝날 때 알림
-    static func start(seconds: Int, title: String, info: String) async {
+    static func start(seconds: Int, title: String, info: String, sound: Bool = false) async {
         await stop()
 
         let seconds = max(seconds, 5)
@@ -38,7 +38,8 @@ enum RestController {
         let note = UNMutableNotificationContent()
         note.title = "휴식 끝!"
         note.body = info.isEmpty ? title : "다음: \(title) · \(info)"
-        note.sound = .default
+        // 기본은 무음 (배너만). 설정에서 소리를 켤 수 있음
+        note.sound = sound ? .default : nil
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(seconds), repeats: false)
         let request = UNNotificationRequest(identifier: notificationID, content: note, trigger: trigger)
         try? await UNUserNotificationCenter.current().add(request)

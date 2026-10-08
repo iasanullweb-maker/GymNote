@@ -42,6 +42,7 @@ struct RoutineView: View {
                         in: 15...600,
                         step: 15
                     )
+                    Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
                 }
 
                 Section {

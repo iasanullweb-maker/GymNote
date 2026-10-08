@@ -40,8 +40,9 @@ struct StartRestIntent: LiveActivityIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let next = SharedStore.load().nextUp()
-        await RestController.start(seconds: seconds, title: next.title, info: next.info)
+        let data = SharedStore.load()
+        let next = data.nextUp()
+        await RestController.start(seconds: seconds, title: next.title, info: next.info, sound: data.restSound)
         return .result()
     }
 }

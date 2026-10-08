@@ -36,8 +36,8 @@ struct GymWidgetView: View {
         "\(DayKey.weekdayName(entry.date)) · \(plan.isRestDay ? "휴식일" : plan.title)"
     }
     private var prLine: String {
-        RecordKind.allCases
-            .map { "\($0.label) \(entry.data.best($0)?.shortDisplay ?? "–")" }
+        entry.data.widgetTypes()
+            .map { t in "\(t.name) \(entry.data.best(t).map { t.shortDisplay($0) } ?? "–")" }
             .joined(separator: " · ")
     }
 
@@ -106,13 +106,14 @@ struct GymWidgetView: View {
                     .tint(.orange)
             }
             Spacer(minLength: 0)
-            ForEach(RecordKind.allCases) { kind in
+            ForEach(entry.data.widgetTypes()) { t in
                 HStack {
-                    Text(kind.label)
+                    Text(t.name)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                     Spacer()
-                    Text(entry.data.best(kind)?.shortDisplay ?? "–")
+                    Text(entry.data.best(t).map { t.shortDisplay($0) } ?? "–")
                         .font(.caption.bold())
                 }
             }
@@ -149,12 +150,13 @@ struct GymWidgetView: View {
                 Text("최고 기록")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                ForEach(RecordKind.allCases) { kind in
+                ForEach(entry.data.widgetTypes()) { t in
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(kind.label)
+                        Text(t.name)
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        Text(entry.data.best(kind)?.display ?? "–")
+                            .lineLimit(1)
+                        Text(entry.data.best(t).map { t.display($0) } ?? "–")
                             .font(.subheadline.bold())
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)

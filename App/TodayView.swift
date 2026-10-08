@@ -41,11 +41,11 @@ struct TodayView: View {
                 }
 
                 Section("최고 기록") {
-                    ForEach(RecordKind.allCases) { kind in
+                    ForEach(model.data.recordTypes) { type in
                         HStack {
-                            Text(kind.label)
+                            Text(type.name)
                             Spacer()
-                            Text(model.data.best(kind)?.display ?? "–").bold()
+                            Text(model.data.best(type).map { type.display($0) } ?? "–").bold()
                         }
                     }
                 }
