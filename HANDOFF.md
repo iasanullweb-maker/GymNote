@@ -354,3 +354,10 @@
 - 서버 적용 필요: 202610080002_record_catalog.sql 실행 후 record_catalog_admins에 관리자의 Auth UUID를 SQL Editor에서 지정. 앱에 관리자 키 없음. 활성 세션·서버 관리 테이블로 권한 판정, revision으로 동시 수정 보호. 절차는 docs/RECORD_CATALOG_SETUP.md 참조. 실제 Supabase 적용·관리자 지정은 아직 미실행.
 - 검증: PGlite PostgreSQL 엔진에서 기존 백업 권한 테스트와 새 공통 목록 권한/관리자/충돌/규칙 고정/세션 폐기/계정 삭제 검사 통과. 기존 계정 삭제 함수 Node 검사, 수정 Swift 문법 검사(기존 파서 한계 제외), git diff --check 통과. 데이터·캐시·입력 XCTest와 PostgreSQL CI 추가. Windows에 Swift/Xcode가 없어 XCTest 실행·전체 iOS 빌드는 미실행.
 - 기존 main의 동시 스와이프 개선·운동 일지 자동 최고 기록·과거 운동 일괄 입력을 병합하여 보존. 자동 기록은 공통 종목의 개인 화면에서도 표시하되 향후 경쟁 제출과는 구분. 원격 push·앱 배포 없음.
+
+## 공통 종목 서버 적용 준비 / 통합 검증 (2026-10-09)
+- 사용자가 실제 Supabase 적용·관리자 지정·새 앱 배포 진행을 승인. 서버 공통 목록 RPC를 공개 빌드 설정으로 조회한 결과 404/PGRST202로 아직 미적용임을 확인.
+- 관리자 지정까지 하나의 트랜잭션으로 실행할 스크립트를 로컬 .validation-tools/deploy-record-catalog.sql에 준비. 사용자 이메일이 정확히 한 계정에 일치할 때만 지정하고, 0개/중복 일치 시 전체 롤백되는 것을 PGlite에서 확인. 이메일은 공개 저장소에 기록하지 않음.
+- Chrome 연결의 Supabase 세션은 로그인 화면에 머물며, 사용자가 로그인 완료를 알린 탭과 일치하지 않음. 로그인한 브라우저 이름·정확한 Supabase 탭 주소를 요청한 상태. 전체 Chrome 탭 조회는 자동 승인 검토에서 작업과 무관한 개인 탭 노출 위험으로 거절되어 실행하지 않음. Supabase CLI 인증도 없음. 실제 SQL 실행·관리자 지정·main 원격 push·릴리스는 아직 미실행.
+- 최신 main의 운동 상태/자정 유지 변경을 보존해 검증. 시뮬레이터에서 앱 재실행 시 저장된 세트 수가 중복 저장되는 오류를 발견하여 AppModel 초기 복원을 replaceData 경로로 변경. 검증 커밋 d13cd43: Validate GymNote #45(https://github.com/iasanullweb-maker/GymNote/actions/runs/37800279242) 전체 성공, Build IPA #72(https://github.com/iasanullweb-maker/GymNote/actions/runs/37800279707) 성공. iPad XCTest·모델/계정/일상/자동 기록·DB 권한·계정 삭제 검사와 앱/위젯 Release 빌드 통과. 공통 기록 화면의 실제 시뮬레이터 캡처도 확인.
+- 검증용 브랜치 codex/common-record-catalog는 원격에 push됨. 서버 접속 해결 후 공통 SQL 적용·지정 계정 확인·실제 공통 목록/권한 검증을 마치고, 검증된 main을 배포해야 함. main에 skip ci 커밋으로 push할 경우 기존 Build IPA 워크플로를 main 대상으로 수동 dispatch하여 릴리스와 AltStore 소스 완료까지 확인.
