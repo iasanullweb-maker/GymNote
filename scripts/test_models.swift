@@ -182,7 +182,7 @@ struct ModelChecks {
         let night = WorkoutSession(startedAt: journalDay.addingTimeInterval(23 * 3600), endedAt: journalDay.addingTimeInterval(25 * 3600), plan: DayPlan(title: "저녁", exercises: [move]), completedSets: [move.id.uuidString: 2])
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: journalDay)!
         let next = WorkoutSession(startedAt: tomorrow.addingTimeInterval(3600), plan: morning.plan)
-        var journal = AppData.empty
+        var journal = AppData(week: [])
         journal.workouts = [morning, next, night]
         assert(journal.workouts(on: today).map(\.id) == [night.id, morning.id])
         assert(journal.workouts(on: tomorrow).map(\.id) == [next.id])
