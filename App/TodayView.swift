@@ -17,15 +17,7 @@ struct TodayView: View {
                                 .tint(.orange)
                         }
                     }.padding(.vertical, 4)
-                    if let session = model.data.activeWorkout {
-                        HStack {
-                            Label("운동 중", systemImage: "figure.strengthtraining.traditional")
-                            Spacer()
-                            Text(session.startedAt, style: .timer).monospacedDigit()
-                            Button(progress.done == 0 ? "시작 취소" : "운동 마치기") { model.finishWorkout() }
-                                .buttonStyle(.bordered)
-                        }
-                    } else if model.savedToday {
+                    if model.data.activeWorkout == nil, model.savedToday {
                         HStack {
                             Label("운동 일지에 저장됨", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
@@ -36,7 +28,7 @@ struct TodayView: View {
                             .buttonStyle(.bordered)
                             .disabled(plan.isRestDay)
                         }
-                    } else {
+                    } else if model.data.activeWorkout == nil {
                         Button { model.startWorkout() } label: {
                             Label("운동 시작", systemImage: "play.fill")
                         }.disabled(plan.isRestDay)
@@ -55,34 +47,45 @@ struct TodayView: View {
                     }
                 }
                 Section {
-                    if let start = model.restStart, let end = model.restEnd {
-                        RestBanner(start: start, end: end) { model.stopRest() }
-                    } else {
-                        HStack {
-                            Button { model.startDefaultRest() } label: {
-                                Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
-                            }
-                            .buttonStyle(.borderless)
-                            Spacer()
-                            // 기본 휴식 시간 조절 (간격은 설정 탭의 '−/+ 버튼 간격')
-                            Button { model.adjustDefaultRest(by: -model.data.restStep) } label: {
-                                Image(systemName: "minus")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 22, height: 22)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
-                            .accessibilityLabel("휴식 시간 \(model.data.restStep)초 줄이기")
-                            Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
-                                Image(systemName: "plus")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 22, height: 22)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
-                            .accessibilityLabel("휴식 시간 \(model.data.restStep)초 늘리기")
+                    HStack {
+                        Button { model.startDefaultRest() } label: {
+                            Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
                         }
+                        .buttonStyle(.borderless)
+                        Spacer()
+                        // 기본 휴식 시간 조절 (간격은 설정 탭의 '−/+ 버튼 간격')
+                        Button { model.adjustDefaultRest(by: -model.data.restStep) } label: {
+                            Image(systemName: "minus")
+                                .font(.body.weight(.semibold))
+                                .frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
+                        .accessibilityLabel("휴식 시간 \(model.data.restStep)초 줄이기")
+                        Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
+                            Image(systemName: "plus")
+                                .font(.body.weight(.semibold))
+                                .frame(width: 22, height: 22)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
+                        .accessibilityLabel("휴식 시간 \(model.data.restStep)초 늘리기")
                     }
+                }
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if model.data.activeWorkout != nil || model.restEnd != nil {
+                    WorkoutStatusBanner(
+                        startedAt: model.data.activeWorkout?.startedAt,
+                        restStart: model.restStart,
+                        restEnd: model.restEnd,
+                        finishTitle: progress.done == 0 ? "시작 취소" : "운동 마치기",
+                        onSkip: { model.stopRest() },
+                        onFinish: { model.finishWorkout() }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial)
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
@@ -142,31 +145,78 @@ struct ExerciseRow: View {
     }
 }
 
-struct RestBanner: View {
-    let start: Date
-    let end: Date
-    let onStop: () -> Void
+/// One pinned status area stays reachable while scrolling through exercises.
+struct WorkoutStatusBanner: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let startedAt: Date?
+    let restStart: Date?
+    let restEnd: Date?
+    let finishTitle: String
+    let onSkip: () -> Void
+    let onFinish: () -> Void
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let resting = context.date < end
-            HStack(spacing: 12) {
-                Image(systemName: resting ? "timer" : "bell.fill")
-                    .font(.title2)
-                    .foregroundStyle(.orange)
-                Text(resting ? "휴식 중" : "휴식 끝! 다음 세트")
-                    .font(.headline)
-                Spacer()
-                if resting {
-                    Text(timerInterval: start...end, countsDown: true)
-                        .font(.title.monospacedDigit())
-                        .bold()
-                        .frame(minWidth: 80, alignment: .trailing)
+            let resting = restStart != nil && restEnd.map { context.date < $0 } == true
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) {
+                    status(resting: resting)
+                    Spacer(minLength: 12)
+                    actions(resting: resting)
                 }
-                Button(resting ? "건너뛰기" : "닫기", action: onStop)
-                    .buttonStyle(.bordered)
+                VStack(alignment: .leading, spacing: 12) {
+                    status(resting: resting)
+                    actions(resting: resting)
+                }
             }
-            .padding(.vertical, 4)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background((resting ? Color.orange : Color.secondary).opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: resting)
+        }
+    }
+
+    private func status(resting: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: resting || startedAt == nil ? "timer" : "figure.strengthtraining.traditional")
+                .font(.title2).foregroundStyle(.orange)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(resting ? "휴식 중" : (startedAt == nil ? "휴식 완료" : "운동 중"))
+                    .font(.headline)
+                    .contentTransition(.opacity)
+                if resting, let start = restStart, let end = restEnd {
+                    Text(timerInterval: start...end, countsDown: true)
+                        .font(.title2.monospacedDigit()).bold()
+                        .accessibilityHint("남은 휴식 시간")
+                } else if let startedAt {
+                    Text(startedAt, style: .timer)
+                        .font(.title2.monospacedDigit()).bold()
+                        .accessibilityHint("운동 경과 시간")
+                }
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func actions(resting: Bool) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) { actionButtons(resting: resting) }
+                .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 8) { actionButtons(resting: resting) }
+        }
+    }
+
+    @ViewBuilder
+    private func actionButtons(resting: Bool) -> some View {
+        if resting || startedAt == nil {
+            Button(resting ? "건너뛰기" : "닫기", action: onSkip)
+                .buttonStyle(.borderedProminent).tint(.orange)
+                .accessibilityLabel(resting ? "휴식 건너뛰기" : "휴식 완료 닫기")
+        }
+        if startedAt != nil {
+            Button(finishTitle, action: onFinish)
+                .buttonStyle(.bordered)
         }
     }
 }
