@@ -2,7 +2,7 @@ import AppIntents
 import Foundation
 
 /// 위젯에서 운동을 탭하면 세트 +1 (다 채운 상태에서 탭하면 0으로 되돌림)
-struct CompleteSetIntent: AppIntent {
+struct CompleteSetIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "세트 체크"
     static var isDiscoverable: Bool = false
 
@@ -21,7 +21,18 @@ struct CompleteSetIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         if let id = UUID(uuidString: exerciseID) {
+            let before = SharedStore.widgetSnapshot()
             try SharedStore.completeSet(id, generation: generation)
+            let snapshot = SharedStore.widgetSnapshot()
+            guard snapshot.1 == generation else { return .result() }
+            let session = snapshot.0.activeWorkout
+            let finished = before.0.activeWorkout != nil && session == nil
+            let currentRest = await RestController.current()
+            let rest = finished ? nil : currentRest
+            let next = snapshot.0.nextUp()
+            await RestController.update(workoutStartedAt: session?.startedAt,
+                                        restStart: rest?.start, restEnd: rest?.end,
+                                        title: next.title, info: next.info, generation: generation)
         }
         return .result()
     }

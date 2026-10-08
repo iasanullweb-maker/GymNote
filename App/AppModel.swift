@@ -20,6 +20,7 @@ final class AppModel {
                 let saved = try SharedStore.persistEdits(from: oldValue, to: data, selection: selection)
                 if saved != data { replaceData(saved) }
                 account.scheduleSync()
+                if oldValue.activeWorkout != data.activeWorkout { refreshWorkoutActivity() }
             } catch {
                 replaceData(oldValue)
                 storageError = "기록을 저장하지 못했어요. 원본 파일은 유지됩니다. 기기를 잠금 해제하고 다시 시도해 주세요."
@@ -29,6 +30,23 @@ final class AppModel {
     @ObservationIgnored private var reminderTask: Task<Void, Never>?
     var restStart: Date?
     var restEnd: Date?
+    @ObservationIgnored private var activityTask: Task<Void, Never>?
+
+    private func refreshWorkoutActivity(notify: Bool = false) {
+        guard !previewOnly else { return }
+        activityTask?.cancel()
+        let startedAt = data.activeWorkout?.startedAt
+        let start = restStart
+        let end = restEnd
+        let next = data.nextUp(on: workoutDate)
+        let owner = selection.generation.uuidString
+        let sound = data.restSound
+        let shouldNotify = notify || (start != nil && end.map { $0 > Date() } == true)
+        activityTask = Task {
+            await RestController.update(workoutStartedAt: startedAt, restStart: start, restEnd: end,
+                                        title: next.title, info: next.info, generation: owner, notify: shouldNotify, sound: sound)
+        }
+    }
 
     var todayPlan: DayPlan { data.activeWorkout?.plan ?? data.plan() }
     var workoutDate: Date { data.activeWorkout?.startedAt ?? Date() }
@@ -85,9 +103,11 @@ final class AppModel {
         replacingData = true
         data = value
         replacingData = false
+        refreshWorkoutActivity()
     }
 
     func switchAccount(_ userID: UUID?) async throws {
+        activityTask?.cancel()
         await RestController.stop()
         restStart = nil
         restEnd = nil
@@ -116,8 +136,8 @@ final class AppModel {
         } else {
             restStart = nil
             restEnd = nil
-            Task { await RestController.stop() }
         }
+        refreshWorkoutActivity()
         refreshReminders() // 날짜가 바뀌었거나 위젯·알림 버튼으로 바뀐 기록 반영
     }
 
@@ -143,9 +163,7 @@ final class AppModel {
         let now = Date()
         restStart = now
         restEnd = now.addingTimeInterval(TimeInterval(max(seconds, 5)))
-        let sound = data.restSound
-        let owner = selection.generation.uuidString
-        Task { await RestController.start(seconds: seconds, title: title, info: info, sound: sound, generation: owner) }
+        refreshWorkoutActivity(notify: true)
     }
 
     func startDefaultRest() {
@@ -161,7 +179,7 @@ final class AppModel {
     func stopRest() {
         restStart = nil
         restEnd = nil
-        Task { await RestController.stop() }
+        refreshWorkoutActivity()
     }
 
     @discardableResult
