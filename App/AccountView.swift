@@ -56,13 +56,13 @@ struct AccountView: View {
                                     .font(.footnote).foregroundStyle(.secondary)
                             }
                         }
-        
+
                         if !account.configured {
                             Section { Text("계정 연결을 준비 중입니다. 지금은 기기에 기록을 저장할 수 있어요.").foregroundStyle(.secondary) }
                         } else if account.user == nil || account.isReauthenticating {
                             loginSection
                         }
-        
+
                         if account.conflict != nil {
                             Section("다른 기기에서 기록이 바뀌었어요") {
                                 Text("자동 덮어쓰기를 멈췄어요. 서버 기록을 불러오면 현재 기기의 기록은 복구용 사본으로 보관합니다. 이 기기 기록으로 교체하면 다른 기기의 변경이 서버에서 대체됩니다.")
@@ -71,12 +71,12 @@ struct AccountView: View {
                                 Button("이 기기 기록으로 서버 교체", role: .destructive) { confirmReplace = true }
                             }
                         }
-        
+
                         if let message = account.message {
                             Section { Text(message).font(.footnote).accessibilityLabel(message) }
                         }
                         if account.busy { Section { ProgressView("처리 중…") } }
-        
+
                         if account.user != nil {
                             Section {
                                 if account.readyToDelete {
