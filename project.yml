@@ -1,0 +1,79 @@
+# XcodeGen 설정: GitHub Actions(macOS)에서 이 파일로 Xcode 프로젝트를 만들어 빌드해.
+# Mac에서 Xcode를 쓸 수 있게 되면 `xcodegen generate` 후 GymNote.xcodeproj를 열면 돼.
+name: GymNote
+
+options:
+  bundleIdPrefix: com.gymnote
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  GymNote:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared
+    info:
+      path: Config/App-Info.plist
+      properties:
+        CFBundleDisplayName: "헬스노트"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen: {}
+        NSSupportsLiveActivities: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    entitlements:
+      path: Config/GymNote.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.gymnote.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymnote.app
+    dependencies:
+      - target: GymNoteWidget
+    scheme: {}
+
+  GymNoteWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+      - path: Shared
+    info:
+      path: Config/Widget-Info.plist
+      properties:
+        CFBundleDisplayName: "헬스노트 위젯"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Config/GymNoteWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.gymnote.app
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymnote.app.widget

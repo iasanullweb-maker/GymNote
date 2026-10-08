@@ -1,0 +1,63 @@
+# 헬스노트 (GymNote)
+
+아이패드용 헬스 보조 앱. Mac 없이 GitHub Actions로 빌드하고 AltStore로 설치한다.
+
+## 기능
+
+- **오늘 운동**: 요일별 루틴, 세트 체크, 세트 완료 시 휴식 타이머 자동 시작
+- **위젯**: 홈 화면(소·중·대·특대)에서 운동을 탭해서 세트 체크, 최고 기록, 휴식 버튼 / 잠금 화면 위젯
+- **휴식 타이머**: 잠금 화면에 카운트다운(Live Activity), 끝나면 알림
+- **최고 기록**: 푸쉬업, 풀업, 신디(라운드 + 추가 횟수), 기록 그래프
+- **단축어/Siri**: "헬스노트 휴식 시작"
+
+## 폴더 구조
+
+```
+App/       앱 화면 (오늘 / 루틴 / 기록)
+Widget/    홈·잠금 화면 위젯, 잠금 화면 휴식 타이머
+Shared/    앱과 위젯이 같이 쓰는 코드 (데이터, 저장, 인텐트)
+project.yml                 XcodeGen 설정 (Xcode 프로젝트를 자동 생성)
+.github/workflows/build.yml GitHub Actions 빌드 → GymNote.ipa
+```
+
+## 빌드
+
+1. 이 폴더를 GitHub 저장소(**공개** 저장소면 macOS 빌드 무료)에 올린다.
+2. `main` 브랜치에 push하면 Actions 탭에서 빌드가 돈다 (10분 안팎).
+3. 성공하면 Releases의 **latest**에 `GymNote.ipa`가 올라간다.
+
+실패하면 Actions 로그에서 `error:`가 있는 줄을 복사해서 Claude에게 보여주면 된다.
+
+## 설치 (AltStore)
+
+1. 아이패드 Safari로 저장소의 Releases → latest → `GymNote.ipa`를 받는다 (파일 앱 › 다운로드에 저장됨).
+2. AltStore → **My Apps** → 왼쪽 위 **+** → `GymNote.ipa` 선택.
+3. 노트북 AltServer가 켜져 있고 같은 Wi-Fi(또는 USB 연결)여야 설치된다.
+4. 같은 앱을 다시 설치하면 업데이트로 처리되고 데이터는 유지된다.
+
+## 처음 실행 후
+
+- 알림 권한 **허용** (휴식 끝 알림)
+- **루틴** 탭 → 아래 **진단**이 "연결됨"인지 확인 (위젯이 앱 데이터를 읽을 수 있는지)
+- 홈 화면 편집 → 위젯 → 헬스노트 → **중간** 이상 크기 추가 (운동을 탭해서 세트 체크)
+- 잠금 화면 편집 → 위젯 → 헬스노트 (직사각형 추천)
+- 잠금 화면 타이머가 안 뜨면: 설정 › 헬스노트 › **실시간 현황** 켜기
+
+## 위젯 체크 규칙
+
+- 운동 한 줄을 탭할 때마다 세트 +1
+- 다 채운 상태에서 한 번 더 탭하면 0으로 돌아감 (실수했을 때 되돌리기)
+
+## 주의
+
+- 무료 Apple ID 서명은 7일마다 만료 → AltStore에서 **Refresh All** (AltServer 켜진 노트북 필요)
+- 만료돼도 데이터는 남아 있고, 갱신하면 다시 열린다
+
+## 나중에 Xcode를 쓸 수 있게 되면
+
+```
+brew install xcodegen
+xcodegen generate
+open GymNote.xcodeproj
+```
+Signing & Capabilities에서 팀을 고르고, App Group(`group.com.gymnote.app`)을 앱과 위젯 둘 다에 켜면 된다.

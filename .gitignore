@@ -1,0 +1,11 @@
+# XcodeGen이 만드는 파일 (빌드할 때 새로 생성됨)
+GymNote.xcodeproj/
+Config/
+
+# 빌드 결과물
+build/
+Payload/
+*.ipa
+DerivedData/
+
+.DS_Store
