@@ -87,7 +87,7 @@ struct TodayView: View {
                     )
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(.regularMaterial)
+                    .background(Color(.systemGroupedBackground))
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
@@ -294,7 +294,6 @@ struct WorkoutStatusBanner: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background((resting ? Color.orange : Color.secondary).opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: resting)
         }
     }
