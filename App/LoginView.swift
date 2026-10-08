@@ -1,9 +1,12 @@
+import AuthenticationServices
 import SwiftUI
 
 /// Provider selection and email OTP share the existing account/session implementation.
+/// Google/Apple run in the system authentication browser (ASWebAuthenticationSession) with PKCE.
 struct LoginView: View {
     var welcome = false
     @Environment(AccountModel.self) private var account
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @State private var showingEmail = false
     @State private var email = ""
     @State private var code = ""
@@ -68,8 +71,8 @@ struct LoginView: View {
 
     private var providers: some View {
         VStack(spacing: 14) {
-            providerButton("Apple로 계속하기", symbol: "apple.logo")
-            providerButton("Google로 계속하기", symbol: nil)
+            providerButton(.apple, symbol: "apple.logo")
+            providerButton(.google, symbol: nil)
             HStack(spacing: 16) {
                 Rectangle().frame(height: 1)
                 Text("또는").font(.caption).fixedSize()
@@ -88,32 +91,63 @@ struct LoginView: View {
             .buttonStyle(.borderedProminent).tint(.orange)
             .buttonBorderShape(.roundedRectangle(radius: 16))
             .disabled(!account.configured)
-            Text(account.configured
-                 ? "Google·Apple 로그인은 준비 중이에요.\n지금은 이메일로 시작할 수 있어요."
-                 : "계정 연결을 준비 중이에요. 기기 기록은 계속 이용할 수 있어요.")
+            if account.hasGuestRecords && account.configured { importToggle }
+            Text(providerFootnote)
                 .font(.footnote).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).padding(.top, 4)
         }
     }
 
-    private func providerButton(_ title: String, symbol: String?) -> some View {
-        Button {} label: {
+    private var providerFootnote: String {
+        if !account.configured { return "계정 연결을 준비 중이에요. 기기 기록은 계속 이용할 수 있어요." }
+        if !account.isOnline { return "로그인하려면 Wi-Fi에 연결해 주세요. 기기 기록은 계속 이용할 수 있어요." }
+        let ready = SocialProvider.allCases.filter { account.canSignIn(with: $0) }.map(\.title)
+        let pending = SocialProvider.allCases.filter { !account.canSignIn(with: $0) }.map(\.title)
+        if pending.isEmpty { return "\(ready.joined(separator: "·")) 로그인 창은 시스템 인증 화면으로 열려요." }
+        return "\(pending.joined(separator: "·")) 로그인은 준비 중이에요.\n지금은 \((ready + ["이메일"]).joined(separator: "·"))로 시작할 수 있어요."
+    }
+
+    private func providerButton(_ provider: SocialProvider, symbol: String?) -> some View {
+        let ready = account.canSignIn(with: provider)
+        return Button {
+            let importRecords = importDeviceRecords
+            Task {
+                await account.signIn(with: provider, importDeviceRecords: importRecords) { url in
+                    try await webAuthenticationSession.authenticate(
+                        using: url, callbackURLScheme: AuthClient.callbackScheme, preferredBrowserSession: .ephemeral)
+                }
+            }
+        } label: {
             HStack(spacing: 12) {
                 if let symbol { Image(systemName: symbol).font(.title3) }
                 else { Text("G").font(.title3.bold()).accessibilityHidden(true) }
-                Text(title).font(.body.weight(.semibold))
+                Text("\(provider.title)로 계속하기").font(.body.weight(.semibold))
                 Spacer(minLength: 4)
-                Text("준비 중").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                if !ready {
+                    Text(account.isOnline ? "준비 중" : "Wi-Fi 필요")
+                        .font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                }
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(ready ? Color.primary : Color.secondary)
             .padding(18)
             .frame(maxWidth: .infinity)
             .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(.primary.opacity(0.08), lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .disabled(true)
-        .accessibilityHint("아직 연결되지 않은 로그인 방식입니다")
+        .disabled(!ready)
+        .accessibilityHint(ready ? "시스템 인증 화면에서 \(provider.title) 계정으로 로그인합니다" : "아직 사용할 수 없는 로그인 방식입니다")
+    }
+
+    private var importToggle: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("이 기기의 기록도 이어서 저장", isOn: $importDeviceRecords)
+                .font(.subheadline.weight(.medium)).tint(.orange)
+            Text("동의하면 운동·일상 기록을 계정에 추가해요. 원본은 보관하고, 연결이 끊기면 다음 연결 때 다시 저장해요. 동의하지 않으면 가져오지 않아요.")
+                .font(.footnote).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private var emailForm: some View {
@@ -159,16 +193,7 @@ struct LoginView: View {
                     Task { await account.sendCode(email: email, createUser: createUser, consent: consent) }
                 }
             }
-            if account.hasGuestRecords {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("이 기기의 기록도 이어서 저장", isOn: $importDeviceRecords)
-                        .font(.subheadline.weight(.medium)).tint(.orange)
-                    Text("동의하면 운동·일상 기록을 계정에 추가해요. 원본은 보관하고, 연결이 끊기면 다음 연결 때 다시 저장해요.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-                .padding(16)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-            }
+            if account.hasGuestRecords { importToggle }
             if !account.isOnline {
                 Label("인증번호를 받으려면 Wi-Fi에 연결해 주세요", systemImage: "wifi.slash")
                     .font(.footnote).foregroundStyle(.secondary)

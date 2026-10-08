@@ -2,14 +2,30 @@
 
 마지막 업데이트: 2026-10-08
 
-## 최신 로그인·오프라인 변경 (배포 보류)
+## Google·Apple 로그인 (로컬 main 통합, 배포 대기)
+- 사용자 요청: Claude 작업 완료 후 한 번에 배포. **사용자가 최종 배포를 요청하기 전에는 main push·릴리스·AltStore 소스 갱신 금지.** 이 작업은 노트북 로컬 main에만 병합됨(원격 main은 0.1.43 상태).
+- Google: Supabase OAuth + PKCE(S256)를 `ASWebAuthenticationSession`(ephemeral)로 실행. 복귀 주소 `com.gymnote.app://auth-callback`(Info.plist 미등록, Supabase Redirect URLs에 정확히 추가 필요). 앱에 Client Secret 없음. `/auth/v1/settings`에서 서버가 켠 방식만 버튼 활성화.
+- Apple: 코드 경로는 같지만 Sign in with Apple은 Apple 공식 표상 유료 Apple Developer Program(연 99 USD) 전용 → 현재 비활성. Supabase에서 Apple을 켜면 자동 활성.
+- 로그인 완료는 이메일·소셜 공통 `completeSignIn`: 서버 검증 UUID로만 계정 전환, Keychain 저장, 동의 시에만 게스트 기록 가져오기. 이메일 문자열로 기록 합치지 않음(Supabase의 확인된 이메일 자동 연결만 같은 UUID).
+- 계정 삭제: 연결된 방법으로만 본인 확인(Google 계정은 Google 재인증). 다른 계정 인증 거부 + 그 세션 종료, 대체된 이전 세션 종료. `delete-account`는 5분 이내 `otp` 또는 `oauth` AMR만 인정, 기존 getUser·활성 세션·소유자 검사 유지. **함수 재배포 필요.**
+- 사용자 설정 필요: Google Cloud(브랜딩·대상·데이터 액세스·웹 클라이언트), Supabase(Google provider, Redirect URLs, Confirm email 유지, 수동 연결 끔), 함수 재배포. 화면별 절차는 `docs/LOGIN_SETUP.md` 6~9번.
+- 검증: `codex/social-login` 브랜치 Validate GymNote #22 성공(모델·계정·일상 검사, iPad 시뮬레이터 XCTest: PKCE RFC 벡터, 복귀 주소 검증, 취소·거부·실패, 동의 없는 가져오기 금지, 비활성/오프라인 버튼, 삭제 재인증 계정 일치, 기존 오프라인·계정 분리 테스트 / DB 권한 / 삭제 함수 OTP·OAuth 재인증), Build IPA #46(앱·위젯 Release, IPA, 릴리스 단계 건너뜀) 성공. CI에 시뮬레이터 테스트 실패 annotation 단계 추가.
+- 실제 Google 계정 로그인은 사용자 설정 후 아이패드에서 확인 필요.
+
+## 현재 배포: 0.1.43 (통합 배포, 배포 보류 해제)
+- 2026-10-08 17시대. AltStore 소스 버전 **0.1.43**, 릴리스 `build-43`·`latest` (GymNote.ipa 1,102,338바이트, sha256 a1da52d6…be9a, 두 릴리스 동일).
+- 포함: 운동·일상 공간, 큰 운동/일상 전환 버튼, 로그인 선택 화면(이메일, Apple·Google은 준비 중)·오프라인 동기화, 일상 위젯과 운동 위젯 운동 이름·횟수 표시, 휴식 하나로 통일(세트 완료 시 설정 휴식 자동 시작), 휴식 −/+ 간격 설정.
+- 배포 보류 해제: AGENTS.md의 보류 규칙 삭제. 이후 작업은 평소처럼 검증 후 main 통합·배포.
+- 아이패드: AltStore → My Apps → 헬스노트 Update. 설치 후 로그인 화면, 전환 버튼, 일상 위젯 추가, 세트 완료 후 휴식 자동 시작, 기존 기록 유지를 확인할 것.
+
+## 최신 로그인·오프라인 변경 (0.1.43에 배포)
 - 로그인 첫 화면은 `App/LoginView.swift`의 Apple·Google·이메일 선택 화면으로 변경했다. 이메일 선택 후 로그인/회원가입, OTP 입력과 기록 가져오기 동의를 표시한다. Google·Apple은 실제 인증 서비스 연결 전이라 버튼을 비활성화하고 '준비 중'을 명시한다. 계정의 재인증·삭제·동기화 관리는 기존 화면을 유지한다. iPad에서는 최대 440pt로 입력 영역을 제한하고 작은 화면과 큰 글씨에서는 스크롤한다. Xcode Preview '로그인 선택'으로 확인할 수 있다.
 - `codex/login`에서 운동·일상 공간과 기존 휴식 설정을 보존해 통합했다. 실행·계획·기록에 이어 네 번째 **설정** 탭을 사용하며 계정 관리는 설정 안에서 연다.
 - 저장된 세션이 없는 Wi-Fi 첫 실행은 로그인 화면을 보여 준다. Wi-Fi가 없으면 기기의 게스트 기록으로 시작한다. 이미 로그인된 기기는 같은 계정의 캐시를 이어 쓰고 연결 복구 시 자동 동기화한다.
 - 로그인 화면에서 기기 기록 가져오기에 동의하면 보호된 계정 사본에 먼저 추가한다. 연결 실패·앱 재실행 후에도 이어 쓸 수 있고, 서버 기록과 합쳐 버전을 비교해 저장한다. 원본 게스트 기록과 복구 사본을 유지하며 서로 다른 수정은 선택 없이 덮어쓰지 않는다. 일상 항목·완료 기록도 포함한다.
 - 토큰은 비공유 Keychain에 유지하고 계정별 파일 및 서버 권한 검사를 유지한다. 모바일 데이터만 연결되면 동기화하지 않는다.
 - 사용자 요청: Claude 작업이 끝난 뒤 한 번에 배포. 이번 변경은 로그인 브랜치의 배포 없는 CI만 실행하고 검증 후 로컬 main에 병합한다. main push·릴리스·AltStore 갱신은 보류한다. `Build IPA`는 `codex/login`에서 작업 전체를 건너뛴다.
-- 실제 기기의 이메일 수신·로그인, Wi-Fi 해제/복구, 이전 설치 데이터 복원과 화면 조작은 다음 통합 배포 후 확인해야 한다.
+- 실제 기기의 이메일 수신·로그인, Wi-Fi 해제/복구, 이전 설치 데이터 복원과 화면 조작은 0.1.43 설치 후 확인해야 한다.
 
 ## 한 줄 요약
 아이패드용 개인 헬스 보조 네이티브 앱. Mac 없이 Windows + GitHub Actions로 빌드하고 AltStore(무료 Apple ID)로 설치한다. AltStore 소스 설치까지 성공했고, My Apps의 `7 DAYS` 표시를 확인했다. 이제 데이터 유지와 위젯·Live Activity 실제 동작을 확인한다.
@@ -176,3 +192,32 @@
 - 검증된 기능 코드에 인계 문서만 추가한 상태로 통합. 다른 채팅의 최신 main 변경(0.1.25 설정·휴식 −/+)과 로컬 main SMTP 문서를 모두 포함.
 - 워크트리 `GymNote.ipa`를 새 파일로 교체하고 GitHub 릴리스 SHA256 일치 확인.
 - 실제 아이패드에서 운동↔일상 전환, +에서 할 일/습관 추가, 완료→기록, 날짜 이동과 습관 건너뛰기/복원, 설정의 휴식 −/+를 확인할 것.
+## 휴식 −/+ 간격 설정 / 버튼 크기 (배포 0.1.33)
+- 사용자 의도: 운동 탭 휴식 −/+를 누를 때 바뀌는 **간격**을 설정에서 조절. `AppData.restStep`(기본 15초) 추가, 설정 탭 '−/+ 버튼 간격' 5~120초·5초 단위. 기본 휴식도 5초 단위, 최소 5초(`SettingsView.restRange` 5...600).
+- `applyingEdits`에 restStep 병합 추가, 예전 파일은 15초로 읽음. 모델·계정 회귀 검사 추가.
+- −/+ 아이콘 크기 고정(22pt, semibold)으로 두 버튼 크기 통일.
+- 작업 중 main이 0.1.28(일상 작업 통합)로 앞서 나가 `origin/main`을 브랜치에 병합. `Models.swift` CodingKeys 충돌은 restStep + dailyItems/dailyCompletions 모두 유지로 해결. 병합본 검증 빌드 성공 → main fast-forward → Actions #33 성공, **0.1.33** 배포.
+## 휴식 하나로 통일 / 세트 완료 시 자동 휴식
+- 사용자 요청: 운동마다 휴식을 다르게 둘 필요가 없음. 세트 완료를 누르면 설정한 휴식이 자동으로 시작.
+- `AppModel.completeSet`: 운동별 `restSeconds` 대신 `data.defaultRest`로 `startDefaultRest()`. 0초 운동도 이제 휴식이 켜짐. 마지막 세트로 운동이 일지에 저장되면 휴식 안 켬(기존과 동일).
+- 계획·운동 목록 편집창의 '세트 사이 휴식' 항목 제거, 목록·운동 탭 부제에서 휴식 표시 제거. 설정 탭 이름을 '세트 사이 휴식'으로, 설명에 모든 운동 공통 자동 시작 명시.
+- `Exercise.restSeconds`는 예전 파일·계정 동기화·다른 브랜치 호환을 위해 필드만 유지(없으면 0으로 디코딩, 기본값 0). 모델 회귀 검사 추가.
+- 위젯 세트 체크는 지금도 휴식을 켜지 않음(앱 운동 탭만 자동). 필요하면 `CompleteSetIntent`를 LiveActivityIntent로 바꿔 확장 가능.
+- 브랜치 `claude/unified-rest` Build IPA #40 성공(모델 검증·Release 빌드·IPA) → main fast-forward.
+- **codex/calendar-routines 통합 시 주의**: 그 브랜치가 `ExerciseDraftForm`/`completeSet`을 바꿨다면 운동별 휴식 Stepper가 다시 들어오지 않게 확인.
+
+
+## 운동·일상 전환 버튼 확대 (0.1.43에 배포)
+- 기존 360pt 폭 제한의 작은 segmented Picker 대신 화면 너비를 나눠 쓰는 큰 버튼 두 개 배치. 최소 높이 60pt, 아이콘과 title3 글씨를 가운데 정렬.
+- 운동은 주황색, 일상은 청록색. 선택한 버튼의 배경·테두리·체크 표시로 현재 분야 구분. VoiceOver 선택 상태, 동작 줄이기 설정 지원. 마지막 분야 기억과 선택한 탭/날짜 유지.
+- `App/WorkspaceSwitcher.swift`의 '분야 전환' Xcode Preview에서 별도 저장소 없이 전환 가능. 실제 화면 시각 검토는 아직 하지 않음.
+- 검증 커밋 `6d78a23`: 브랜치 Build IPA #39와 Validate GymNote #18 성공. 모델/계정/일상 검사, 앱·위젯 Release 빌드, iPad 시뮬레이터 회귀 검사 통과. 최신 로컬 로그인·일상 위젯과 원격 0.1.33 휴식 간격 수정 보존.
+- 기존 main에 로컬 통합. AGENTS.md 배포 보류에 따라 main push·릴리스 게시·AltStore 소스 갱신은 하지 않음. 이후 통합 배포에 포함할 것.
+
+## 최종 통합 / 배포 0.1.43
+- 원격 main `ecf68ef`(Claude: 휴식 하나로 통일)과 노트북 로컬 main `6ba793a`(Codex: 로그인·오프라인, 전환 버튼, 일상 위젯; 원격 `codex/calendar-routines`와 동일, 미커밋 변경 없음)를 병합. 병합 커밋 `f762cbd`.
+- 충돌은 HANDOFF.md 끝부분뿐이었고 양쪽 기록을 모두 유지. 코드 파일은 자동 병합(SettingsView는 Codex '저장 상태' 섹션 + Claude '세트 사이 휴식' 문구 둘 다 유지).
+- 코드 검토: `completeSet`→`startDefaultRest()`, 계획 편집창 운동별 휴식 없음, 새 위젯·로그인 코드에 `restSeconds` 사용 없음, `WorkspaceSwitcher`(최소 높이 60pt)·`LoginView`·`DailyWidget`(WidgetBundle 등록)·운동/일상 탭 분기 포함 확인.
+- 검증: `codex/final-integration`에서 Build IPA #42(모델 검증·앱/위젯 Release 빌드·IPA, 릴리스 단계 건너뜀)와 Validate GymNote #19(ios 시뮬레이터 회귀, database 권한, account-deletion) 모두 성공.
+- main fast-forward 후 main Actions #43 한 번만 실행, 성공 → 0.1.43 릴리스·AltStore 소스 게시 확인.
+- `build.yml`의 `codex/login` 빌드 건너뛰기 조건은 배포와 무관하므로 유지.

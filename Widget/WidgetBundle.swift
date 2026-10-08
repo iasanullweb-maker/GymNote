@@ -5,6 +5,7 @@ import WidgetKit
 struct GymNoteWidgetBundle: WidgetBundle {
     var body: some Widget {
         GymWidget()
+        DailyWidget()
         RestLiveActivity()
     }
 }

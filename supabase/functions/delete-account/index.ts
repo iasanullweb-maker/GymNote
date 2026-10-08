@@ -20,11 +20,14 @@ Deno.serve(async (request: Request) => {
     const claims = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")));
     const now = Math.floor(Date.now() / 1000);
     if (claims.sub !== user.id || typeof claims.session_id !== "string") return reply(401);
-    // A refreshed JWT's iat is NOT proof of recent authentication. Require recent OTP in AMR.
-    const recentOTP = Array.isArray(claims.amr) && claims.amr.some((entry: { method?: string; timestamp?: number }) =>
-      entry.method === "otp" && typeof entry.timestamp === "number"
+    // A refreshed JWT's iat is NOT proof of recent authentication. Require a recent interactive login in
+    // this session's AMR: an email OTP or a provider (Google/Apple) OAuth sign-in, at most 5 minutes old.
+    // token_refresh, password and other methods never count.
+    const REAUTH_METHODS = ["otp", "oauth"];
+    const recentLogin = Array.isArray(claims.amr) && claims.amr.some((entry: { method?: string; timestamp?: number }) =>
+      typeof entry.method === "string" && REAUTH_METHODS.includes(entry.method) && typeof entry.timestamp === "number"
       && now - entry.timestamp >= 0 && now - entry.timestamp <= 300);
-    if (!recentOTP) return reply(403);
+    if (!recentLogin) return reply(403);
     const scoped = createClient(url, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },

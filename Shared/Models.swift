@@ -7,7 +7,28 @@ struct Exercise: Codable, Identifiable, Hashable {
     var name: String
     var sets: Int
     var detail: String      // 예: "10회", "1분", "최대의 70%"
-    var restSeconds: Int    // 세트 사이 휴식 (0이면 타이머 안 켬)
+    /// 예전 버전의 운동별 휴식. 지금은 쓰지 않고 설정의 기본 휴식(AppData.defaultRest) 하나로 통일.
+    /// 예전 저장 파일·계정 동기화와 호환되도록 필드만 유지한다.
+    var restSeconds: Int = 0
+
+    init(id: UUID = UUID(), name: String, sets: Int, detail: String, restSeconds: Int = 0) {
+        self.id = id
+        self.name = name
+        self.sets = sets
+        self.detail = detail
+        self.restSeconds = restSeconds
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, sets, detail, restSeconds }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        sets = try c.decode(Int.self, forKey: .sets)
+        detail = try c.decode(String.self, forKey: .detail)
+        restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds) ?? 0
+    }
 }
 
 struct DayPlan: Codable, Hashable {
@@ -135,6 +156,7 @@ struct AppData: Codable, Equatable {
     var logs: [DayLog]
     var defaultRest: Int
     var restSound: Bool          // 휴식 끝 알림 소리 (기본: 끔)
+    var restStep: Int = 15       // 운동 탭 휴식 −/+ 한 번에 바뀌는 초 (5초 단위, 최소 5초)
     var scheduledPlans: [String: DayPlan] = [:] // 날짜별 일정, 자동으로 반복하지 않음
     var exerciseLibrary: [Exercise] = []
     var activeWorkout: WorkoutSession?
@@ -143,7 +165,7 @@ struct AppData: Codable, Equatable {
     var dailyCompletions: [DailyCompletion] = []
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary, activeWorkout, workouts, dailyItems, dailyCompletions
+        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, dailyItems, dailyCompletions
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -168,6 +190,7 @@ struct AppData: Codable, Equatable {
         logs = try c.decodeIfPresent([DayLog].self, forKey: .logs) ?? []
         defaultRest = try c.decodeIfPresent(Int.self, forKey: .defaultRest) ?? 90
         restSound = try c.decodeIfPresent(Bool.self, forKey: .restSound) ?? false
+        restStep = try c.decodeIfPresent(Int.self, forKey: .restStep) ?? 15
         activeWorkout = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeWorkout)
         workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
         dailyItems = try c.decodeIfPresent([DailyItem].self, forKey: .dailyItems) ?? []
@@ -434,32 +457,32 @@ extension AppData {
 
 extension AppData {
     static var sample: AppData {
-        func ex(_ name: String, _ sets: Int, _ detail: String, _ rest: Int) -> Exercise {
-            Exercise(name: name, sets: sets, detail: detail, restSeconds: rest)
+        func ex(_ name: String, _ sets: Int, _ detail: String) -> Exercise {
+            Exercise(name: name, sets: sets, detail: detail)
         }
         func upper() -> DayPlan {
             DayPlan(title: "상체", exercises: [
-                ex("푸쉬업", 5, "최대의 70%", 90),
-                ex("풀업", 5, "최대의 70%", 120),
-                ex("딥스", 3, "10회", 90),
-                ex("플랭크", 3, "1분", 60),
+                ex("푸쉬업", 5, "최대의 70%"),
+                ex("풀업", 5, "최대의 70%"),
+                ex("딥스", 3, "10회"),
+                ex("플랭크", 3, "1분"),
             ])
         }
         func lower() -> DayPlan {
             DayPlan(title: "하체·코어", exercises: [
-                ex("에어 스쿼트", 5, "20회", 60),
-                ex("런지", 3, "다리당 12회", 60),
-                ex("행잉 레그레이즈", 3, "12회", 60),
+                ex("에어 스쿼트", 5, "20회"),
+                ex("런지", 3, "다리당 12회"),
+                ex("행잉 레그레이즈", 3, "12회"),
             ])
         }
         let cindy = DayPlan(title: "신디", exercises: [
-            ex("워밍업", 1, "10분", 0),
-            ex("신디", 1, "20분 AMRAP", 0),
-            ex("스트레칭", 1, "10분", 0),
+            ex("워밍업", 1, "10분"),
+            ex("신디", 1, "20분 AMRAP"),
+            ex("스트레칭", 1, "10분"),
         ])
         let test = DayPlan(title: "기록 테스트", exercises: [
-            ex("푸쉬업 최대", 1, "최대 반복", 180),
-            ex("풀업 최대", 1, "최대 반복", 180),
+            ex("푸쉬업 최대", 1, "최대 반복"),
+            ex("풀업 최대", 1, "최대 반복"),
         ])
         let rest = DayPlan(title: "휴식", exercises: [])
         return AppData(week: [rest, upper(), lower(), cindy, upper(), lower(), test])

@@ -41,9 +41,11 @@ struct AccountChecks {
         assert(widget.hasImportConflict(with: guest), "같은 운동의 서로 다른 진행은 확인 필요")
         var appEdit = guest
         appEdit.defaultRest = 75
+        appEdit.restStep = 10
         let concurrent = widget.applyingEdits(from: guest, to: appEdit)
         assert(concurrent.doneSets(exercise, on: date) == 3, "설정 저장 시 위젯 체크 유지")
         assert(concurrent.defaultRest == 75)
+        assert(concurrent.restStep == 10, "−/+ 간격 저장 병합")
         appEdit.changeSets(exercise.id, by: -1, on: date)
         assert(widget.applyingEdits(from: guest, to: appEdit).doneSets(exercise, on: date) == 2, "앱 되돌리기는 최신 위젯 체크에서 한 세트만 차감")
         appEdit = guest

@@ -1,8 +1,10 @@
+import AuthenticationServices
 import SwiftUI
 
 struct AccountView: View {
     var welcome = false
     @Environment(AccountModel.self) private var account
+    @Environment(\.webAuthenticationSession) private var webAuthenticationSession
     @Environment(AppModel.self) private var model
     @State private var email = ""
     @State private var code = ""
@@ -41,6 +43,8 @@ struct AccountView: View {
                         if let user = account.user {
                             Section("내 계정") {
                                 Label(user.email ?? "로그인됨", systemImage: "person.crop.circle.fill")
+                                LabeledContent("로그인 방법", value: providerNames(account.accountProviders))
+                                    .font(.footnote)
                                 Button("지금 동기화") { Task { await account.synchronize() } }
                                     .disabled(!account.isOnline || account.needsLogin || account.isReauthenticating || account.conflict != nil)
                                 if account.canImport {
@@ -118,9 +122,34 @@ struct AccountView: View {
         }
     }
 
+    private func providerNames(_ providers: [String]) -> String {
+        providers.map { $0 == "email" ? "이메일" : (SocialProvider(rawValue: $0)?.title ?? $0) }.joined(separator: ", ")
+    }
+
+    private var socialButtons: some View {
+        ForEach(SocialProvider.allCases) { provider in
+            if account.canSignIn(with: provider) {
+                Button(account.isDeleting ? "\(provider.title)로 본인 확인" : "\(provider.title)로 다시 로그인") {
+                    Task {
+                        await account.signIn(with: provider) { url in
+                            try await webAuthenticationSession.authenticate(
+                                using: url, callbackURLScheme: AuthClient.callbackScheme, preferredBrowserSession: .ephemeral)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var loginSection: some View {
         Section {
-            if let pending = account.pendingEmail {
+            socialButtons
+            if !account.canUseEmailForReauthentication {
+                if !SocialProvider.allCases.contains(where: { account.canSignIn(with: $0) }) {
+                    Text(account.isOnline ? "이 계정에 연결된 로그인 방식을 지금 사용할 수 없어요. 잠시 후 다시 시도해 주세요." : "본인 확인은 Wi-Fi 연결이 필요해요.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            } else if let pending = account.pendingEmail {
                 Text(pending).font(.footnote).foregroundStyle(.secondary)
                 TextField("6자리 인증번호", text: $code)
                     .keyboardType(.numberPad).textContentType(.oneTimeCode)
@@ -159,7 +188,9 @@ struct AccountView: View {
         } header: {
             Text(account.isReauthenticating ? "본인 확인" : "이메일로 로그인")
         } footer: {
-            Text("비밀번호 없이 일회용 이메일 인증번호로 로그인합니다. 인증번호는 누구에게도 알려주지 마세요.")
+            Text(account.isDeleting
+                 ? "계정 삭제 전에는 이 계정에 연결된 방법으로 방금 다시 인증해야 해요. Google·Apple은 저장된 로그인 없이 새 인증 창으로 확인합니다."
+                 : "비밀번호 없이 일회용 이메일 인증번호로 로그인합니다. 인증번호는 누구에게도 알려주지 마세요.")
         }
     }
 }

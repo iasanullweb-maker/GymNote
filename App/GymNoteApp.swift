@@ -71,16 +71,9 @@ struct RootView: View {
 
     private var mainTabs: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 16) {
-                Picker("분야", selection: $workspace) {
-                    Text("운동").tag("운동")
-                    Text("일상").tag("일상")
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 360)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal).padding(.vertical, 8)
+            WorkspaceSwitcher(selection: $workspace)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
             if workspace == "일상", model.data.activeWorkout != nil {
                 Button {
                     workspace = "운동"
