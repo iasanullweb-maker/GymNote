@@ -40,10 +40,21 @@ final class AppModel {
 
     func startWorkout() { data.startWorkout() }
 
+    /// 운동을 마쳐 새 최고기록이 생기면 보여 줄 문구 (운동 화면의 알림)
+    var recordMessage: String?
+
     func finishWorkout() {
+        let before = data.exerciseRecords()
         if data.activeWorkout?.done == 0 { data.activeWorkout = nil }
         else { data.finishWorkout() }
         stopRest()
+        announceRecords(since: before)
+    }
+
+    /// 운동 일지에서 다시 계산한 최고기록이 이전보다 좋아졌으면 알림 문구를 남긴다.
+    private func announceRecords(since before: [String: ExerciseRecords]) {
+        let messages = data.recordImprovements(since: before)
+        if !messages.isEmpty { recordMessage = messages.joined(separator: "\n") }
     }
 
     // 미리보기에서는 실제 계정 저장소를 열거나 샘플 데이터로 덮어쓰지 않음.
@@ -115,8 +126,10 @@ final class AppModel {
     func completeSet(_ exercise: Exercise, actualReps: Int? = nil) {
         guard data.activeWorkout != nil else { return }
         let date = workoutDate
+        let before = data.exerciseRecords()
         data.changeSets(exercise.id, by: 1, on: date, actualReps: actualReps)
-        if data.activeWorkout == nil { stopRest(); return }
+        // 마지막 세트로 운동이 자동 종료되면 일지가 저장되므로 최고기록도 바로 갱신된다.
+        if data.activeWorkout == nil { stopRest(); announceRecords(since: before); return }
         let progress = workoutProgress
         guard progress.done < progress.total else { return }
         startDefaultRest()

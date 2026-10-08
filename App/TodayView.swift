@@ -91,6 +91,14 @@ struct TodayView: View {
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
+            .alert("🎉 신기록!", isPresented: Binding(
+                get: { model.recordMessage != nil },
+                set: { if !$0 { model.recordMessage = nil } }
+            )) {
+                Button("확인") { model.recordMessage = nil }
+            } message: {
+                Text((model.recordMessage ?? "") + "\n기록 탭의 최고 기록에 자동으로 반영했어요.")
+            }
         }
     }
 }
