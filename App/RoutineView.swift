@@ -107,6 +107,13 @@ struct ScheduledDayEditor: View {
                     Button { editing = exercise } label: {
                         ExerciseSummary(exercise: exercise)
                     }.foregroundStyle(.primary)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("삭제", role: .destructive) {
+                            var updated = plan.wrappedValue
+                            updated.exercises.removeAll { $0.id == exercise.id }
+                            plan.wrappedValue = updated
+                        }
+                    }
                 }
                 .onDelete { offsets in
                     var updated = plan.wrappedValue
@@ -206,6 +213,11 @@ struct ExerciseLibraryView: View {
                 ForEach(model.data.exerciseLibrary) { exercise in
                     Button { editing = exercise } label: { ExerciseSummary(exercise: exercise) }
                         .foregroundStyle(.primary)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button("삭제", role: .destructive) {
+                                model.data.exerciseLibrary.removeAll { $0.id == exercise.id }
+                            }
+                        }
                 }
                 .onDelete { model.data.exerciseLibrary.remove(atOffsets: $0) }
                 .onMove { model.data.exerciseLibrary.move(fromOffsets: $0, toOffset: $1) }
