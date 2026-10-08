@@ -8,6 +8,16 @@ on:
 permissions:
   contents: write
 
+# 빌드가 겹치면 이전 것을 취소 (source.json이 꼬이지 않게)
+concurrency:
+  group: build
+  cancel-in-progress: true
+
+env:
+  # 빌드할 때마다 버전이 올라가야 AltStore가 업데이트로 인식함
+  APP_VERSION: 0.1.${{ github.run_number }}
+  BUILD_NUMBER: ${{ github.run_number }}
+
 jobs:
   build:
     runs-on: macos-15
@@ -38,6 +48,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build
 
       # AltStore는 앱 안의 서명에서 엔타이틀먼트(App Group)를 읽어서 등록해.
@@ -61,13 +73,42 @@ jobs:
           name: GymNote-ipa
           path: GymNote.ipa
 
-      # 아이패드 Safari에서 바로 받을 수 있게 'latest' 릴리스에 올림
-      - name: Publish latest release
+      # 빌드마다 고정 주소(build-N) 릴리스 + 'latest' 릴리스
+      - name: Publish releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          TAG="build-$BUILD_NUMBER"
+          gh release create "$TAG" GymNote.ipa \
+            --target "${{ github.sha }}" \
+            --title "빌드 #$BUILD_NUMBER ($APP_VERSION)" \
+            --notes "커밋 ${{ github.sha }}"
           gh release delete latest --yes --cleanup-tag || true
           gh release create latest GymNote.ipa \
             --target "${{ github.sha }}" \
-            --title "최신 빌드 #${{ github.run_number }}" \
+            --title "최신 빌드 #$BUILD_NUMBER" \
             --notes "커밋 ${{ github.sha }}"
+          # 오래된 build-N 릴리스는 최근 3개만 남기고 정리
+          gh release list --limit 100 --json tagName -q '.[].tagName' \
+            | grep '^build-' | sort -t- -k2 -n | head -n -3 \
+            | xargs -r -I{} gh release delete {} --yes --cleanup-tag || true
+
+      # AltStore 소스 갱신: altstore 브랜치의 source.json
+      - name: Update AltStore source
+        run: |
+          URL="https://github.com/${{ github.repository }}/releases/download/build-$BUILD_NUMBER/GymNote.ipa"
+          python3 scripts/make_source.py GymNote.ipa "$APP_VERSION" "$BUILD_NUMBER" "$URL" /tmp/source.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin altstore || true
+          if git rev-parse --verify origin/altstore >/dev/null 2>&1; then
+            git switch -c altstore origin/altstore
+          else
+            git switch --orphan altstore
+            git rm -rf --quiet . || true
+          fi
+          git clean -fdxq
+          cp /tmp/source.json source.json
+          git add source.json
+          git commit -m "AltStore 소스: 빌드 #$BUILD_NUMBER ($APP_VERSION)"
+          git push origin altstore

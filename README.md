@@ -28,12 +28,18 @@ project.yml                 XcodeGen 설정 (Xcode 프로젝트를 자동 생성
 
 실패하면 Actions 로그에서 `error:`가 있는 줄을 복사해서 Claude에게 보여주면 된다.
 
-## 설치 (AltStore)
+## 설치 (AltStore 소스, 추천)
 
-1. 아이패드 Safari로 저장소의 Releases → latest → `GymNote.ipa`를 받는다 (파일 앱 › 다운로드에 저장됨).
-2. AltStore → **My Apps** → 왼쪽 위 **+** → `GymNote.ipa` 선택.
-3. 노트북 AltServer가 켜져 있고 같은 Wi-Fi(또는 USB 연결)여야 설치된다.
-4. 같은 앱을 다시 설치하면 업데이트로 처리되고 데이터는 유지된다.
+1. AltStore → **Sources** → **+** → 아래 주소 추가
+   `https://raw.githubusercontent.com/iasanullweb-maker/GymNote/altstore/source.json`
+2. **Browse**(또는 소스 화면)에서 헬스노트 **설치**
+3. 새 버전은 AltStore **My Apps**에 업데이트로 뜸
+4. 7일 갱신: 노트북 AltServer를 켜두고 같은 Wi-Fi면 AltStore가 백그라운드에서 갱신
+
+## 설치 (노트북에서 직접)
+
+AltServer 트레이 아이콘을 **Shift + 클릭** → **Sideload .ipa…** → `GymNote.ipa`
+(이 방법은 AltStore My Apps에 안 떠서 자동 갱신이 안 됨)
 
 ## 처음 실행 후
 
