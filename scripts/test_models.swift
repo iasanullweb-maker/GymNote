@@ -154,7 +154,8 @@ struct ModelChecks {
         assert(stepReload.restStep == 5, "간격 저장")
         var noStep = try JSONSerialization.jsonObject(with: encoder.encode(stepData)) as! [String: Any]
         noStep.removeValue(forKey: "restStep")
-        assert(try decoder.decode(AppData.self, from: JSONSerialization.data(withJSONObject: noStep)).restStep == 15, "예전 파일은 15초")
+        let oldFile = try decoder.decode(AppData.self, from: JSONSerialization.data(withJSONObject: noStep))
+        assert(oldFile.restStep == 15, "예전 파일은 15초")
         print("Model checks passed: migration, calendars, workout sessions, journals, persistence, stale/twice/widget/repeat")
     }
 }
