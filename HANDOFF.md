@@ -2,6 +2,16 @@
 
 마지막 업데이트: 2026-10-09
 
+## 다른 iPad 설치·Apple 배포 방식 안내 (2026-10-09)
+- 사용자는 다른 iPad 설치와 7일 갱신 방법, Apple Developer Program·TestFlight·App Store의 차이를 확인했으며, 현재는 내용을 인계 문서에 기록하는 것만 요청했다. 유료 프로그램 가입·결제나 TestFlight/App Store 전환을 지시한 것은 아니다. 다음 작업자는 가입 여부를 확인하고 별도 요청 없이 전환하지 않는다.
+- 현재 설치 경로는 AltStore Classic: 노트북의 AltServer로 각 iPad에 AltStore 설치 → 개발자 신뢰·개발자 모드 설정 → AltStore Sources에 `https://raw.githubusercontent.com/iasanullweb-maker/GymNote/altstore/source.json` 추가 → 헬스노트 설치. 배포 버전과 최소 iPadOS는 설치 시점의 source.json을 확인한다.
+- 무료 Apple 계정 서명은 7일마다 만료. AltServer가 실행 중인 노트북과 같은 Wi-Fi(기기 Wi-Fi 동기화 설정 필요) 또는 USB 연결 상태에서 각 iPad의 AltStore → My Apps → Refresh All로 AltStore와 GymNote 모두 갱신한다. 자동 갱신은 시도되지만 만료 전 수동 확인을 권장한다. 새 버전 업데이트와 서명 갱신은 별개다.
+- 만료돼도 앱을 먼저 삭제하지 않는다. AltStore도 열리지 않으면 AltServer로 기존 AltStore를 삭제 없이 재설치한 뒤 Refresh All을 시도한다. 기존 iPad의 앱 데이터는 보존한다.
+- 유료 Apple Developer Program은 연 99 USD 또는 현지 통화 가격(가입 시 공식 가격 재확인). 무료 개발자 등록과 구분한다. TestFlight 및 App Store 배포에는 유료 멤버십이 필요하며, 설치하는 사용자에게는 유료 개발자 가입이 필요하지 않다.
+- TestFlight는 정식 App Store 공개가 아닌 베타 초대 배포. 테스터가 TestFlight 앱과 초대 링크로 설치하며 AltStore·노트북 연결·7일 갱신이 필요 없다. 각 빌드는 최대 90일 사용 가능하고 새 빌드를 올려 테스트를 이어갈 수 있다. 외부 테스터 배포에는 베타 심사가 적용될 수 있다.
+- App Store 정식 배포는 서명·App Store Connect 등록, 설명·스크린샷·개인정보 처리방침 등 자료 준비와 Apple 심사가 필요하다. 승인 후 사용자는 일반 앱처럼 설치·업데이트하며 7일 서명 갱신을 하지 않는다. 향후 전환 요청 시 TestFlight 실기기 검증 후 정식 배포를 고려한다.
+- 공식 참고: https://faq.altstore.io/altstore-classic/altserver , https://faq.altstore.io/altstore-classic/your-altstore , https://developer.apple.com/support/compare-memberships/ , https://developer.apple.com/testflight/
+
 ## 계정별 용도 (2026-10-09 사용자 확인)
 | 용도 | 이메일 |
 |---|---|
