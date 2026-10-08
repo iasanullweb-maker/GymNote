@@ -387,3 +387,9 @@
 - Chrome 연결의 Supabase 세션은 로그인 화면에 머물며, 사용자가 로그인 완료를 알린 탭과 일치하지 않음. 로그인한 브라우저 이름·정확한 Supabase 탭 주소를 요청한 상태. 전체 Chrome 탭 조회는 자동 승인 검토에서 작업과 무관한 개인 탭 노출 위험으로 거절되어 실행하지 않음. Supabase CLI 인증도 없음. 실제 SQL 실행·관리자 지정·main 원격 push·릴리스는 아직 미실행.
 - 최신 main의 운동 상태/자정 유지 변경을 보존해 검증. 시뮬레이터에서 앱 재실행 시 저장된 세트 수가 중복 저장되는 오류를 발견하여 AppModel 초기 복원을 replaceData 경로로 변경. 검증 커밋 d13cd43: Validate GymNote #45(https://github.com/iasanullweb-maker/GymNote/actions/runs/37800279242) 전체 성공, Build IPA #72(https://github.com/iasanullweb-maker/GymNote/actions/runs/37800279707) 성공. iPad XCTest·모델/계정/일상/자동 기록·DB 권한·계정 삭제 검사와 앱/위젯 Release 빌드 통과. 공통 기록 화면의 실제 시뮬레이터 캡처도 확인.
 - 검증용 브랜치 codex/common-record-catalog는 원격에 push됨. 서버 접속 해결 후 공통 SQL 적용·지정 계정 확인·실제 공통 목록/권한 검증을 마치고, 검증된 main을 배포해야 함. main에 skip ci 커밋으로 push할 경우 기존 Build IPA 워크플로를 main 대상으로 수동 dispatch하여 릴리스와 AltStore 소스 완료까지 확인.
+
+## 공통 종목 실제 서버 적용 완료 (2026-10-09)
+- Windows Computer Use 플러그인으로 로그인된 GymNote Supabase 프로젝트를 확인. 사용자가 새로 지정한 앱 계정이 Auth에 정확히 하나 존재함을 확인하고, 실행 직전 권한 변경 승인을 받아 공통 종목 마이그레이션과 관리자 지정을 하나의 트랜잭션으로 적용했다. 개인 이메일·UUID는 저장소에 기록하지 않는다.
+- SQL 실행 성공. 실제 공개 list_record_catalog RPC가 HTTP 200으로 푸쉬업·풀업·신디 세 활성 종목을 반환함을 확인. SQL 읽기 검증 결과 catalog_count=3, designated_admin_count=1, 두 테이블 RLS=true, authenticated 직접 INSERT/UPDATE/DELETE=false.
+- 검증 SQL 입력 시 편집기가 기존 내용 뒤에 붙여 첫 검증 실행은 이미 존재하는 테이블 오류로 종료되었다. 이후 전체 내용을 읽기 전용 SELECT로 교체하여 위 결과를 확인했다. 최초 적용은 이미 커밋되어 유지되었으며 재실행은 테이블 생성 단계에서 실패했다.
+- 다른 채팅의 최신 main f4c25dd(0.1.75 배포 기록 포함)를 보존했다. 이번 변경은 서버 설정과 완료 기록뿐이며 앱 코드는 변경하지 않았다. 기존 공통 종목 전체 iOS 빌드·XCTest·DB 검증은 #72/#45 통과; 이번 서버 적용으로 전체 빌드는 다시 실행하지 않았다. 새 앱 릴리스는 이번 작업에서 게시하지 않았다.
