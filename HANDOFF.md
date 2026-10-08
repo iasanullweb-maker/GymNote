@@ -91,3 +91,10 @@
 - 후속 증상: 헬스노트 실행 시 '신뢰하지 않는 개발자' 표시. **설정 → 일반 → VPN 및 기기 관리 → 본인 Apple ID의 개발자 앱 → 신뢰** 안내. 화면에 재시작 안내가 나오면 따를 것.
 - 개발자 신뢰는 iPadOS의 실행 승인 상태이며, 이 메시지 자체는 앱 설정·기록 초기화의 증거가 아님. 신뢰가 다시 필요한 정확한 이유(서명 인증서 등)는 확인하지 못함. 앱 데이터 유지 여부도 실행 후 확인 필요.
 - 참고: https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows / https://faq.altstore.io/altstore-classic/troubleshooting-guide
+
+## 2026-10-08 기록 첫 화면 정리 (최신 빌드 0.1.8)
+- 사용자의 최종 요청: 최고 기록·달성 날짜·그래프·전체 기록 보기 유지. 첫 화면에 누적되는 날짜별 개별 기록 목록만 제거.
+- 전체 기록 화면에서 기존 기록 열람·수정·삭제와 최고 기록 트로피 표시 유지. 저장 데이터 변경 없음.
+- 최종 기능 커밋: `d7cee1a`, main 통합 완료. GitHub Actions #8에서 모델 검증, 앱/위젯 Release 빌드, IPA 패키징, AltStore 소스 갱신 성공.
+- 배포 버전 `0.1.8`, 릴리스 `build-8`. 워크트리의 `GymNote.ipa`를 최신 파일로 교체하고 릴리스 SHA256 일치 확인.
+- 아이패드에서 AltStore My Apps → 헬스노트 Update로 설치 후 화면 확인 필요.
