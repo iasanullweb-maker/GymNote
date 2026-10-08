@@ -48,7 +48,7 @@
 - GitHub GraphQL은 이 환경에서 막힘 → `gh api` REST 사용.
 
 ## 지금 진행 중
-- AltStore 소스 설치 완료: 사용자가 My Apps의 **`7 DAYS` 표시를 확인**함 (2026-10-08).
+- AltStore 소스 설치와 업데이트 완료: 사용자가 My Apps의 `7 DAYS`와 버전 **0.1.6**을 확인함 (2026-10-08). 현재 앱 실행 시 개발자 신뢰 재승인이 필요.
 - 데이터 유지, 위젯·잠금 화면 타이머 동작, 백그라운드 갱신 설정은 아직 확인 필요.
 - 설치 중 겪었던 **"AltServer could not find this device"** 오류 참고:
   - 원인 후보: 두 기기 모두 VPN 켜짐(Bonjour 검색 불가), 와이파이의 기기 간 통신 차단, Windows 네트워크가 "공용", 방화벽.
@@ -56,7 +56,7 @@
   - 설치 후 확인할 것: My Apps에 "7 DAYS"로 표시, AltStore Settings의 Background Refresh, 아이패드 설정 › AltStore › 백그라운드 앱 새로 고침.
 
 ## 다음 할 일 / 아이디어
-1. 설치한 앱을 열어 기존 루틴·기록이 유지되는지 확인
+1. 설정 → 일반 → VPN 및 기기 관리에서 본인 Apple ID의 개발자 앱을 신뢰한 뒤, 앱을 열어 기존 루틴·기록이 유지되는지 확인
 2. 위젯·잠금 화면 타이머 실제 동작 확인, 실시간 현황 권한
 3. 오늘 저녁 Mac: Xcode 설치 → `brew install xcodegen` → `xcodegen generate` → Team 선택 → 아이패드에서 실행 (미리보기·디버깅 목적. 무료 계정이면 7일 만료는 동일)
 4. App Store 배포는 보호자 명의 Apple Developer Program(연 $99) 필요. 아이콘·스크린샷·개인정보 처리방침·설명문 준비. 기능을 더 다듬은 뒤 고려.
@@ -80,3 +80,14 @@
 - 워크트리 작업 완료 시 별도 병합 요청 없이 변경 검토와 필요한 검증을 마치고 원래 작업 브랜치에 통합한다.
 - 다른 채팅의 변경은 보존하고 강제 push나 reset으로 덮어쓰지 않는다. 충돌은 의미를 확인해 해결하고, 사용자 판단이 필요한 경우에만 질문한다.
 - 최종 답변에 통합 여부와 검증·빌드 결과를 명시한다.
+
+## 2026-10-08 AltStore 갱신 멈춤 / 개발자 신뢰
+- 증상: My Apps에서 헬스노트가 보이지 않음. Sources의 FREE → Approve 후 진행도가 멈춤. Refresh 실패 알림이 있었지만 상세 오류 문구는 확보하지 못했고, 재시도에서는 몇 분 동안 갱신이 끝나지 않음.
+- 확인한 사실: Windows에서 Apple iPad USB 인식 정상, AltServer 응답 정상, Apple Mobile Device Service와 Bonjour Service 실행 중. 설치된 AltServer는 1.8.0. iTunes는 처음에 꺼져 있어 실행했지만, iTunes 미실행이 원인이라고 확정하지 않음.
+- AltServer 자동 재시작 시 Windows가 프로세스 종료 권한을 거부함. 사용자에게 AltStore 완전 종료 → AltServer 트레이 Exit 후 재실행 → USB 연결·잠금 해제 유지 → AltStore 자체만 먼저 갱신 순서를 안내.
+- 결과: 사용자가 AltStore 자체 갱신 성공을 확인. 이후 Sources → 헬스노트 → FREE → Approve로 설치 완료하고 **0.1.6** 표시를 확인함.
+- 원인 판단: AltStore/AltServer 연결 또는 진행 중 요청의 일시적 정체 가능성. 상세 오류가 없어 AltServer만의 문제로 확정할 수 없음. 같은 배포 파일로 성공했으므로 IPA 배포 파일 문제 가능성은 낮음.
+- 재발 시: 앱 삭제나 Shift+AltServer 직접 설치부터 하지 말고 위 갱신 복구 순서로 먼저 시도. 멈추면 iTunes의 아이패드 인식과 상세 오류 문구를 확인.
+- 후속 증상: 헬스노트 실행 시 '신뢰하지 않는 개발자' 표시. **설정 → 일반 → VPN 및 기기 관리 → 본인 Apple ID의 개발자 앱 → 신뢰** 안내. 화면에 재시작 안내가 나오면 따를 것.
+- 개발자 신뢰는 iPadOS의 실행 승인 상태이며, 이 메시지 자체는 앱 설정·기록 초기화의 증거가 아님. 신뢰가 다시 필요한 정확한 이유(서명 인증서 등)는 확인하지 못함. 앱 데이터 유지 여부도 실행 후 확인 필요.
+- 참고: https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows / https://faq.altstore.io/altstore-classic/troubleshooting-guide
