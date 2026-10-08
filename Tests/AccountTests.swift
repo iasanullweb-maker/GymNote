@@ -59,6 +59,29 @@ final class AccountTests: XCTestCase {
         }
     }
 
+    /// 앱을 여러 번 다시 열어도 저장된 기록(부분 완료 세트·일지)이 바뀌거나 다시 업로드 대상이 되지 않아야 한다.
+    func testRelaunchDoesNotReapplySavedProgress() throws {
+        let exercise = Exercise(name: "푸쉬업", sets: 5, detail: "10회")
+        let first = AppModel()
+        first.data = AppData(week: [])
+        first.data.scheduledPlans[DayKey.key()] = DayPlan(title: "상체", exercises: [exercise])
+        XCTAssertTrue(first.data.startWorkout())
+        first.data.changeSets(exercise.id, by: 1, actualReps: 12)
+        first.data.changeSets(exercise.id, by: 1, actualReps: 11)
+        let saved = try SharedStore.snapshot(userID: nil)
+        XCTAssertEqual(saved.data.activeWorkout?.done, 2)
+        for _ in 0..<3 {
+            let relaunched = AppModel()
+            XCTAssertEqual(relaunched.data, saved.data)
+            relaunched.reload()
+            XCTAssertEqual(relaunched.workoutProgress.done, 2)
+        }
+        let after = try SharedStore.snapshot(userID: nil)
+        XCTAssertEqual(after.data, saved.data, "실행만으로 저장 파일이 바뀌지 않음")
+        XCTAssertEqual(after.revision, saved.revision)
+        XCTAssertEqual(after.data.doneSets(exercise), 2)
+    }
+
     private var folder: URL!
     override func setUp() async throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

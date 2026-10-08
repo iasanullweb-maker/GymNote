@@ -9,6 +9,15 @@
 - `App/ResponsiveLayout.swift`에 320×640 계획, 390×844 실행·기록, 820×1180 계획 Xcode 미리보기 추가. 샘플 AppModel을 사용하며 기록 미리보기는 서버 조회 없이 RecordSection을 표시한다.
 - 코드 검토·git diff --check·43개 Swift 파일 문법 비교 검사 통과(기존 파서 한계 1개 유지). Windows에서 전체 iOS 빌드·XCTest·화면 렌더링은 미실행. 맥북 Xcode 설치/첫 실행과 iPhone 시뮬레이터 준비를 사용자에게 요청했다.
 - 맥북에서 확인할 것: 작은/일반 iPhone 세로·가로, iPad 전체/분할, 캘린더 날짜 선택/길게 누르기, 긴 운동명·큰 글씨·9999회 입력, 키보드·시트·하단 탭·상단 상태 표시. 실제 화면을 확인하기 전 최적화 검증 완료로 보고하지 말 것. 원격 push·배포 없음.
+## 다른 iPad 설치·Apple 배포 방식 안내 (2026-10-09)
+- 사용자는 다른 iPad 설치와 7일 갱신 방법, Apple Developer Program·TestFlight·App Store의 차이를 확인했으며, 현재는 내용을 인계 문서에 기록하는 것만 요청했다. 유료 프로그램 가입·결제나 TestFlight/App Store 전환을 지시한 것은 아니다. 다음 작업자는 가입 여부를 확인하고 별도 요청 없이 전환하지 않는다.
+- 현재 설치 경로는 AltStore Classic: 노트북의 AltServer로 각 iPad에 AltStore 설치 → 개발자 신뢰·개발자 모드 설정 → AltStore Sources에 `https://raw.githubusercontent.com/iasanullweb-maker/GymNote/altstore/source.json` 추가 → 헬스노트 설치. 배포 버전과 최소 iPadOS는 설치 시점의 source.json을 확인한다.
+- 무료 Apple 계정 서명은 7일마다 만료. AltServer가 실행 중인 노트북과 같은 Wi-Fi(기기 Wi-Fi 동기화 설정 필요) 또는 USB 연결 상태에서 각 iPad의 AltStore → My Apps → Refresh All로 AltStore와 GymNote 모두 갱신한다. 자동 갱신은 시도되지만 만료 전 수동 확인을 권장한다. 새 버전 업데이트와 서명 갱신은 별개다.
+- 만료돼도 앱을 먼저 삭제하지 않는다. AltStore도 열리지 않으면 AltServer로 기존 AltStore를 삭제 없이 재설치한 뒤 Refresh All을 시도한다. 기존 iPad의 앱 데이터는 보존한다.
+- 유료 Apple Developer Program은 연 99 USD 또는 현지 통화 가격(가입 시 공식 가격 재확인). 무료 개발자 등록과 구분한다. TestFlight 및 App Store 배포에는 유료 멤버십이 필요하며, 설치하는 사용자에게는 유료 개발자 가입이 필요하지 않다.
+- TestFlight는 정식 App Store 공개가 아닌 베타 초대 배포. 테스터가 TestFlight 앱과 초대 링크로 설치하며 AltStore·노트북 연결·7일 갱신이 필요 없다. 각 빌드는 최대 90일 사용 가능하고 새 빌드를 올려 테스트를 이어갈 수 있다. 외부 테스터 배포에는 베타 심사가 적용될 수 있다.
+- App Store 정식 배포는 서명·App Store Connect 등록, 설명·스크린샷·개인정보 처리방침 등 자료 준비와 Apple 심사가 필요하다. 승인 후 사용자는 일반 앱처럼 설치·업데이트하며 7일 서명 갱신을 하지 않는다. 향후 전환 요청 시 TestFlight 실기기 검증 후 정식 배포를 고려한다.
+- 공식 참고: https://faq.altstore.io/altstore-classic/altserver , https://faq.altstore.io/altstore-classic/your-altstore , https://developer.apple.com/support/compare-memberships/ , https://developer.apple.com/testflight/
 
 ## 계정별 용도 (2026-10-09 사용자 확인)
 | 용도 | 이메일 |
@@ -362,3 +371,10 @@
 - 서버 적용 필요: 202610080002_record_catalog.sql 실행 후 record_catalog_admins에 관리자의 Auth UUID를 SQL Editor에서 지정. 앱에 관리자 키 없음. 활성 세션·서버 관리 테이블로 권한 판정, revision으로 동시 수정 보호. 절차는 docs/RECORD_CATALOG_SETUP.md 참조. 실제 Supabase 적용·관리자 지정은 아직 미실행.
 - 검증: PGlite PostgreSQL 엔진에서 기존 백업 권한 테스트와 새 공통 목록 권한/관리자/충돌/규칙 고정/세션 폐기/계정 삭제 검사 통과. 기존 계정 삭제 함수 Node 검사, 수정 Swift 문법 검사(기존 파서 한계 제외), git diff --check 통과. 데이터·캐시·입력 XCTest와 PostgreSQL CI 추가. Windows에 Swift/Xcode가 없어 XCTest 실행·전체 iOS 빌드는 미실행.
 - 기존 main의 동시 스와이프 개선·운동 일지 자동 최고 기록·과거 운동 일괄 입력을 병합하여 보존. 자동 기록은 공통 종목의 개인 화면에서도 표시하되 향후 경쟁 제출과는 구분. 원격 push·앱 배포 없음.
+
+## 공통 종목 서버 적용 준비 / 통합 검증 (2026-10-09)
+- 사용자가 실제 Supabase 적용·관리자 지정·새 앱 배포 진행을 승인. 서버 공통 목록 RPC를 공개 빌드 설정으로 조회한 결과 404/PGRST202로 아직 미적용임을 확인.
+- 관리자 지정까지 하나의 트랜잭션으로 실행할 스크립트를 로컬 .validation-tools/deploy-record-catalog.sql에 준비. 사용자 이메일이 정확히 한 계정에 일치할 때만 지정하고, 0개/중복 일치 시 전체 롤백되는 것을 PGlite에서 확인. 이메일은 공개 저장소에 기록하지 않음.
+- Chrome 연결의 Supabase 세션은 로그인 화면에 머물며, 사용자가 로그인 완료를 알린 탭과 일치하지 않음. 로그인한 브라우저 이름·정확한 Supabase 탭 주소를 요청한 상태. 전체 Chrome 탭 조회는 자동 승인 검토에서 작업과 무관한 개인 탭 노출 위험으로 거절되어 실행하지 않음. Supabase CLI 인증도 없음. 실제 SQL 실행·관리자 지정·main 원격 push·릴리스는 아직 미실행.
+- 최신 main의 운동 상태/자정 유지 변경을 보존해 검증. 시뮬레이터에서 앱 재실행 시 저장된 세트 수가 중복 저장되는 오류를 발견하여 AppModel 초기 복원을 replaceData 경로로 변경. 검증 커밋 d13cd43: Validate GymNote #45(https://github.com/iasanullweb-maker/GymNote/actions/runs/37800279242) 전체 성공, Build IPA #72(https://github.com/iasanullweb-maker/GymNote/actions/runs/37800279707) 성공. iPad XCTest·모델/계정/일상/자동 기록·DB 권한·계정 삭제 검사와 앱/위젯 Release 빌드 통과. 공통 기록 화면의 실제 시뮬레이터 캡처도 확인.
+- 검증용 브랜치 codex/common-record-catalog는 원격에 push됨. 서버 접속 해결 후 공통 SQL 적용·지정 계정 확인·실제 공통 목록/권한 검증을 마치고, 검증된 main을 배포해야 함. main에 skip ci 커밋으로 push할 경우 기존 Build IPA 워크플로를 main 대상으로 수동 dispatch하여 릴리스와 AltStore 소스 완료까지 확인.
