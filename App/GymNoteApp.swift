@@ -5,6 +5,8 @@ import UserNotifications
 extension Notification.Name {
     /// 앱 화면 밖(알림 버튼 등)에서 저장소가 바뀌었음을 화면에 알린다.
     static let gymnoteStoreChanged = Notification.Name("gymnote.storeChanged")
+    /// 알림을 눌러 다른 분야(일상)로 열어 달라는 요청. 편집 중이면 RootView가 무시한다.
+    static let gymnoteOpenWorkspace = Notification.Name("gymnote.openWorkspace")
 }
 
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -38,7 +40,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         case DailyReminderScheduler.snoozeAction:
             await DailyReminderScheduler.snooze(content)
         case UNNotificationDefaultActionIdentifier:
-            UserDefaults.standard.set("일상", forKey: "selectedWorkspace")
+            // 편집 중인 화면을 덮어쓰지 않도록 바로 바꾸지 않고 RootView에 요청만 남긴다.
+            UserDefaults.standard.set("일상", forKey: EditingNavigationGuard.pendingWorkspaceKey)
+            NotificationCenter.default.post(name: .gymnoteOpenWorkspace, object: nil)
         default:
             break
         }
@@ -104,8 +108,16 @@ struct RootView: View {
                 tabScreenVersions[index] += 1
             }
         }
+        .onChange(of: model.selection.generation) { _, _ in
+            // 계정이 바뀌면 탭 전체가 새로 만들어지므로 이전 편집기의 잠금을 남기지 않는다.
+            editingNavigation.reset()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gymnoteOpenWorkspace).receive(on: RunLoop.main)) { _ in
+            applyPendingWorkspace()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                applyPendingWorkspace()
                 model.reload()
                 account.scheduleSync()
                 Task { await account.refreshRecordCatalog() }
@@ -118,6 +130,7 @@ struct RootView: View {
         .task {
             await account.bootstrap()
             model.reload()
+            applyPendingWorkspace()
             await RestController.requestPermissions()
         }
         .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
@@ -179,6 +192,8 @@ struct RootView: View {
             .toolbar(editingNavigation.isEditing ? .hidden : .automatic, for: .tabBar)
         }
         .id(model.selection.generation)
+        // 로그인/불러오기 화면으로 바뀌어 탭이 사라지면 남은 편집 잠금을 정리한다.
+        .onDisappear { editingNavigation.reset() }
         .safeAreaInset(edge: .top, spacing: 0) {
             if !account.isOnline {
                 Label("오프라인 · 기기 기록으로 계속 진행", systemImage: "wifi.slash")
@@ -187,6 +202,16 @@ struct RootView: View {
                     .padding(.vertical, 6)
                     .background(.thinMaterial)
             }
+        }
+    }
+
+    private func applyPendingWorkspace() {
+        let defaults = UserDefaults.standard
+        let pending = defaults.string(forKey: EditingNavigationGuard.pendingWorkspaceKey)
+        guard pending != nil else { return }
+        defaults.removeObject(forKey: EditingNavigationGuard.pendingWorkspaceKey)
+        if let next = editingNavigation.resolvePendingWorkspace(pending, current: workspace) {
+            workspace = next
         }
     }
 
