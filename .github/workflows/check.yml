@@ -44,10 +44,16 @@ jobs:
           PY
       - name: iPad simulator build and security regression tests
         run: |
+          set -o pipefail
           xcodebuild -project GymNote.xcodeproj -scheme GymNote -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
             CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGN_STYLE=Manual test
+            CODE_SIGN_STYLE=Manual test 2>&1 | tee /tmp/xcodebuild-test.log
+      - name: Report test failures as annotations
+        if: failure()
+        run: |
+          grep -E "error:|: failed|XCTAssert|Fatal error|Test Case .* failed" /tmp/xcodebuild-test.log \
+            | head -40 | sed -e 's/%/%25/g' -e 's/^/::error::/' || true
   database:
     runs-on: ubuntu-latest
     services:

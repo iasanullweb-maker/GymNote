@@ -2,7 +2,8 @@
 
 ## 현재 구현
 
-- 첫 실행 로그인 화면과 설정 탭: 이메일 인증번호 로그인/가입, 재발송, 세션 복원, 로그아웃, 재인증 후 계정 삭제.
+- 첫 실행 로그인 화면과 설정 탭: 이메일 인증번호 로그인/가입, **Google 로그인**, 재발송, 세션 복원, 로그아웃, 재인증 후 계정 삭제.
+- Google·Apple은 Supabase의 OAuth 로그인 + PKCE를 시스템 인증 브라우저(`ASWebAuthenticationSession`, 저장된 쿠키 없는 ephemeral 세션)로 연다. Google Client Secret과 Apple 서명 키는 Supabase 설정에만 있고 앱·저장소에는 없다. 버튼은 Supabase가 해당 방식을 켰다고 알려 줄 때만 활성화된다(`/auth/v1/settings`). Apple은 유료 Apple Developer Program이 필요해 현재 비활성이다(아래 7번).
 - 계정 연결이 없어도 게스트 운동 기능은 유지된다. 가짜 로그인으로 우회하지 않는다.
 - Supabase Auth의 REST API를 HTTPS로 호출하며, 비밀번호·인증번호 검증·JWT 발급은 Supabase가 맡는다.
 - 토큰은 앱의 비공유 Keychain (`WhenUnlockedThisDeviceOnly`), 운동 기록은 계정별 App Group 파일에 저장한다.
@@ -64,6 +65,64 @@ GitHub 저장소의 Settings → Secrets and variables → Actions → **Variabl
 
 Mac에서 직접 빌드할 때는 Xcode의 해당 User-Defined Build Settings에 동일한 값을 지정한다. URL과 키만 설정하고 App Group에 Keychain 공유 권한을 추가하지 않는다.
 
+## 6. Google 로그인 설정
+
+메뉴 이름은 콘솔 개편에 따라 조금 다를 수 있다. 프로젝트 URL은 `https://wthfekhyrsbslnkyvtax.supabase.co`.
+
+### Google Cloud Console (console.cloud.google.com)
+
+1. **프로젝트 선택**: 상단 프로젝트 선택 → 새 프로젝트(예: `GymNote`) → 만들기.
+2. **Google Auth Platform → 브랜딩(Branding)**: 시작하기 → 앱 이름 `헬스노트`, 사용자 지원 이메일, 개발자 연락처 이메일 입력. 로고는 넣지 않아도 된다(넣으면 브랜드 확인 절차가 생길 수 있음).
+3. **대상(Audience)**: 사용자 유형 **외부(External)**. 게시 상태가 **테스트**이면 **테스트 사용자**에 로그인할 Google 계정을 추가한다(최대 100명). 기본 범위(openid·이메일·프로필)만 쓰므로 민감 범위 검증 대상은 아니며, 친구들도 쓰게 하려면 **앱 게시(프로덕션)** 로 바꾼다.
+4. **데이터 액세스(Data Access)**: 범위 추가 → `openid`, `.../auth/userinfo.email`, `.../auth/userinfo.profile`만 선택. 다른 범위는 추가하지 않는다.
+5. **클라이언트(Clients) → 클라이언트 만들기**
+   - 애플리케이션 유형: **웹 애플리케이션** (토큰 교환은 Supabase 서버가 하므로 iOS 유형이 아님)
+   - 이름: `GymNote Supabase`
+   - 승인된 JavaScript 원본: 비워 둔다
+   - 승인된 리디렉션 URI: `https://wthfekhyrsbslnkyvtax.supabase.co/auth/v1/callback`
+   - 만들기 → **클라이언트 ID**와 **클라이언트 보안 비밀번호(Client Secret)** 를 확인한다. Secret은 Supabase 입력란에만 붙여 넣고 앱·GitHub·채팅에 쓰지 않는다.
+
+### Supabase 대시보드
+
+1. **Authentication → Sign In / Providers → Google**: Enable 켜기, **Client IDs**에 웹 클라이언트 ID, **Client Secret**에 보안 비밀번호 입력. *Skip nonce checks*는 끈 채로 둔다. 화면의 Callback URL이 위 리디렉션 URI와 같은지 확인 → Save.
+2. **Authentication → URL Configuration → Redirect URLs → Add URL**: `com.gymnote.app://auth-callback`을 **정확히** 추가한다. 이 주소가 없으면 로그인 후 앱으로 돌아오지 못하고 인증 창에 남는다(취소하면 앱은 그대로 유지). Site URL은 바꾸지 않는다.
+3. **Email provider의 Confirm email은 켜 둔다.** 자동 계정 연결의 안전 조건이다(8번).
+4. **Allow manual linking**은 꺼 둔다(앱에 수동 연결 기능 없음).
+5. 아이패드에서 Wi-Fi 연결 후 앱을 열면 Google 버튼이 활성화된다. 설정이 아직이면 '준비 중'으로 남는다.
+
+### 앱 복귀 주소와 보안
+
+- 검증된 https 복귀(유니버설 링크, `ASWebAuthenticationSession`의 https 콜백)는 **Associated Domains** 권한이 필요하고, Apple 공식 표에서 이 권한은 무료 계정(Apple Developer)에 제공되지 않는다. 그래서 무료 서명(AltStore)에서는 사용자 지정 스킴 `com.gymnote.app://auth-callback`을 쓴다.
+- 이 스킴은 Info.plist에 등록하지 않는다. Apple 문서: *"ASWebAuthenticationSession ensures that only the calling app's session receives the authentication callback, even when more than one app registers the same callback URL scheme."*
+- 보호 장치: 시도마다 새 PKCE 검증값(S256, 메모리에만 보관) → Supabase가 허용 목록의 정확한 주소로만 복귀 → 앱이 스킴·호스트·경로를 정확히 비교 → 코드 교환 시 같은 검증값을 증명해야 세션 발급(코드 5분, 1회용).
+- 취소·거부(`access_denied`)·잘못된 복귀·교환 실패는 기기 기록을 건드리지 않고 메시지만 표시한다. 인증 중 앱이 종료되면 검증값이 사라져 다음 실행에서 처음부터 다시 로그인한다(반쪽 상태 없음).
+- 앱은 Google 토큰을 받지 않는다. 결과는 기존과 같은 Supabase 세션(Keychain 보관)이다.
+- 정식 출시 후 유료 계정이 생기면 Associated Domains + https 복귀로 바꾸는 것을 검토한다.
+
+## 7. Apple 로그인 조건
+
+- Apple 공식 표(Supported capabilities, iOS)에서 **Sign in with Apple은 Apple Developer Program(ADP)에만 제공**되고, 무료 Apple 계정과 Enterprise에는 없다. 지금 AltStore가 쓰는 무료 Apple ID로는 네이티브 Apple 로그인 권한을 서명할 수 없다.
+- 웹 방식(이 앱이 이미 구현한 Supabase OAuth 경로)도 Apple의 **Services ID**, 도메인·복귀 URL 등록, **Sign in with Apple 키(.p8)** 가 필요하며 이는 개발자 계정의 인증서·식별자 화면에서 만든다.
+- 비용: Apple Developer Program **연 99 USD**(현지 통화 가능). HANDOFF대로 보호자 명의 가입이 필요할 수 있다.
+- 가입 후 웹 방식으로 켜는 절차: Identifiers에서 Services ID 생성 → Sign in with Apple 구성(도메인 `wthfekhyrsbslnkyvtax.supabase.co`, 복귀 URL `https://wthfekhyrsbslnkyvtax.supabase.co/auth/v1/callback`) → Keys에서 Sign in with Apple 키 생성(.p8은 한 번만 다운로드) → Supabase Apple provider에 Services ID와 키로 만든 Secret 입력. Apple의 웹 Secret은 최대 6개월마다 다시 만들어야 한다. 키 파일은 Git·앱에 넣지 않는다.
+- Supabase에서 Apple을 켜면 앱의 Apple 버튼이 코드 수정 없이 활성화된다. App Store 배포 시에는 네이티브 Sign in with Apple(권한 + ID 토큰 + nonce)로 전환과 App Review Guideline 4.8 검토가 필요하다.
+- Apple의 **이메일 가리기**를 쓰면 `@privaterelay.appleid.com` 주소가 오므로 기존 이메일 계정과 연결되지 않고 새 계정이 된다(8번).
+
+## 8. 계정 연결·중복 계정 정책
+
+- 모든 기록은 서버가 검증한 **사용자 UUID**별 파일·서버 행에 저장한다. 앱은 이메일 문자열을 비교해 기록을 합치지 않는다.
+- Supabase는 서버에서 **확인된 이메일이 같은 경우에만** 새 Google/Apple 신원을 기존 사용자에 자동 연결한다(같은 UUID). 이메일 OTP로 확인한 주소와 Google이 확인한 주소가 같으면 같은 계정이 되는 것이며, 두 신원 모두 그 이메일의 소유를 증명한 경우다. 앱이 서로 다른 UUID의 기록을 합치는 일은 없다.
+- Supabase 코드는 이메일 자동 확인(autoconfirm)이 켜져 있으면 확인되지 않은 주소도 확인된 것으로 취급하므로 **Confirm email을 반드시 켜 둔다**.
+- 다른 주소의 Google 계정, Apple 이메일 가리기는 별도 계정이 된다. 설정 → 계정에 로그인 이메일과 **로그인 방법**(이메일/Google/Apple)이 표시되므로 사용자가 구분할 수 있다. 두 계정의 기록을 합치는 기능은 없다. 나중에 필요하면 Supabase 수동 연결(베타)을 최근 재인증 후에만 허용하는 방식으로 설계한다.
+- 소셜 로그인도 기기(게스트) 기록은 로그인 화면의 '이 기기의 기록도 이어서 저장'에 동의했을 때만 가져온다. 기본값은 꺼짐.
+
+## 9. 재인증과 계정 삭제
+
+- 서버(`delete-account`)는 기존 검사(`getUser` 토큰 검증, `sub` 일치, 활성 세션 `gymnote_session_valid`, 요청 본문의 사용자 ID 무시)를 유지하고, 이 세션의 AMR에 **5분 이내의 `otp` 또는 `oauth` 로그인**이 있을 때만 삭제한다. `token_refresh`, 갱신된 `iat`, 오래된 로그인은 인정하지 않는다.
+- 앱은 계정에 연결된 방법만 본인 확인에 제시한다(이메일 계정은 인증번호, Google 계정은 Google). Google/Apple 본인 확인은 저장된 로그인이 없는 새 인증 창으로 열려 실제로 다시 로그인해야 한다.
+- 다른 계정으로 인증하면 거부하고 그때 생긴 세션을 서버에서 종료한다. 같은 계정으로 확인되면 대체된 이전 세션도 종료를 시도한다.
+- **이 변경은 함수 재배포가 필요하다**: `supabase functions deploy delete-account --project-ref wthfekhyrsbslnkyvtax`. 재배포 전에는 Google 계정 삭제가 서버에서 403으로 거부된다(안전한 방향).
+
 ## 기록과 복구
 
 - 기존 `gymnote-data.json`은 게스트 저장 형식으로 이관된다. 이관 전 `guest-before-accounts.json` 사본을 만든다.
@@ -89,10 +148,15 @@ Mac에서 직접 빌드할 때는 Xcode의 해당 User-Defined Build Settings에
 4. 오프라인 수정 후 복귀, 두 기기의 충돌, 동기화 중 위젯 체크.
 5. AltStore 갱신/재서명 후 세션과 기록 접근. Apple 팀이 바뀌면 Keychain 접근이 달라져 재로그인이 필요할 수 있다.
 6. 계정 삭제 전 재인증 필수 여부와 실제 서버 기록 삭제.
+7. Google: 첫 로그인(테스트 사용자), 취소·동의 거부, Redirect URLs 누락 시 동작, 이메일 계정과 같은 Gmail로 로그인 시 같은 계정·기록, 다른 Google 계정은 별도 계정, Google 계정 삭제 전 재인증.
 
 ## 근거 문서
 
 - [Supabase 이메일 OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)
+- [Supabase Google 로그인](https://supabase.com/docs/guides/auth/social-login/auth-google) · [PKCE 흐름](https://supabase.com/docs/guides/auth/sessions/pkce-flow) · [계정 연결](https://supabase.com/docs/guides/auth/auth-identity-linking)
+- [Apple 지원 기능 표 (iOS)](https://developer.apple.com/help/account/reference/supported-capabilities-ios/) · [멤버십 비교](https://developer.apple.com/support/compare-memberships/)
+- [ASWebAuthenticationSession](https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession)
+- [Google OAuth 정책(내장 웹뷰 금지)](https://developers.google.com/identity/protocols/oauth2/policies) · [게시 상태](https://support.google.com/cloud/answer/15549945)
 - [Supabase Auth REST API](https://github.com/supabase/auth/blob/master/openapi.yaml)
 - [서버 행 접근 정책](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Supabase JWT 인증 방법과 timestamp](https://supabase.com/docs/guides/auth/jwt-fields)
