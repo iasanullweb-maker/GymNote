@@ -1,0 +1,41 @@
+{
+  "name": "헬스노트",
+  "subtitle": "개인용 헬스 보조 앱",
+  "description": "헬스노트 개인 배포용 AltStore 소스",
+  "iconURL": "https://raw.githubusercontent.com/iasanullweb-maker/GymNote/main/docs/icon.png",
+  "website": "https://github.com/iasanullweb-maker/GymNote",
+  "tintColor": "#F07A2E",
+  "nsfw": false,
+  "featuredApps": [
+    "com.gymnote.app"
+  ],
+  "apps": [
+    {
+      "name": "헬스노트",
+      "bundleIdentifier": "com.gymnote.app",
+      "developerName": "iasanullweb-maker",
+      "subtitle": "루틴, 세트 체크 위젯, 휴식 타이머, 최고 기록",
+      "localizedDescription": "요일별 루틴과 세트 체크, 홈·잠금 화면 위젯, 잠금 화면 휴식 타이머, 최고 기록과 그래프.",
+      "iconURL": "https://raw.githubusercontent.com/iasanullweb-maker/GymNote/main/docs/icon.png",
+      "tintColor": "#F07A2E",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "0.1.5",
+          "buildVersion": "5",
+          "date": "2026-10-08T03:37:04Z",
+          "localizedDescription": "빌드 #5",
+          "downloadURL": "https://github.com/iasanullweb-maker/GymNote/releases/download/build-5/GymNote.ipa",
+          "size": 446868,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [
+          "com.apple.security.application-groups"
+        ],
+        "privacy": {}
+      }
+    }
+  ]
+}
