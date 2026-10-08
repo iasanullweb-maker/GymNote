@@ -84,7 +84,9 @@ final class AppModel {
     init() {
         do {
             selection = try SharedStore.activate(userID: nil)
-            data = try SharedStore.snapshot(userID: nil).data
+            // 저장된 기록을 불러오는 것은 '수정'이 아니다. 일반 대입은 didSet의 저장 병합을 실행해
+            // 빈 데이터 → 불러온 데이터 차이를 한 번 더 적용하므로(진행 중 세트 수가 늘어남) 교체 경로로 읽는다.
+            replaceData(try SharedStore.snapshot(userID: nil).data)
         } catch { storageError = "기록을 읽지 못했어요. 원본을 덮어쓰지 않고 보관합니다." }
     }
 
