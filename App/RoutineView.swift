@@ -34,6 +34,7 @@ struct RoutineView: View {
                                 VStack {
                                     Text(DayKey.weekdayName(date)).font(.caption)
                                     Text(String(Calendar.current.component(.day, from: date))).bold()
+                                        .foregroundStyle(Calendar.current.isDateInToday(date) ? Color.orange : Color.primary)
                                 }
                                 .frame(width: 32)
                                 VStack(alignment: .leading, spacing: 3) {
@@ -44,12 +45,10 @@ struct RoutineView: View {
                                     }
                                 }
                                 Spacer()
-                                if Calendar.current.isDateInToday(date) {
-                                    Text("오늘").font(.caption).foregroundStyle(.orange)
-                                }
                                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                             }
                         }
+                        .foregroundStyle(.primary)
                         Divider()
                     }
                     Button {
