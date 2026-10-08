@@ -365,16 +365,34 @@ final class AccountModel {
 
     func resetCode() { pendingEmail = nil; message = nil }
 
+    @ObservationIgnored private var refreshTask: Task<AccountSession, Error>?
+
+    /// 만료가 가까우면 갱신. 동시에 여러 곳(백업 동기화·친구 기능)에서 불러도 갱신 요청은 하나만 보내
+    /// 회전된 refresh token을 두 번 쓰지 않는다.
     private func validSession() async throws -> AccountSession {
-        guard var current = session, let client else { throw AccountError.unauthorized }
-        if current.expiresAt < Date().timeIntervalSince1970 + 60 {
+        guard let current = session, let client else { throw AccountError.unauthorized }
+        guard current.expiresAt < Date().timeIntervalSince1970 + 60 else { return current }
+        if let pending = refreshTask { return try await pending.value }
+        let task = Task { @MainActor [vault] () throws -> AccountSession in
             let refreshed = try await client.refresh(current)
             guard refreshed.user.id == current.user.id else { throw AccountError.unauthorized }
             try vault?.write(refreshed) // Save rotated refresh tokens before any subsequent request.
-            session = refreshed
-            current = refreshed
+            return refreshed
         }
-        return current
+        refreshTask = task
+        defer { refreshTask = nil }
+        let refreshed = try await task.value
+        if session?.user.id == refreshed.user.id { session = refreshed }
+        return refreshed
+    }
+
+    /// 친구·그룹 기능용: 로그인·연결 상태를 확인하고 유효한 토큰을 돌려준다. 계정 작업 화면의 진행 표시는 바꾸지 않는다.
+    func socialAccess() async throws -> (client: AuthClient, token: String, userID: UUID) {
+        guard let client, session != nil else { throw AccountError.unauthorized }
+        guard isOnline else { throw URLError(.notConnectedToInternet) }
+        guard !needsLogin, !deleting else { throw AccountError.unauthorized }
+        let current = try await validSession()
+        return (client, current.accessToken, current.user.id)
     }
 
     func synchronize() async {

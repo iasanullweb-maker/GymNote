@@ -35,6 +35,8 @@ jobs:
           /tmp/daily-checks
           swiftc Shared/Models.swift Shared/WorkoutRecords.swift scripts/test_records.swift -o /tmp/record-checks
           /tmp/record-checks
+          swiftc Shared/Models.swift Shared/WorkoutRecords.swift Shared/RecordCatalog.swift Shared/SocialRanking.swift scripts/test_social_ranking.swift -o /tmp/social-checks
+          /tmp/social-checks
       - name: Select available iPad simulator
         run: |
           python3 - <<'PY'
@@ -90,5 +92,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/auth_test_schema.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610080001_accounts.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610080002_record_catalog.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610090001_social.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_auth_policies.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_record_catalog.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_social.sql

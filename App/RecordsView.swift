@@ -7,20 +7,24 @@ struct RecordsView: View {
     @State private var addingFor: RecordType?
     @State private var showingTypes = false
     @State private var prMessage: String?
-    @State private var showingJournal = false
+    @State private var tab = RecordsTab.records
+    private enum RecordsTab: Hashable { case records, journal, friends }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("기록 종류", selection: $showingJournal) {
-                    Text("최고 기록").tag(false)
-                    Text("운동 일지").tag(true)
+                Picker("기록 종류", selection: $tab) {
+                    Text("최고 기록").tag(RecordsTab.records)
+                    Text("운동 일지").tag(RecordsTab.journal)
+                    Text("친구").tag(RecordsTab.friends)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
                 .padding(.bottom, 8)
-                if showingJournal {
+                if tab == .journal {
                     WorkoutJournalView()
+                } else if tab == .friends {
+                    FriendsView()
                 } else {
                     List {
                         if let message = account.catalogMessage {

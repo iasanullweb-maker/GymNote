@@ -95,6 +95,7 @@ struct RootView: View {
             if phase == .active {
                 model.reload()
                 account.scheduleSync()
+                Task { await model.social.publish(force: false) }
                 Task { await account.refreshRecordCatalog() }
             }
         }
