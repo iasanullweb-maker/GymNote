@@ -225,6 +225,12 @@ extension AppData {
         Array(recordTypes.prefix(count))
     }
 
+    mutating func updateRecord(_ entry: RecordEntry) {
+        if let i = records.firstIndex(where: { $0.id == entry.id }) {
+            records[i] = entry
+        }
+    }
+
     /// 종목과 그 종목의 기록을 모두 삭제
     mutating func deleteRecordType(_ id: String) {
         recordTypes.removeAll { $0.id == id }

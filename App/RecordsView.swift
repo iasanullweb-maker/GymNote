@@ -5,6 +5,7 @@ struct RecordsView: View {
     @Environment(AppModel.self) private var model
     @State private var showingAdd = false
     @State private var showingTypes = false
+    @State private var editing: RecordEntry?
     @State private var prMessage: String?
 
     var body: some View {
@@ -15,7 +16,7 @@ struct RecordsView: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(model.data.recordTypes) { type in
-                    RecordSection(type: type)
+                    RecordSection(type: type) { editing = $0 }
                 }
             }
             .navigationTitle("기록")
@@ -35,6 +36,11 @@ struct RecordsView: View {
                     if model.addRecord(entry), let type = model.data.recordType(entry.typeID) {
                         prMessage = "\(type.name) \(type.display(entry))"
                     }
+                }
+            }
+            .sheet(item: $editing) { entry in
+                AddRecordView(types: model.data.recordTypes, existing: entry) { updated in
+                    model.data.updateRecord(updated)
                 }
             }
             .sheet(isPresented: $showingTypes) {
@@ -59,6 +65,7 @@ struct RecordsView: View {
 struct RecordSection: View {
     @Environment(AppModel.self) private var model
     let type: RecordType
+    let onEdit: (RecordEntry) -> Void
 
     var body: some View {
         let entries = model.data.entries(type)
@@ -98,32 +105,113 @@ struct RecordSection: View {
             }
 
             ForEach(Array(entries.reversed().prefix(5))) { entry in
-                HStack {
-                    Text(entry.date, format: .dateTime.month().day())
-                    Spacer()
-                    Text(type.display(entry))
-                }
-                .swipeActions {
-                    Button("삭제", role: .destructive) {
-                        model.data.records.removeAll { $0.id == entry.id }
-                    }
+                RecordRow(type: type, entry: entry) { onEdit(entry) }
+            }
+
+            if !entries.isEmpty {
+                NavigationLink {
+                    RecordHistoryView(typeID: type.id)
+                } label: {
+                    Text("전체 기록 보기 (\(entries.count)개)")
+                        .foregroundStyle(.secondary)
                 }
             }
         }
     }
 }
 
-// MARK: - 기록 추가
+/// 기록 한 줄: 탭하면 수정, 왼쪽으로 밀면 삭제
+struct RecordRow: View {
+    @Environment(AppModel.self) private var model
+    let type: RecordType
+    let entry: RecordEntry
+    var isBest: Bool = false
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                Text(entry.date, format: .dateTime.year().month().day())
+                    .foregroundStyle(.primary)
+                Spacer()
+                if isBest {
+                    Image(systemName: "trophy.fill")
+                        .foregroundStyle(.orange)
+                }
+                Text(type.display(entry))
+                    .foregroundStyle(.primary)
+                Image(systemName: "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .swipeActions {
+            Button("삭제", role: .destructive) {
+                model.data.records.removeAll { $0.id == entry.id }
+            }
+        }
+    }
+}
+
+// MARK: - 전체 기록
+
+struct RecordHistoryView: View {
+    @Environment(AppModel.self) private var model
+    let typeID: String
+    @State private var editing: RecordEntry?
+
+    var body: some View {
+        let type = model.data.recordType(typeID)
+        let entries: [RecordEntry] = type.map { Array(model.data.entries($0).reversed()) } ?? []
+        let best = type.flatMap { model.data.best($0) }
+
+        List {
+            if let type = type {
+                Section {
+                    ForEach(entries) { entry in
+                        RecordRow(type: type, entry: entry, isBest: entry.id == best?.id) { editing = entry }
+                    }
+                } footer: {
+                    Text("탭하면 수정, 왼쪽으로 밀면 삭제")
+                }
+            }
+        }
+        .navigationTitle(type?.name ?? "기록")
+        .overlay {
+            if entries.isEmpty {
+                Text("기록이 없어").foregroundStyle(.secondary)
+            }
+        }
+        .sheet(item: $editing) { entry in
+            AddRecordView(types: model.data.recordTypes, existing: entry) { updated in
+                model.data.updateRecord(updated)
+            }
+        }
+    }
+}
+
+// MARK: - 기록 추가 / 수정
 
 struct AddRecordView: View {
     @Environment(\.dismiss) private var dismiss
     let types: [RecordType]
+    let existing: RecordEntry?
     let onSave: (RecordEntry) -> Void
 
-    @State private var typeID: String = ""
+    @State private var typeID: String
     @State private var value: Double?
     @State private var extra: Int?
-    @State private var date = Date()
+    @State private var date: Date
+
+    init(types: [RecordType], existing: RecordEntry? = nil, onSave: @escaping (RecordEntry) -> Void) {
+        self.types = types
+        self.existing = existing
+        self.onSave = onSave
+        _typeID = State(initialValue: existing?.typeID ?? types.first?.id ?? "")
+        _value = State(initialValue: existing?.value)
+        _extra = State(initialValue: existing.map { $0.extraReps })
+        _date = State(initialValue: existing?.date ?? Date())
+    }
 
     private var type: RecordType? { types.first { $0.id == typeID } ?? types.first }
 
@@ -157,7 +245,7 @@ struct AddRecordView: View {
                     }
                 }
             }
-            .navigationTitle("기록 추가")
+            .navigationTitle(existing == nil ? "기록 추가" : "기록 수정")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }
@@ -166,9 +254,6 @@ struct AddRecordView: View {
                     Button("저장") { save() }
                         .disabled((value ?? -1) < 0)
                 }
-            }
-            .onAppear {
-                if typeID.isEmpty { typeID = types.first?.id ?? "" }
             }
             .onChange(of: typeID) { _, _ in
                 value = nil
@@ -180,6 +265,7 @@ struct AddRecordView: View {
     private func save() {
         guard let type = type, let v = value, v >= 0 else { return }
         var entry = RecordEntry(typeID: type.id, date: date, value: v)
+        if let existing = existing { entry.id = existing.id }
         if type.style == .rounds {
             // 추가 횟수가 라운드당 횟수를 넘으면 라운드로 넘김
             let perRound = max(type.repsPerRound, 1)
