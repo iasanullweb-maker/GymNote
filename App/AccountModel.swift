@@ -24,6 +24,14 @@ final class AccountModel {
     private(set) var cloudChecked = false
     private(set) var connection: AccountConnection
     private(set) var guestSelected = false
+    private(set) var catalogTypes = CatalogRecordType.defaults
+    private(set) var catalogLoading = false
+    private(set) var catalogMessage: String?
+    private(set) var catalogFetchedAt: Date?
+    private var catalogAdminUserID: UUID?
+    var canManageCatalog: Bool {
+        user != nil && catalogAdminUserID == user?.id && isOnline && !needsLogin && !deleting
+    }
     /// Providers the Supabase project reports as enabled. Unknown (offline/failed) means none.
     private(set) var availableProviders: Set<SocialProvider> = []
     @ObservationIgnored private unowned let model: AppModel
@@ -95,6 +103,10 @@ final class AccountModel {
          initialConnection: AccountConnection = .checking, monitorConnectivity: Bool = true) {
         self.model = model
         self.client = client
+        if let cache = SharedStore.recordCatalog(), cache.project == client?.config.url.host {
+            catalogTypes = cache.types
+            catalogFetchedAt = cache.fetchedAt
+        }
         connection = initialConnection
         monitorsEnvironment = monitorConnectivity
         connectivity.pathUpdateHandler = { [weak self] path in
@@ -136,7 +148,69 @@ final class AccountModel {
 
     private func autoRefreshProviders() {
         guard monitorsEnvironment else { return }
-        Task { [weak self] in await self?.refreshProviders() }
+        Task { [weak self] in
+            await self?.refreshProviders()
+            await self?.refreshRecordCatalog()
+        }
+    }
+
+    func refreshRecordCatalog() async {
+        guard isOnline, !catalogLoading, !(busy && messageContext == .management), let client else { return }
+        catalogLoading = true
+        catalogAdminUserID = nil
+        defer { catalogLoading = false }
+        do {
+            let types = try await client.recordCatalog()
+            let cache = RecordCatalogCache(project: client.config.url.host!, types: types, fetchedAt: Date())
+            try SharedStore.saveRecordCatalog(cache)
+            catalogTypes = CatalogRecordType.sorted(types)
+            catalogFetchedAt = cache.fetchedAt
+            catalogMessage = nil
+            await refreshCatalogAdmin()
+        } catch {
+            catalogMessage = "공통 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."
+        }
+    }
+
+    private func refreshCatalogAdmin() async {
+        guard !busy, session != nil, !needsLogin, !deleting, let client else { return }
+        startOperation("관리자 권한을 확인하는 중…", context: .backup)
+        defer { finishOperation() }
+        let operation = generation
+        do {
+            let current = try await validSession()
+            if try await client.isCatalogAdmin(token: current.accessToken),
+               operation == generation, session?.user.id == current.user.id {
+                catalogAdminUserID = current.user.id
+            }
+        } catch { catalogAdminUserID = nil }
+    }
+
+    /// Serialize with account operations so rotating a refresh token cannot race a backup or logout.
+    func saveCatalogType(_ type: CatalogRecordType) async -> Bool {
+        guard canManageCatalog, !busy, !catalogLoading, let client else { return false }
+        startOperation("공통 종목을 저장하는 중…", context: .management)
+        defer { finishOperation() }
+        do {
+            let current = try await validSession()
+            let saved = try await client.saveCatalogType(type, token: current.accessToken)
+            var next = catalogTypes.filter { $0.id != saved.id }
+            next.append(saved)
+            next = CatalogRecordType.sorted(next)
+            try SharedStore.saveRecordCatalog(RecordCatalogCache(project: client.config.url.host!, types: next, fetchedAt: Date()))
+            catalogTypes = next
+            catalogFetchedAt = Date()
+            catalogMessage = nil
+            return true
+        } catch AccountError.conflict {
+            catalogMessage = "다른 관리자가 수정했어요. 목록을 새로고침한 뒤 다시 열어 주세요."
+        } catch AccountError.unauthorized {
+            catalogAdminUserID = nil
+            catalogMessage = "관리자 권한 또는 로그인 상태를 확인해 주세요."
+        } catch {
+            catalogMessage = "저장을 확인하지 못했어요. 목록을 새로고침해 확인해 주세요."
+        }
+        return false
     }
 
     /// Buttons are enabled only for providers the server confirms. Failure keeps them disabled.

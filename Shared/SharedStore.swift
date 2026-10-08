@@ -31,6 +31,20 @@ enum SharedStore {
     }
 
     static var fileURL: URL { directory.appendingPathComponent(fileName) }
+    private static var catalogURL: URL { directory.appendingPathComponent("record-catalog.json") }
+
+    static func recordCatalog() -> RecordCatalogCache? {
+        try? locked {
+            let raw = try Data(contentsOf: catalogURL)
+            guard raw.count <= 2_000_000 else { throw CocoaError(.fileReadCorruptFile) }
+            return try JSONDecoder().decode(RecordCatalogCache.self, from: raw)
+        }
+    }
+
+    static func saveRecordCatalog(_ cache: RecordCatalogCache) throws {
+        try locked { try write(cache, to: catalogURL) }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
     private static var selectionURL: URL { directory.appendingPathComponent("active-account.json") }
 
     /// The lock covers selection, read/modify/write, and sync acknowledgements across app + widget.
@@ -255,9 +269,12 @@ enum SharedStore {
     }
 
     static func widgetSnapshot() -> (AppData, String) {
-        (try? locked {
+        let catalog = recordCatalog()?.types ?? CatalogRecordType.defaults
+        return (try? locked {
             let selection = try readSelection()
-            return (try readSnapshot(userID: selection.userID).data, selection.generation.uuidString)
+            var data = try readSnapshot(userID: selection.userID).data
+            data.recordTypes = CatalogRecordType.sorted(catalog).filter(\.active).map(\.recordType)
+            return (data, selection.generation.uuidString)
         }) ?? (.empty, "")
     }
 

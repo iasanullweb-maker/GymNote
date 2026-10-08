@@ -184,6 +184,20 @@ final class AppModel {
 
     @discardableResult
     func addRecord(_ entry: RecordEntry) -> Bool {
-        data.addRecord(entry)
+        guard let definition = account.catalogTypes.first(where: { $0.id == entry.typeID && $0.active }),
+              entry.value.isFinite, entry.value >= 0, entry.value <= 1_000_000,
+              entry.extraReps >= 0, entry.extraReps <= 1_000_000 else {
+            storageError = "입력할 수 없는 종목 또는 기록이에요. 공통 목록과 입력값을 확인해 주세요."
+            return false
+        }
+        var next = data
+        if !next.recordTypes.contains(where: { $0.id == definition.id }) {
+            next.recordTypes.append(definition.recordType)
+        }
+        let previous = next.best(definition.recordType)
+        next.records.append(entry)
+        data = next
+        guard data.records.contains(where: { $0.id == entry.id }) else { return false }
+        return previous.map { definition.recordType.isBetter(entry, than: $0) } ?? true
     }
 }

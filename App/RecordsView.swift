@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RecordsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @State private var addingFor: RecordType?
     @State private var showingTypes = false
     @State private var prMessage: String?
@@ -22,47 +23,68 @@ struct RecordsView: View {
                     WorkoutJournalView()
                 } else {
                     List {
-                        if model.data.recordTypes.isEmpty {
-                            Text("종목이 없어. 아래 '종목 추가 · 편집'에서 추가해 줘.")
-                                .foregroundStyle(.secondary)
+                        if let message = account.catalogMessage {
+                            Text(message).font(.footnote).foregroundStyle(.secondary)
                         }
                         let autoRecords = model.data.exerciseRecords()
-                        ForEach(model.data.recordTypes) { type in
-                            RecordSection(type: type, auto: model.data.exerciseRecords(for: type, in: autoRecords)) { addingFor = type }
+                        if account.catalogTypes.filter(\.active).isEmpty {
+                            Text("현재 사용할 수 있는 공통 종목이 없어요.").foregroundStyle(.secondary)
                         }
-                        let unlinked = model.data.unlinkedExerciseRecords(autoRecords)
+                        ForEach(account.catalogTypes.filter(\.active)) { definition in
+                            RecordSection(type: definition.recordType,
+                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords)) {
+                                addingFor = definition.recordType
+                            }
+                        }
+                        ForEach(account.catalogTypes.filter { !$0.active && !model.data.entries($0.recordType).isEmpty }) { definition in
+                            RecordSection(type: definition.recordType, allowsAdding: false,
+                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords)) {}
+                        }
+                        if !legacyTypes.isEmpty {
+                            Section {
+                                ForEach(legacyTypes) { type in
+                                    NavigationLink(type.name) { RecordHistoryView(typeID: type.id) }
+                                }
+                            } header: { Text("이전 개인 기록") } footer: {
+                                Text("기존 기록은 보존됩니다. 새 기록은 공통 종목에 입력해 주세요.")
+                            }
+                        }
+                        let unlinked = unlinkedAutoRecords(autoRecords)
                         if !unlinked.isEmpty {
                             Section {
                                 ForEach(unlinked) { record in AutoRecordRow(record: record) }
                             } header: {
                                 Text("운동 일지 자동 기록").font(.title3.bold()).textCase(nil)
                             } footer: {
-                                Text("같은 이름의 최고 기록 종목을 만들면 그 종목에 합쳐서 보여 줘요.")
+                                Text("개인 운동 일지에서 계산한 기록이에요. 공통 종목과 같은 이름의 횟수 운동은 해당 종목에 함께 표시됩니다.")
                             }
                         }
-
                         Section {
-                            Button {
-                                showingTypes = true
-                            } label: {
-                                Label("종목 추가 · 편집 · 순서", systemImage: "slider.horizontal.3")
+                            Button { showingTypes = true } label: {
+                                Label(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내", systemImage: "list.bullet")
                             }
                         } footer: {
-                            Text("운동을 마치면 세트마다 기록한 실제 횟수로 '한 세트 최고'와 '하루 총량 최고'를 자동으로 계산해. 일지를 고치거나 지우면 다시 계산되고, 실제 횟수를 적지 않은 세트는 빠져. 위젯에는 그날 계획한 운동이, 운동이 없는 날엔 위에 있는 3개 종목이 표시돼.")
+                            Text("운동 일지의 실제 횟수로 한 세트·하루 총량 최고 기록을 자동 계산해요. 위젯은 그날 계획한 운동을 표시하고, 운동이 없는 날에는 사용 중인 공통 종목의 앞 3개를 표시해요.")
                         }
                     }
                 }
             }
             .navigationTitle("기록")
+            .task(id: account.user?.id) { await account.refreshRecordCatalog() }
+            .onChange(of: account.user?.id) { _, _ in
+                addingFor = nil
+                showingTypes = false
+            }
+            .refreshable { await account.refreshRecordCatalog() }
             .sheet(item: $addingFor) { type in
-                AddRecordView(types: model.data.recordTypes, fixedTypeID: type.id) { entry in
-                    if model.addRecord(entry), let type = model.data.recordType(entry.typeID) {
+                AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
+                    if model.addRecord(entry), let type = account.catalogTypes.first(where: { $0.id == entry.typeID })?.recordType {
                         prMessage = "\(type.name) \(type.display(entry))"
                     }
                 }
             }
             .sheet(isPresented: $showingTypes) {
-                RecordTypesView().environment(model)
+                RecordTypesView()
             }
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { prMessage != nil },
@@ -74,11 +96,23 @@ struct RecordsView: View {
             }
         }
     }
+    private func unlinkedAutoRecords(_ records: [String: ExerciseRecords]) -> [ExerciseRecords] {
+        var display = model.data
+        display.recordTypes = account.catalogTypes.map(\.recordType)
+        return display.unlinkedExerciseRecords(records)
+    }
+
+    private var legacyTypes: [RecordType] {
+        let commonIDs = Set(account.catalogTypes.map(\.id))
+        return model.data.recordTypes.filter { !commonIDs.contains($0.id) && !model.data.entries($0).isEmpty }
+    }
+
 }
 
 struct RecordSection: View {
     @Environment(AppModel.self) private var model
     let type: RecordType
+    var allowsAdding = true
     var auto: ExerciseRecords? = nil
     let onAdd: () -> Void
 
@@ -164,14 +198,16 @@ struct RecordSection: View {
                 Text(type.name)
                     .font(.title3.bold())
                 Spacer()
-                Button(action: onAdd) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 26, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                if allowsAdding {
+                    Button(action: onAdd) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 26, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .tint(.orange)
+                    .accessibilityLabel("\(type.name) 기록 추가")
                 }
-                .buttonStyle(.borderless)
-                .tint(.orange)
-                .accessibilityLabel("\(type.name) 기록 추가")
             }
             .textCase(nil)
         }
@@ -213,11 +249,12 @@ struct RecordRow: View {
 
 struct RecordHistoryView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     let typeID: String
     @State private var editing: RecordEntry?
 
     var body: some View {
-        let type = model.data.recordType(typeID)
+        let type = model.data.recordDisplayTypes(catalog: account.catalogTypes).first { $0.id == typeID }
         let entries: [RecordEntry] = type.map { Array(model.data.entries($0).reversed()) } ?? []
         let best = type.flatMap { model.data.best($0) }
 
@@ -233,13 +270,14 @@ struct RecordHistoryView: View {
             }
         }
         .navigationTitle(type?.name ?? "기록")
+        .onChange(of: account.user?.id) { _, _ in editing = nil }
         .overlay {
             if entries.isEmpty {
                 Text("기록이 없어").foregroundStyle(.secondary)
             }
         }
         .sheet(item: $editing) { entry in
-            AddRecordView(types: model.data.recordTypes, existing: entry) { updated in
+            AddRecordView(types: type.map { [$0] } ?? [], existing: entry, fixedTypeID: entry.typeID) { updated in
                 model.data.updateRecord(updated)
             }
         }
@@ -273,7 +311,7 @@ struct AddRecordView: View {
         _date = State(initialValue: existing?.date ?? Date())
     }
 
-    private var type: RecordType? { types.first { $0.id == typeID } ?? types.first }
+    private var type: RecordType? { types.first { $0.id == typeID } }
 
     var body: some View {
         NavigationStack {
@@ -314,7 +352,7 @@ struct AddRecordView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("저장") { save() }
-                        .disabled((value ?? -1) < 0)
+                        .disabled(type == nil || value == nil || !(value?.isFinite ?? false) || (value ?? -1) < 0 || (value ?? 0) > 1_000_000 || (extra ?? 0) < 0 || (extra ?? 0) > 1_000_000)
                 }
             }
             .onChange(of: typeID) { _, _ in
@@ -325,7 +363,8 @@ struct AddRecordView: View {
     }
 
     private func save() {
-        guard let type = type, let v = value, v >= 0 else { return }
+        guard let type = type, let v = value, v.isFinite, v >= 0, v <= 1_000_000,
+              (extra ?? 0) >= 0, (extra ?? 0) <= 1_000_000 else { return }
         var entry = RecordEntry(typeID: type.id, date: date, value: v)
         if let existing = existing { entry.id = existing.id }
         if type.style == .rounds {
@@ -337,182 +376,6 @@ struct AddRecordView: View {
         }
         onSave(entry)
         dismiss()
-    }
-}
-
-// MARK: - 종목 편집
-
-struct RecordTypesView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @State private var adding: RecordType?
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(Array(model.data.recordTypes.enumerated()), id: \.element.id) { index, type in
-                        NavigationLink {
-                            RecordTypeEditor(typeID: type.id)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(type.name)
-                                    Text(summary(type))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if index < 3 {
-                                    Text("위젯")
-                                        .font(.caption2.bold())
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.orange.opacity(0.2), in: Capsule())
-                                        .foregroundStyle(.orange)
-                                }
-                            }
-                        }
-                    }
-                    .onMove { source, destination in
-                        model.data.recordTypes.move(fromOffsets: source, toOffset: destination)
-                    }
-
-                    Button {
-                        adding = RecordType(name: "")
-                    } label: {
-                        Label("종목 추가", systemImage: "plus")
-                    }
-                } footer: {
-                    Text("위에 있는 3개가 위젯에 표시돼. 오른쪽 위 '편집'을 눌러 순서를 바꿀 수 있어.")
-                }
-            }
-            .navigationTitle("기록 종목")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { EditButton() }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("완료") { dismiss() }
-                }
-            }
-            .sheet(item: $adding) { type in
-                NewRecordTypeView(type: type) { model.data.recordTypes.append($0) }
-            }
-        }
-    }
-
-    private func summary(_ type: RecordType) -> String {
-        if type.style == .rounds { return "라운드 + 추가 횟수 · 라운드당 \(type.repsPerRound)회" }
-        var text = type.unit.isEmpty ? "숫자" : "단위: \(type.unit)"
-        if type.lowerIsBetter { text += " · 낮을수록 좋음" }
-        return text
-    }
-}
-
-struct NewRecordTypeView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State var type: RecordType
-    let onSave: (RecordType) -> Void
-    @FocusState private var nameFocused: Bool
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                TextField("종목 이름", text: $type.name).focused($nameFocused)
-                Picker("기록 방식", selection: $type.style) {
-                    Text("숫자").tag(RecordType.Style.count)
-                    Text("라운드 + 횟수").tag(RecordType.Style.rounds)
-                }.pickerStyle(.segmented)
-                if type.style == .count {
-                    TextField("단위 (예: 회, kg, 초)", text: $type.unit)
-                    Toggle("낮을수록 좋은 기록", isOn: $type.lowerIsBetter)
-                } else {
-                    Stepper("라운드당 횟수: \(type.repsPerRound)", value: $type.repsPerRound, in: 1...500)
-                }
-                TextField("설명", text: $type.hint, axis: .vertical)
-            }
-            .navigationTitle("종목 추가")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") {
-                        type.name = type.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                        onSave(type)
-                        dismiss()
-                    }.disabled(type.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-            .onAppear { nameFocused = true }
-        }
-    }
-}
-
-struct RecordTypeEditor: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    let typeID: String
-    @State private var confirmingDelete = false
-
-    /// ID로 찾아서 편집 (삭제해도 앱이 멈추지 않게)
-    private var type: Binding<RecordType> {
-        Binding(
-            get: { model.data.recordType(typeID) ?? RecordType(id: typeID, name: "") },
-            set: { newValue in
-                if let i = model.data.recordTypes.firstIndex(where: { $0.id == typeID }) {
-                    model.data.recordTypes[i] = newValue
-                }
-            }
-        )
-    }
-
-    var body: some View {
-        let count = model.data.records.filter { $0.typeID == typeID }.count
-
-        Form {
-            Section("이름") {
-                TextField("예: 스쿼트 1RM", text: type.name)
-            }
-
-            Section {
-                Picker("기록 방식", selection: type.style) {
-                    Text("숫자").tag(RecordType.Style.count)
-                    Text("라운드 + 횟수").tag(RecordType.Style.rounds)
-                }
-                .pickerStyle(.segmented)
-
-                if type.wrappedValue.style == .count {
-                    TextField("단위 (예: 회, kg, 초)", text: type.unit)
-                    Toggle("낮을수록 좋은 기록", isOn: type.lowerIsBetter)
-                } else {
-                    Stepper("라운드당 횟수: \(type.wrappedValue.repsPerRound)", value: type.repsPerRound, in: 1...500)
-                }
-            } footer: {
-                Text(type.wrappedValue.style == .count
-                     ? "달리기 시간처럼 짧을수록 좋은 기록이면 '낮을수록 좋은 기록'을 켜."
-                     : "신디 같은 AMRAP용. 라운드당 횟수로 총 반복 수를 계산해서 비교해.")
-            }
-
-            Section("설명 (기록 추가할 때 보임)") {
-                TextField("예: 한 세트 최대 반복 횟수", text: type.hint, axis: .vertical)
-            }
-
-            Section {
-                Button("종목 삭제", role: .destructive) { confirmingDelete = true }
-            }
-        }
-        .navigationTitle(type.wrappedValue.name.isEmpty ? "종목" : type.wrappedValue.name)
-        .confirmationDialog(
-            "'\(type.wrappedValue.name)' 종목을 삭제할까?",
-            isPresented: $confirmingDelete,
-            titleVisibility: .visible
-        ) {
-            Button("삭제 (기록 \(count)개도 함께 삭제)", role: .destructive) {
-                let id = typeID
-                dismiss()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    model.data.deleteRecordType(id)
-                }
-            }
-        }
     }
 }
 

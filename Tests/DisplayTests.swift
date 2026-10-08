@@ -91,7 +91,7 @@ final class DisplayTests: XCTestCase {
         let model = AppModel(previewData: fixture())
         let journal = try await host(NavigationStack { WorkoutJournalView() }.environment(model), name: "journal-calendar")
         journal.isHidden = true
-        let records = try await host(RecordsView().environment(model), name: "record-buttons")
+        let records = try await host(RecordsView().environment(model).environment(model.account), name: "record-buttons")
         records.isHidden = true
         let rest = try await host(WorkoutStatusBanner(startedAt: Date(), restStart: Date(), restEnd: Date().addingTimeInterval(90), finishTitle: "운동 마치기", onSkip: {}, onFinish: {}).padding(), name: "rest-minutes-seconds")
         rest.isHidden = true

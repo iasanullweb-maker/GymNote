@@ -298,4 +298,24 @@ final class AuthClient {
     func deleteAccount(token: String) async throws {
         _ = try await request(path: "/functions/v1/delete-account", token: token, body: Data("{}".utf8))
     }
+
+    func recordCatalog() async throws -> [CatalogRecordType] {
+        let data = try await request(path: "/rest/v1/rpc/list_record_catalog", body: Data("{}".utf8))
+        return try JSONDecoder().decode([CatalogRecordType].self, from: data)
+    }
+
+    func isCatalogAdmin(token: String) async throws -> Bool {
+        let data = try await request(path: "/rest/v1/rpc/is_record_catalog_admin", token: token, body: Data("{}".utf8))
+        return try JSONDecoder().decode(Bool.self, from: data)
+    }
+
+    func saveCatalogType(_ type: CatalogRecordType, token: String) async throws -> CatalogRecordType {
+        struct Body: Encodable { let p_type: CatalogRecordType; let p_expected_revision: Int64 }
+        let body = try JSONEncoder().encode(Body(p_type: type, p_expected_revision: type.revision))
+        let raw = try await request(path: "/rest/v1/rpc/save_record_catalog_type", token: token, body: body)
+        guard let saved = try JSONDecoder().decode([CatalogRecordType].self, from: raw).first else {
+            throw AccountError.conflict
+        }
+        return saved
+    }
 }
