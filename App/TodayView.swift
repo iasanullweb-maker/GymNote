@@ -101,47 +101,46 @@ struct ExerciseRow: View {
 
     private var finished: Bool { done >= exercise.sets }
 
-    private var subtitle: String { "\(exercise.sets)세트 · \(exercise.detail)" }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(exercise.name)
-                        .font(.headline)
-                        .strikethrough(finished)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Text("\(done)/\(exercise.sets)")
-                    .font(.title3.monospacedDigit())
-                    .bold()
-                    .foregroundStyle(finished ? Color.green : Color.primary)
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            Text("\(exercise.name) \(exercise.detail)")
+                .font(.title2.bold())
+                .strikethrough(finished)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 6) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 24, maximum: 24), spacing: 10)],
+                      alignment: .leading, spacing: 10) {
                 ForEach(0..<max(exercise.sets, 0), id: \.self) { i in
                     Circle()
                         .fill(i < done ? Color.orange : Color.secondary.opacity(0.25))
-                        .frame(width: 12, height: 12)
+                        .frame(width: 24, height: 24)
                 }
-                Spacer()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("세트 진행")
+            .accessibilityValue("\(exercise.sets)세트 중 \(done)세트 완료")
+
+            HStack(spacing: 12) {
                 Button(action: onUndo) {
                     Image(systemName: "arrow.uturn.backward")
+                        .font(.title3.weight(.semibold))
+                        .frame(minWidth: 28, minHeight: 40)
                 }
                 .buttonStyle(.bordered)
                 .disabled(done == 0)
+                .accessibilityLabel("세트 완료 되돌리기")
 
                 Button(action: onComplete) {
                     Text(finished ? "완료" : "세트 완료")
+                        .font(.title3.bold())
+                        .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(finished)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 10)
     }
 }
 
