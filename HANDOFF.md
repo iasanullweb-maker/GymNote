@@ -2,6 +2,14 @@
 
 마지막 업데이트: 2026-10-09
 
+## 최신 배포: 0.1.75 (2026-10-09 0시대, 사용자 요청으로 서버 공통 종목 적용 전 배포)
+- 배포 커밋 `e206a10` = 로컬 main 전체. 원격 main `4b7211b`(0.1.67)에서 fast-forward. main Build IPA #75 성공: 모델 검증, Release 빌드, IPA, `build-75`·`latest` 릴리스(1,641,731바이트, SHA-256 `53bcac79…4184`, 동일), AltStore 소스 **0.1.75** 확인.
+- 배포 전 같은 커밋 검증: Validate GymNote #47(모델·계정·일상·기록·직접 입력 검사, iPad 시뮬레이터 XCTest, DB 권한·공통 종목 권한, 계정 삭제) 및 Build IPA #74 성공.
+- 포함: 운동 최고기록 자동 갱신·위젯(Claude), 공통 최고 기록 종목(관리자 관리), 지난 운동 직접 입력·세트별 무게, 자정 넘긴 운동 유지·둥근 운동 상태 표시, 계정 화면 개선, 스와이프 삭제, 일지 캘린더 등 0.1.67 이후 Codex 변경.
+- 배포 검토 중 발견한 오류: 앱 실행 시 `AppModel.init`의 데이터 대입이 저장 병합을 실행해 부분 완료 세트 수가 실행마다 늘어남. Codex `d13cd43`과 Claude가 같은 수정(replaceData) → main 유지, 재실행 회귀 테스트(`testRelaunchDoesNotReapplySavedProgress`)만 추가.
+- **서버 공통 종목 SQL·관리자 지정은 아직 미적용**(사용자: 나중에 확인). 앱은 서버 목록을 못 받으면 저장된 목록 또는 번들 기본 공통 목록(푸쉬업·풀업·신디)을 사용하고 관리자 메뉴는 숨김 → 서버 적용 후 앱에서 새로고침하면 반영. 적용 절차는 `docs/RECORD_CATALOG_SETUP.md`.
+- 아이패드 확인: AltStore → My Apps → Update. 운동 마친 뒤 기록 탭·신기록 알림·위젯, 일상 알림, 앱 재실행 후 진행 세트 수 유지, Google 로그인 복귀.
+
 ## 다른 iPad 설치·Apple 배포 방식 안내 (2026-10-09)
 - 사용자는 다른 iPad 설치와 7일 갱신 방법, Apple Developer Program·TestFlight·App Store의 차이를 확인했으며, 현재는 내용을 인계 문서에 기록하는 것만 요청했다. 유료 프로그램 가입·결제나 TestFlight/App Store 전환을 지시한 것은 아니다. 다음 작업자는 가입 여부를 확인하고 별도 요청 없이 전환하지 않는다.
 - 현재 설치 경로는 AltStore Classic: 노트북의 AltServer로 각 iPad에 AltStore 설치 → 개발자 신뢰·개발자 모드 설정 → AltStore Sources에 `https://raw.githubusercontent.com/iasanullweb-maker/GymNote/altstore/source.json` 추가 → 헬스노트 설치. 배포 버전과 최소 iPadOS는 설치 시점의 source.json을 확인한다.
@@ -28,7 +36,7 @@
 - 모델 회귀 검사: 23:58 시작→00:05 위젯 체크, 0/1세트 시작 상태의 저장·재로드, 다음 날 시작 요청 거부, 다음 날 운동 ID 무시, 실제 횟수 보존, 자동·수동 종료 날짜, 종료 후 다음 날 운동 시작. XCTest에는 AppModel의 저장·reload·앱 재실행 보존 검사를 추가했다.
 - 코드 검토·Swift 문법 비교·diff 검사를 수행했다. Windows에 Swift 실행기가 없어 회귀 검사 실행과 전체 iOS 빌드·실기기 검증은 미실행이며, 다음 통합 검증에서 실행할 것. 이번 요청은 코드 수정만이며 원격 push·배포하지 않았다.
 
-## 최신 배포: 0.1.67 (Codex 완료 변경, Claude 진행 작업 제외)
+## 이전 배포: 0.1.67 (Codex 완료 변경, Claude 진행 작업 제외)
 - 사용자 요청으로 검증된 커밋 `4b7211b`만 원격 main에 push·배포. 계정 화면/삭제 단계 개선, 인증 상태·작업별 안내·재발송 대기·마지막 동기화 시각, 완료된 운동 실행 UI 및 실제 횟수 기록, 계획의 예전 최대 비율 문구를 10회로 이관한 변경을 포함한다.
 - Claude의 `codex/auto-records` 최고기록 자동 갱신 작업과 검증 시작 후 추가된 로컬 main의 캘린더 변경은 이번 배포에 포함하지 않았다. 해당 변경과 미커밋 작업은 보존한다.
 - 배포 전 검증: Build IPA #65 성공(모델·계정·일상 검사, 앱·위젯 전체 Release 빌드·IPA 생성), Validate GymNote #39 성공(iPad 시뮬레이터 XCTest와 새 계정 상태 회귀, DB 권한, 서버 계정 삭제 보안 검사).
