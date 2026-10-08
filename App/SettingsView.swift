@@ -20,9 +20,9 @@ struct SettingsView: View {
                     Label(account.modeDescription, systemImage: account.isOnline ? "icloud" : "wifi.slash")
                 }
                 Section {
-                    Stepper("세트 사이 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest,
+                    Stepper("세트 사이 휴식: \(RestDuration.text(seconds: model.data.defaultRest))", value: $model.data.defaultRest,
                             in: Self.restRange, step: 5)
-                    Stepper("−/+ 버튼 간격: \(model.data.restStep)초", value: $model.data.restStep,
+                    Stepper("−/+ 버튼 간격: \(RestDuration.text(seconds: model.data.restStep))", value: $model.data.restStep,
                             in: Self.stepRange, step: 5)
                     Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
                 } header: {

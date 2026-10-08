@@ -1,5 +1,16 @@
 import Foundation
 
+enum RestDuration {
+    static func text(seconds: Int) -> String {
+        let seconds = max(seconds, 0)
+        return seconds < 60 ? "\(seconds)초" : "\(seconds / 60)분 \(seconds % 60)초"
+    }
+
+    static func remaining(until end: Date, at now: Date) -> Int {
+        max(0, Int(ceil(end.timeIntervalSince(now))))
+    }
+}
+
 // MARK: - 루틴
 
 struct Exercise: Codable, Identifiable, Hashable {
@@ -280,6 +291,12 @@ enum DayKey {
 // MARK: - 로직
 
 extension AppData {
+    /// 시작 날짜 기준. 자정을 넘겨 종료한 운동도 시작한 날에 표시한다.
+    func workouts(on date: Date) -> [WorkoutSession] {
+        let day = DayKey.key(date)
+        return workouts.filter { $0.day == day }.sorted { $0.startedAt > $1.startedAt }
+    }
+
     func plan(for date: Date = Date()) -> DayPlan {
         scheduledPlans[DayKey.key(date)] ?? DayPlan(title: "휴식", exercises: [])
     }

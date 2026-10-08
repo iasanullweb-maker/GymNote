@@ -168,7 +168,7 @@ struct GymWidgetView: View {
                 }
                 Spacer(minLength: 0)
                 Button(intent: StartRestIntent(seconds: entry.data.defaultRest, generation: entry.generation)) {
-                    Label("\(entry.data.defaultRest)초", systemImage: "timer")
+                    Label(RestDuration.text(seconds: entry.data.defaultRest), systemImage: "timer")
                         .font(.caption.bold())
                 }
                 .tint(.orange)

@@ -49,7 +49,7 @@ struct TodayView: View {
                 Section {
                     HStack {
                         Button { model.startDefaultRest() } label: {
-                            Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
+                            Label("휴식 타이머 \(RestDuration.text(seconds: model.data.defaultRest))", systemImage: "timer")
                         }
                         .buttonStyle(.borderless)
                         Spacer()
@@ -61,7 +61,7 @@ struct TodayView: View {
                         }
                         .buttonStyle(.bordered)
                         .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
-                        .accessibilityLabel("휴식 시간 \(model.data.restStep)초 줄이기")
+                        .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 줄이기")
                         Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
                             Image(systemName: "plus")
                                 .font(.body.weight(.semibold))
@@ -69,7 +69,7 @@ struct TodayView: View {
                         }
                         .buttonStyle(.bordered)
                         .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
-                        .accessibilityLabel("휴식 시간 \(model.data.restStep)초 늘리기")
+                        .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 늘리기")
                     }
                 }
             }
@@ -160,12 +160,12 @@ struct WorkoutStatusBanner: View {
             let resting = restStart != nil && restEnd.map { context.date < $0 } == true
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 16) {
-                    status(resting: resting)
+                    status(resting: resting, at: context.date)
                     Spacer(minLength: 12)
                     actions(resting: resting)
                 }
                 VStack(alignment: .leading, spacing: 12) {
-                    status(resting: resting)
+                    status(resting: resting, at: context.date)
                     actions(resting: resting)
                 }
             }
@@ -176,7 +176,7 @@ struct WorkoutStatusBanner: View {
         }
     }
 
-    private func status(resting: Bool) -> some View {
+    private func status(resting: Bool, at now: Date) -> some View {
         HStack(spacing: 12) {
             Image(systemName: resting || startedAt == nil ? "timer" : "figure.strengthtraining.traditional")
                 .font(.title2).foregroundStyle(.orange)
@@ -185,8 +185,8 @@ struct WorkoutStatusBanner: View {
                 Text(resting ? "휴식 중" : (startedAt == nil ? "휴식 완료" : "운동 중"))
                     .font(.headline)
                     .contentTransition(.opacity)
-                if resting, let start = restStart, let end = restEnd {
-                    Text(timerInterval: start...end, countsDown: true)
+                if resting, let end = restEnd {
+                    Text(RestDuration.text(seconds: RestDuration.remaining(until: end, at: now)))
                         .font(.title2.monospacedDigit()).bold()
                         .accessibilityHint("남은 휴식 시간")
                 } else if let startedAt {
