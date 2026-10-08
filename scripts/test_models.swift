@@ -146,6 +146,16 @@ struct ModelChecks {
                 if i % 2 == 0 { assert(copied.exercises[0].id != move.id, "복사본은 새 운동 ID") }
             }
         }
+        // −/+ 간격 설정 저장·이전 형식 기본값
+        var stepData = AppData(week: AppData.sample.week)
+        assert(stepData.restStep == 15, "기본 간격 15초")
+        stepData.restStep = 5
+        let stepReload = try decoder.decode(AppData.self, from: encoder.encode(stepData))
+        assert(stepReload.restStep == 5, "간격 저장")
+        var noStep = try JSONSerialization.jsonObject(with: encoder.encode(stepData)) as! [String: Any]
+        noStep.removeValue(forKey: "restStep")
+        let oldFile = try decoder.decode(AppData.self, from: JSONSerialization.data(withJSONObject: noStep))
+        assert(oldFile.restStep == 15, "예전 파일은 15초")
         print("Model checks passed: migration, calendars, workout sessions, journals, persistence, stale/twice/widget/repeat")
     }
 }

@@ -2,8 +2,8 @@ import SwiftUI
 
 /// 설정 탭: 휴식 타이머, 계정(시트로 열기), 진단
 struct SettingsView: View {
-    static let restStep = 15
-    static let restRange = 15...600
+    static let restRange = 5...600
+    static let stepRange = 5...120
 
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
@@ -18,12 +18,14 @@ struct SettingsView: View {
                 }
                 Section {
                     Stepper("기본 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest,
-                            in: Self.restRange, step: Self.restStep)
+                            in: Self.restRange, step: 5)
+                    Stepper("−/+ 버튼 간격: \(model.data.restStep)초", value: $model.data.restStep,
+                            in: Self.stepRange, step: 5)
                     Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
                 } header: {
                     Text("휴식 타이머")
                 } footer: {
-                    Text("운동 탭의 휴식 타이머 옆 −/+로도 바꿀 수 있어. 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
+                    Text("'−/+ 버튼 간격'은 운동 탭 휴식 타이머 옆 −/+를 한 번 누를 때 바뀌는 시간이야. 5초 단위, 최소 5초. 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
                 }
 
                 Section("계정") {
