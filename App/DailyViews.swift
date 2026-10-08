@@ -149,17 +149,33 @@ struct DailyPlansView: View {
                         }
                     }
                 }
-                CalendarSection("선택한 주") {
+                CalendarSection("선택한 주의 일상") {
+                    Text("날짜를 누르면 위에서 그날의 일상을 확인하고 수정할 수 있어요.")
+                        .font(.footnote).foregroundStyle(.secondary)
                     ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
+                        let items = model.data.dailyItems(on: date)
+                        let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
                         Button { selectedDate = date } label: {
-                            HStack {
-                                Text("\(DayKey.weekdayName(date)) \(Calendar.current.component(.day, from: date))").frame(width: 44)
-                                Text(model.data.dailyItems(on: date).map(\.title).joined(separator: ", "))
-                                    .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                                if Calendar.current.isDate(date, inSameDayAs: selectedDate) { Image(systemName: "checkmark") }
+                            HStack(spacing: 12) {
+                                VStack {
+                                    Text(DayKey.weekdayName(date)).font(.caption)
+                                    Text(String(Calendar.current.component(.day, from: date))).bold()
+                                        .foregroundStyle(Calendar.current.isDateInToday(date) ? Color.orange : Color.primary)
+                                }
+                                .frame(width: 32)
+                                if items.isEmpty {
+                                    Text("예정된 항목 없음")
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                } else {
+                                    Text(items.map(\.title).joined(separator: ", "))
+                                        .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                if selected { Image(systemName: "checkmark").foregroundStyle(.secondary) }
                             }
                             .foregroundStyle(.primary)
                         }
+                        .accessibilityAddTraits(selected ? [.isSelected] : [])
                         Divider()
                     }
                 }
