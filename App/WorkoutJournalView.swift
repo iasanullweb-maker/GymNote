@@ -23,7 +23,7 @@ struct WorkoutJournalView: View {
                         detailDay = JournalDay(date: date)
                     }
                     .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
-                    Text("날짜를 누르면 모든 운동과 세트별 기록을 볼 수 있어요.")
+                    Text("날짜를 길게 누르면 모든 운동과 세트별 기록을 볼 수 있어요.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
