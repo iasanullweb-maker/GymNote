@@ -84,7 +84,9 @@ final class AppModel {
     init() {
         do {
             selection = try SharedStore.activate(userID: nil)
-            data = try SharedStore.snapshot(userID: nil).data
+            // Loading is not an edit. Observation setters can otherwise save the restored
+            // counts as new deltas and count already completed sets a second time.
+            replaceData(try SharedStore.snapshot(userID: nil).data)
         } catch { storageError = "기록을 읽지 못했어요. 원본을 덮어쓰지 않고 보관합니다." }
     }
 
