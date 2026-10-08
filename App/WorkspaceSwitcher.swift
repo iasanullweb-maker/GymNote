@@ -21,9 +21,6 @@ struct WorkspaceSwitcher: View {
             HStack(spacing: 10) {
                 Image(systemName: icon).font(.title2.weight(.semibold))
                 Text(name).font(.title3.weight(.semibold))
-                Spacer(minLength: 4)
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title3).opacity(selected ? 1 : 0)
             }
             .foregroundStyle(selected ? color : Color.secondary)
             .padding(.horizontal, 16)
@@ -33,6 +30,12 @@ struct WorkspaceSwitcher: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 17)
                     .strokeBorder(selected ? color.opacity(0.6) : Color.clear, lineWidth: 1.5)
+            }
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.caption).foregroundStyle(color)
+                    .padding(8).opacity(selected ? 1 : 0)
+                    .accessibilityHidden(true)
             }
             .contentShape(RoundedRectangle(cornerRadius: 17))
         }
