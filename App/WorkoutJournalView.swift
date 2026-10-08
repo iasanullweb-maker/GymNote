@@ -4,6 +4,12 @@ struct WorkoutJournalView: View {
     @Environment(AppModel.self) private var model
     @State private var selectedDate = Date()
     @State private var showingCalendar = true
+    @State private var detailDay: JournalDay?
+
+    private struct JournalDay: Identifiable {
+        let date: Date
+        var id: String { DayKey.key(date) }
+    }
 
     var body: some View {
         List {
@@ -13,8 +19,12 @@ struct WorkoutJournalView: View {
                     Text("전체 목록").tag(false)
                 }.pickerStyle(.segmented)
                 if showingCalendar {
-                    PlanCalendarView(selectedDate: $selectedDate, content: .journal)
-                        .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
+                    PlanCalendarView(selectedDate: $selectedDate, content: .journal) { date in
+                        detailDay = JournalDay(date: date)
+                    }
+                    .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
+                    Text("날짜를 누르면 모든 운동과 세트별 기록을 볼 수 있어요.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             Section {
@@ -54,6 +64,80 @@ struct WorkoutJournalView: View {
                 Text(showingCalendar ? selectedDate.formatted(.dateTime.year().month().day().weekday()) : "전체 운동 일지")
             }
         }
+        .sheet(item: $detailDay) { day in
+            NavigationStack {
+                WorkoutJournalDayDetail(date: day.date)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+private struct WorkoutJournalDayDetail: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let date: Date
+
+    var body: some View {
+        let workouts = model.data.workouts(on: date)
+        List {
+            ForEach(workouts) { workout in
+                Section {
+                    HStack {
+                        Text(workout.startedAt, format: .dateTime.hour().minute())
+                        if let end = workout.endedAt {
+                            Text("–")
+                            Text(end, format: .dateTime.hour().minute())
+                        }
+                        Spacer()
+                        Text("\(workout.done) / \(workout.total)세트")
+                    }
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    ForEach(workout.plan.exercises) { exercise in
+                        WorkoutJournalExerciseRow(workout: workout, exercise: exercise)
+                    }
+                    NavigationLink("운동 일지 전체 보기") {
+                        WorkoutJournalDetail(workout: workout)
+                    }
+                } header: {
+                    Text(workout.plan.title)
+                }
+            }
+        }
+        .overlay {
+            if workouts.isEmpty {
+                ContentUnavailableView("운동 기록 없음", systemImage: "calendar",
+                                       description: Text("이 날짜에는 저장된 운동 일지가 없어요."))
+            }
+        }
+        .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("닫기") { dismiss() }
+            }
+        }
+    }
+}
+
+private struct WorkoutJournalExerciseRow: View {
+    let workout: WorkoutSession
+    let exercise: Exercise
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(exercise.name).font(.headline)
+                    Text("세트당 \(exercise.detail)").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(workout.doneSets(exercise)) / \(exercise.sets)세트")
+                    .monospacedDigit()
+            }
+            CompletedRepetitionRows(session: workout, exercise: exercise)
+        }
     }
 }
 
@@ -79,18 +163,7 @@ struct WorkoutJournalDetail: View {
             }
             Section {
                 ForEach(workout.plan.exercises) { exercise in
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(exercise.name).font(.headline)
-                                Text("세트당 \(exercise.detail)").font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text("\(workout.doneSets(exercise)) / \(exercise.sets)세트")
-                                .monospacedDigit()
-                        }
-                        CompletedRepetitionRows(session: workout, exercise: exercise)
-                    }
+                    WorkoutJournalExerciseRow(workout: workout, exercise: exercise)
                 }
             } header: {
                 Text("운동별 기록")

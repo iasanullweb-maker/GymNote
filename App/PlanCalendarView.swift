@@ -5,12 +5,14 @@ struct PlanCalendarView: View {
     enum Content { case workout, daily, all, journal }
     @Binding var selectedDate: Date
     var content: Content = .workout
+    var onSelectDate: ((Date) -> Void)?
     @State private var displayedMonth: Date
     private let weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
 
-    init(selectedDate: Binding<Date>, content: Content = .workout) {
+    init(selectedDate: Binding<Date>, content: Content = .workout, onSelectDate: ((Date) -> Void)? = nil) {
         _selectedDate = selectedDate
         self.content = content
+        self.onSelectDate = onSelectDate
         _displayedMonth = State(initialValue: selectedDate.wrappedValue)
     }
 
@@ -78,6 +80,7 @@ struct PlanCalendarView: View {
             : (exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")
         return Button {
             selectedDate = date
+            onSelectDate?(date)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 Text(String(Calendar.current.component(.day, from: date)))
@@ -102,6 +105,7 @@ struct PlanCalendarView: View {
             .contentShape(Rectangle())
         }
         .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + summary)
+        .accessibilityHint(onSelectDate == nil ? "날짜 선택" : "이 날짜의 모든 운동 기록 보기")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 
