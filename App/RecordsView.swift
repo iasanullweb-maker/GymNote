@@ -175,10 +175,8 @@ struct RecordRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button("삭제", role: .destructive) {
-                model.data.records.removeAll { $0.id == entry.id }
-            }
+        .shortSwipeAction {
+            model.data.records.removeAll { $0.id == entry.id }
         }
     }
 }

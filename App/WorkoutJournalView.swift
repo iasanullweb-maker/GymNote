@@ -54,10 +54,8 @@ struct WorkoutJournalView: View {
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                         }
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("삭제", role: .destructive) {
-                            model.data.workouts.removeAll { $0.id == workout.id }
-                        }
+                    .shortSwipeAction {
+                        model.data.workouts.removeAll { $0.id == workout.id }
                     }
                 }
             } header: {

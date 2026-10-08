@@ -369,8 +369,8 @@ private struct DailyHistoryDayView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     if !entry.note.isEmpty { Text(entry.note).font(.subheadline).foregroundStyle(.secondary) }
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button("완료 취소", role: .destructive) { removing = entry }
+                .shortSwipeAction("완료 취소") {
+                    removing = entry
                 }
             }
         }
