@@ -5,14 +5,14 @@ struct PlanCalendarView: View {
     enum Content { case workout, daily, all, journal }
     @Binding var selectedDate: Date
     var content: Content = .workout
-    var onSelectDate: ((Date) -> Void)?
+    var onShowDateDetails: ((Date) -> Void)?
     @State private var displayedMonth: Date
     private let weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
 
-    init(selectedDate: Binding<Date>, content: Content = .workout, onSelectDate: ((Date) -> Void)? = nil) {
+    init(selectedDate: Binding<Date>, content: Content = .workout, onShowDateDetails: ((Date) -> Void)? = nil) {
         _selectedDate = selectedDate
         self.content = content
-        self.onSelectDate = onSelectDate
+        self.onShowDateDetails = onShowDateDetails
         _displayedMonth = State(initialValue: selectedDate.wrappedValue)
     }
 
@@ -80,7 +80,6 @@ struct PlanCalendarView: View {
             : (exercises.map(\.name) + dailyItems.map(\.title)).joined(separator: ", ")
         return Button {
             selectedDate = date
-            onSelectDate?(date)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 Text(String(Calendar.current.component(.day, from: date)))
@@ -104,9 +103,25 @@ struct PlanCalendarView: View {
             .opacity(inMonth ? 1 : 0.4)
             .contentShape(Rectangle())
         }
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5, maximumDistance: 10)
+                .onEnded { _ in
+                    selectedDate = date
+                    onShowDateDetails?(date)
+                },
+            including: onShowDateDetails == nil ? .none : .all
+        )
         .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + summary)
-        .accessibilityHint(onSelectDate == nil ? "날짜 선택" : "이 날짜의 모든 운동 기록 보기")
+        .accessibilityHint(onShowDateDetails == nil ? "날짜 선택" : "길게 눌러 이 날짜의 모든 운동 기록 보기")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .accessibilityActions {
+            if let onShowDateDetails {
+                Button("전체 운동 기록 보기") {
+                    selectedDate = date
+                    onShowDateDetails(date)
+                }
+            }
+        }
     }
 
     @ViewBuilder
