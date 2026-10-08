@@ -51,8 +51,8 @@ struct RootView: View {
             RecordsView()
                 .tabItem { Label("기록", systemImage: "trophy") }
                 .tag(2)
-            AccountView()
-                .tabItem { Label("계정", systemImage: "person.crop.circle") }
+            SettingsView()
+                .tabItem { Label("설정", systemImage: "gearshape") }
                 .tag(3)
         }
         .id(model.selection.generation)

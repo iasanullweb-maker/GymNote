@@ -120,6 +120,11 @@ final class AppModel {
         startRest(seconds: data.defaultRest, title: next.title, info: next.info)
     }
 
+    func adjustDefaultRest(by delta: Int) {
+        let range = SettingsView.restRange
+        data.defaultRest = min(max(data.defaultRest + delta, range.lowerBound), range.upperBound)
+    }
+
     func stopRest() {
         restStart = nil
         restEnd = nil
