@@ -65,6 +65,17 @@ extension AppData {
                 }
             } else { result.logs.append(log) }
         }
+        for workout in guest.workouts where !result.workouts.contains(where: { $0.id == workout.id }) {
+            result.workouts.append(workout)
+        }
+        if var incoming = guest.activeWorkout, !result.workouts.contains(where: { $0.id == incoming.id }) {
+            if result.activeWorkout == nil { result.activeWorkout = incoming }
+            else if result.activeWorkout?.id != incoming.id, incoming.done > 0 {
+                // Keep the account's current session; preserve guest progress as a journal entry.
+                incoming.endedAt = max(Date(), incoming.startedAt)
+                result.workouts.append(incoming)
+            }
+        }
         return result
     }
 
@@ -93,12 +104,60 @@ extension AppData {
                 if let next = after[key] {
                     let delta = next - (before[key] ?? 0)
                     let current = result.logs[index].doneSets[key] ?? 0
-                    let limit = result.scheduledPlans[day]?.exercises.first { $0.id.uuidString == key }?.sets ?? Int.max
+                    let sessionPlan = [edited.activeWorkout, base.activeWorkout, result.activeWorkout]
+                        .compactMap { $0 }.first { $0.day == day }?.plan
+                    let limit = (sessionPlan ?? result.scheduledPlans[day])?.exercises.first { $0.id.uuidString == key }?.sets ?? Int.max
                     result.logs[index].doneSets[key] = min(max(current + delta, 0), max(limit, 0))
                 } else {
                     result.logs[index].doneSets.removeValue(forKey: key)
                 }
             }
+        }
+        // Journal edits apply by ID so a widget finishing another session cannot be overwritten.
+        for previous in base.workouts where !edited.workouts.contains(where: { $0.id == previous.id }) {
+            result.workouts.removeAll { $0.id == previous.id }
+        }
+        for workout in edited.workouts where base.workouts.first(where: { $0.id == workout.id }) != workout {
+            if let index = result.workouts.firstIndex(where: { $0.id == workout.id }) { result.workouts[index] = workout }
+            else { result.workouts.append(workout) }
+        }
+        if base.activeWorkout != edited.activeWorkout {
+            // An already finished session must not reappear when the app saves a stale snapshot.
+            if result.activeWorkout?.id == base.activeWorkout?.id {
+                result.activeWorkout = edited.activeWorkout
+            }
+            if let session = result.activeWorkout, result.workouts.contains(where: { $0.id == session.id }) {
+                result.activeWorkout = nil
+            }
+        }
+        let touchedSessionIDs = Set([base.activeWorkout?.id, edited.activeWorkout?.id].compactMap { $0 })
+        func withMergedProgress(_ session: WorkoutSession) -> WorkoutSession {
+            var copy = session
+            let counts = result.logs.first { $0.day == session.day }?.doneSets ?? [:]
+            for exercise in session.plan.exercises {
+                if let count = counts[exercise.id.uuidString] {
+                    copy.completedSets[exercise.id.uuidString] = min(max(count, 0), max(exercise.sets, 0))
+                }
+            }
+            return copy
+        }
+        if edited.activeWorkout == nil, let previous = base.activeWorkout,
+           let latest = activeWorkout, latest.id == previous.id,
+           !result.workouts.contains(where: { $0.id == previous.id }), result.activeWorkout == nil {
+            var preserved = withMergedProgress(latest)
+            if preserved.done > 0 {
+                preserved.endedAt = max(Date(), preserved.startedAt)
+                result.workouts.append(preserved)
+            }
+        }
+        if let session = result.activeWorkout, touchedSessionIDs.contains(session.id) {
+            result.activeWorkout = withMergedProgress(session)
+            if let updated = result.activeWorkout, updated.total > 0, updated.done == updated.total {
+                result.finishWorkout()
+            }
+        }
+        for index in result.workouts.indices where touchedSessionIDs.contains(result.workouts[index].id) {
+            result.workouts[index] = withMergedProgress(result.workouts[index])
         }
         return result
     }

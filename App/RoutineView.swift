@@ -9,12 +9,12 @@ struct RoutineView: View {
         NavigationStack {
             List {
                 Section("캘린더") {
-                    DatePicker("날짜 선택", selection: $selectedDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
+                    PlanCalendarView(selectedDate: $selectedDate)
+                        .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
                     NavigationLink {
                         ScheduledDayEditor(date: selectedDate)
                     } label: {
-                        Label("선택한 날짜 루틴 설정", systemImage: "calendar.badge.plus")
+                        Label("선택한 날짜 계획 설정", systemImage: "calendar.badge.plus")
                     }
                 }
                 Section("선택한 주의 운동") {
@@ -51,7 +51,7 @@ struct RoutineView: View {
                         Label("운동 목록", systemImage: "list.bullet.rectangle")
                     }
                 } footer: {
-                    Text("운동을 미리 만들어 두고 날짜별 루틴에 가져올 수 있어. 일정은 매주 반복되지 않아.")
+                    Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 매주 반복되지 않아.")
                 }
                 Section("설정") {
                     Stepper("기본 휴식: \(model.data.defaultRest)초", value: $model.data.defaultRest, in: 15...600, step: 15)
@@ -61,7 +61,7 @@ struct RoutineView: View {
                     LabeledContent("위젯 공유 저장소", value: SharedStore.diagnostics).font(.caption)
                 }
             }
-            .navigationTitle("루틴")
+            .navigationTitle("계획")
         }
     }
 }
@@ -79,7 +79,7 @@ struct ScheduledDayEditor: View {
 
     var body: some View {
         Form {
-            Section("루틴 이름") {
+            Section("계획 이름") {
                 TextField("예: 상체", text: plan.title)
             }
             Section {
@@ -107,7 +107,7 @@ struct ScheduledDayEditor: View {
                 Text("운동을 모두 지우면 휴식일이 돼. 가져온 운동의 세트·횟수를 바꿔도 운동 목록은 그대로야.")
             }
             Section {
-                Button("다른 날짜 / 기존 요일 루틴 가져오기") { showingCopy = true }
+                Button("다른 날짜 / 기존 요일 계획 가져오기") { showingCopy = true }
             }
         }
         .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
@@ -165,12 +165,12 @@ struct PlanCopyView: View {
                         Button("\(DayKey.weekdayNames[i])요일 · \(source.title)") { onCopy(source); dismiss() }
                     }
                 } header: {
-                    Text("기존 요일 루틴")
+                    Text("기존 요일 계획")
                 } footer: {
-                    Text("가져오면 선택한 날짜의 루틴을 교체해. 원본은 그대로 유지돼.")
+                    Text("가져오면 선택한 날짜의 계획을 교체해. 원본은 그대로 유지돼.")
                 }
             }
-            .navigationTitle("루틴 가져오기")
+            .navigationTitle("계획 가져오기")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
         }
     }
@@ -195,7 +195,7 @@ struct ExerciseLibraryView: View {
                     Label("운동 만들기", systemImage: "plus")
                 }
             } footer: {
-                Text("기본 세트·횟수·휴식을 저장해 두면 루틴에 바로 가져올 수 있어. 수정하거나 삭제해도 이미 배정한 운동은 유지돼.")
+                Text("기본 세트·횟수·휴식을 저장해 두면 계획에 바로 가져올 수 있어. 수정하거나 삭제해도 이미 배정한 운동은 유지돼.")
             }
         }
         .navigationTitle("운동 목록")

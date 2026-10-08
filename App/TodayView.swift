@@ -5,8 +5,7 @@ struct TodayView: View {
 
     var body: some View {
         let plan = model.todayPlan
-        let progress = model.data.progress()
-
+        let progress = model.workoutProgress
         NavigationStack {
             List {
                 Section {
@@ -17,36 +16,47 @@ struct TodayView: View {
                             ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
                                 .tint(.orange)
                         }
+                    }.padding(.vertical, 4)
+                    if let session = model.data.activeWorkout {
+                        HStack {
+                            Label("운동 중", systemImage: "figure.strengthtraining.traditional")
+                            Spacer()
+                            Text(session.startedAt, style: .timer).monospacedDigit()
+                            Button(progress.done == 0 ? "시작 취소" : "운동 마치기") { model.finishWorkout() }
+                                .buttonStyle(.bordered)
+                        }
+                    } else if model.savedToday {
+                        Label("운동 일지에 저장됨", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    } else {
+                        Button { model.startWorkout() } label: {
+                            Label("운동 시작", systemImage: "play.fill")
+                        }.disabled(plan.isRestDay)
                     }
-                    .padding(.vertical, 4)
                 }
-
                 if !plan.isRestDay {
                     Section("운동") {
                         ForEach(plan.exercises) { exercise in
                             ExerciseRow(
                                 exercise: exercise,
-                                done: model.data.doneSets(exercise),
+                                done: model.data.doneSets(exercise, on: model.workoutDate),
                                 onComplete: { model.completeSet(exercise) },
                                 onUndo: { model.undoSet(exercise) }
-                            )
+                            ).disabled(model.data.activeWorkout == nil)
                         }
                     }
                 }
-
                 Section {
                     if let start = model.restStart, let end = model.restEnd {
                         RestBanner(start: start, end: end) { model.stopRest() }
                     } else {
-                        Button {
-                            model.startDefaultRest()
-                        } label: {
+                        Button { model.startDefaultRest() } label: {
                             Label("휴식 타이머 \(model.data.defaultRest)초", systemImage: "timer")
                         }
                     }
                 }
             }
-            .navigationTitle("\(DayKey.weekdayName())요일 · \(plan.isRestDay ? "휴식" : plan.title)")
+            .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
         }
     }
 }

@@ -46,7 +46,7 @@ struct RootView: View {
                 .tabItem { Label("운동", systemImage: "figure.strengthtraining.traditional") }
                 .tag(0)
             RoutineView()
-                .tabItem { Label("루틴", systemImage: "calendar") }
+                .tabItem { Label("계획", systemImage: "calendar") }
                 .tag(1)
             RecordsView()
                 .tabItem { Label("기록", systemImage: "trophy") }

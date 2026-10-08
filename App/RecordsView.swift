@@ -6,28 +6,40 @@ struct RecordsView: View {
     @State private var showingAdd = false
     @State private var showingTypes = false
     @State private var prMessage: String?
+    @State private var showingJournal = false
 
     var body: some View {
         NavigationStack {
-            List {
-                if model.data.recordTypes.isEmpty {
-                    Text("종목이 없어. 오른쪽 위 '종목 편집'에서 추가해 줘.")
-                        .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                Picker("기록 종류", selection: $showingJournal) {
+                    Text("최고 기록").tag(false)
+                    Text("운동 일지").tag(true)
                 }
-                ForEach(model.data.recordTypes) { type in
-                    RecordSection(type: type)
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+                if showingJournal {
+                    WorkoutJournalView()
+                } else {
+                    List {
+                        if model.data.recordTypes.isEmpty {
+                            Text("종목이 없어. 오른쪽 위 '종목 편집'에서 추가해 줘.")
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(model.data.recordTypes) { type in
+                            RecordSection(type: type)
+                        }
+                    }
                 }
             }
             .navigationTitle("기록")
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("종목 편집") { showingTypes = true }
-                    Button {
-                        showingAdd = true
-                    } label: {
-                        Image(systemName: "plus")
+                    if !showingJournal {
+                        Button("종목 편집") { showingTypes = true }
+                        Button { showingAdd = true } label: { Image(systemName: "plus") }
+                            .disabled(model.data.recordTypes.isEmpty)
                     }
-                    .disabled(model.data.recordTypes.isEmpty)
                 }
             }
             .sheet(isPresented: $showingAdd) {
@@ -38,16 +50,12 @@ struct RecordsView: View {
                 }
             }
             .sheet(isPresented: $showingTypes) {
-                RecordTypesView()
-                    .environment(model)
+                RecordTypesView().environment(model)
             }
-            .alert(
-                "🎉 신기록!",
-                isPresented: Binding(
-                    get: { prMessage != nil },
-                    set: { if !$0 { prMessage = nil } }
-                )
-            ) {
+            .alert("🎉 신기록!", isPresented: Binding(
+                get: { prMessage != nil },
+                set: { if !$0 { prMessage = nil } }
+            )) {
                 Button("확인") { prMessage = nil }
             } message: {
                 Text(prMessage ?? "")

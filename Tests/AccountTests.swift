@@ -58,6 +58,7 @@ final class AccountTests: XCTestCase {
         var data = AppData.sample
         let exercise = data.plan().exercises.first ?? Exercise(name: "운동", sets: 5, detail: "10", restSeconds: 0)
         data.scheduledPlans[DayKey.key()] = DayPlan(title: "테스트", exercises: [exercise])
+        XCTAssertTrue(data.startWorkout())
         _ = try SharedStore.persistEdits(from: .empty, to: data, selection: selection)
         let uploaded = try SharedStore.snapshot(userID: a)
         try SharedStore.completeSet(exercise.id, generation: selection.generation.uuidString)
@@ -66,6 +67,7 @@ final class AccountTests: XCTestCase {
         XCTAssertTrue(after.dirty, "업로드 도중 변경한 세트는 동기화 대기로 유지")
         XCTAssertEqual(after.serverVersion, 1)
         XCTAssertEqual(after.data.doneSets(exercise), 1)
+        XCTAssertEqual(after.data.activeWorkout?.done, 1)
         XCTAssertThrowsError(try SharedStore.replaceWithCloud(.empty, version: 2, revision: uploaded.revision, selection: selection))
         let next = try SharedStore.activate(userID: UUID())
         try SharedStore.completeSet(exercise.id, generation: selection.generation.uuidString)

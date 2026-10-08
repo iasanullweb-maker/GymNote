@@ -58,6 +58,42 @@ struct AccountChecks {
         assert(collisionImport.records.first { $0.id == entry.id }?.typeID == "guest-guest-pushup")
         assert(collisionImport == collisionImport.importingGuest(differentType))
 
+        var training = guest
+        training.logs = []
+        assert(training.startWorkout(at: date))
+        let started = guest.applyingEdits(from: guest, to: training)
+        assert(started.activeWorkout == training.activeWorkout, "운동 시작이 계정 파일에 저장")
+        var appTraining = training
+        var widgetTraining = training
+        appTraining.changeSets(exercise.id, by: 1, on: date)
+        widgetTraining.changeSets(exercise.id, by: 1, on: date)
+        let mergedTraining = widgetTraining.applyingEdits(from: training, to: appTraining)
+        assert(mergedTraining.activeWorkout?.done == 2, "진행 중 운동도 앱·위젯 체크 둘 다 유지")
+        training = mergedTraining
+        training.changeSets(exercise.id, by: 2, on: date)
+        appTraining = training
+        widgetTraining = training
+        appTraining.changeSets(exercise.id, by: 1, on: date)
+        widgetTraining.changeSets(exercise.id, by: 1, on: date)
+        let finished = widgetTraining.applyingEdits(from: training, to: appTraining)
+        assert(finished.activeWorkout == nil && finished.workouts.count == 1)
+        assert(finished.workouts[0].done == 5, "동시 마지막 체크는 일지를 중복 저장하지 않음")
+        appTraining = training
+        appTraining.defaultRest = 80
+        let stale = widgetTraining.applyingEdits(from: training, to: appTraining)
+        assert(stale.activeWorkout == nil && stale.workouts.count == 1, "위젯이 완료한 세션을 설정 저장이 되살리지 않음")
+        var removeJournal = finished
+        removeJournal.workouts = []
+        assert(finished.applyingEdits(from: finished, to: removeJournal).workouts.isEmpty)
+        let importedJournal = account.importingGuest(finished)
+        assert(importedJournal.workouts == finished.workouts)
+        assert(importedJournal == importedJournal.importingGuest(finished), "운동일지 가져오기 중복 방지")
+        let importedSession = account.importingGuest(mergedTraining)
+        assert(importedSession.activeWorkout == mergedTraining.activeWorkout)
+        var sameSessionSettings = finished
+        sameSessionSettings.defaultRest = 80
+        assert(finished.applyingEdits(from: finished, to: sameSessionSettings).workouts == finished.workouts)
+
         let stored = StoredWorkout(data: imported, serverVersion: 7, dirty: true, importedGuest: true)
         let decoded = try JSONDecoder().decode(StoredWorkout.self, from: JSONEncoder().encode(stored))
         assert(decoded.revision == stored.revision && decoded.serverVersion == 7 && decoded.dirty && decoded.importedGuest)
@@ -66,6 +102,6 @@ struct AccountChecks {
         let b = StoreSelection(userID: UUID())
         assert(a.scope != b.scope && a.generation != b.generation)
         assert(StoreSelection(userID: nil).scope == "guest")
-        print("Account checks passed: import, idempotency, type conflicts, widget edits, revision roundtrip")
+        print("Account checks passed: import, idempotency, type conflicts, widget edits, workout journals, revision roundtrip")
     }
 }

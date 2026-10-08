@@ -24,7 +24,21 @@ final class AppModel {
     var restStart: Date?
     var restEnd: Date?
 
-    var todayPlan: DayPlan { data.plan() }
+    var todayPlan: DayPlan { data.activeWorkout?.plan ?? data.plan() }
+    var workoutDate: Date { data.activeWorkout?.startedAt ?? Date() }
+    var workoutProgress: (done: Int, total: Int) {
+        if let session = data.activeWorkout { return (session.done, session.total) }
+        return data.progress()
+    }
+    var savedToday: Bool { data.workouts.contains { $0.day == DayKey.key() } }
+
+    func startWorkout() { data.startWorkout() }
+
+    func finishWorkout() {
+        if data.activeWorkout?.done == 0 { data.activeWorkout = nil }
+        else { data.finishWorkout() }
+        stopRest()
+    }
 
     init() {
         do {
@@ -69,15 +83,18 @@ final class AppModel {
 
     /// 세트 완료 → 기록하고 그 운동의 휴식 타이머 시작
     func completeSet(_ exercise: Exercise) {
-        data.changeSets(exercise.id, by: 1)
-        let progress = data.progress()
+        guard data.activeWorkout != nil else { return }
+        let date = workoutDate
+        data.changeSets(exercise.id, by: 1, on: date)
+        if data.activeWorkout == nil { stopRest(); return }
+        let progress = workoutProgress
         guard exercise.restSeconds > 0, progress.done < progress.total else { return }
-        let next = data.nextUp()
+        let next = data.nextUp(on: workoutDate)
         startRest(seconds: exercise.restSeconds, title: next.title, info: next.info)
     }
 
     func undoSet(_ exercise: Exercise) {
-        data.changeSets(exercise.id, by: -1)
+        data.changeSets(exercise.id, by: -1, on: workoutDate)
     }
 
     func startRest(seconds: Int, title: String, info: String) {
@@ -90,7 +107,7 @@ final class AppModel {
     }
 
     func startDefaultRest() {
-        let next = data.nextUp()
+        let next = data.nextUp(on: workoutDate)
         startRest(seconds: data.defaultRest, title: next.title, info: next.info)
     }
 
