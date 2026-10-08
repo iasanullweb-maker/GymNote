@@ -16,85 +16,92 @@ struct AccountView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if welcome {
-                    Section {
-                        Text("헬스노트에 오신 것을 환영해요").font(.title2.bold())
-                        Text("로그인하면 운동 기록을 계정에 저장합니다. Wi-Fi가 없을 때도 기기에 남은 기록으로 계속 운동할 수 있어요.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        Button("로그인 없이 기기에서 계속하기") { account.continueAsGuest() }
-                    }
-                }
-                if !welcome {
-                    Section("저장 상태") {
-                        Label(account.modeDescription, systemImage: account.isOnline ? "wifi" : "wifi.slash")
-                        Text(account.user == nil
-                             ? "게스트 기록은 이 기기에 저장합니다. 로그인 후 기록 가져오기로 계정에 이어서 저장할 수 있어요."
-                             : "연결이 끊겨도 같은 계정의 기기 기록을 사용합니다. Wi-Fi가 다시 연결되면 변경한 기록을 자동으로 저장합니다.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-                if let user = account.user {
-                    Section("내 계정") {
-                        Label(user.email ?? "로그인됨", systemImage: "person.crop.circle.fill")
-                        Button("지금 동기화") { Task { await account.synchronize() } }
-                            .disabled(!account.isOnline || account.needsLogin || account.isReauthenticating || account.conflict != nil)
-                        if account.canImport {
-                            Button("이 기기의 게스트 기록 가져오기") { confirmImport = true }
-                                .disabled(account.needsLogin || account.isReauthenticating || account.conflict != nil)
-                        }
-                        Button("로그아웃", role: .destructive) { confirmLogout = true }
-                    }
+            Group {
+                if account.user == nil && !account.isReauthenticating {
+                    LoginView(welcome: welcome)
                 } else {
-                    Section {
-                        Label("로그인 없이도 운동할 수 있어요", systemImage: "iphone")
-                        Text("현재 기록은 이 기기에 저장됩니다. 로그인하면 내 계정으로 기록을 백업하고 다른 기기에서 복원할 수 있어요.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                }
-
-                if !account.configured {
-                    Section { Text("계정 연결을 준비 중입니다. 지금은 기기에 기록을 저장할 수 있어요.").foregroundStyle(.secondary) }
-                } else if account.user == nil || account.isReauthenticating {
-                    loginSection
-                }
-
-                if account.conflict != nil {
-                    Section("다른 기기에서 기록이 바뀌었어요") {
-                        Text("자동 덮어쓰기를 멈췄어요. 서버 기록을 불러오면 현재 기기의 기록은 복구용 사본으로 보관합니다. 이 기기 기록으로 교체하면 다른 기기의 변경이 서버에서 대체됩니다.")
-                            .font(.footnote)
-                        Button("서버 기록 불러오기") { Task { await account.resolveConflict(useCloud: true) } }
-                        Button("이 기기 기록으로 서버 교체", role: .destructive) { confirmReplace = true }
-                    }
-                }
-
-                if let message = account.message {
-                    Section { Text(message).font(.footnote).accessibilityLabel(message) }
-                }
-                if account.busy { Section { ProgressView("처리 중…") } }
-
-                if account.user != nil {
-                    Section {
-                        if account.readyToDelete {
-                            Button("계정과 서버 기록 영구 삭제", role: .destructive) { confirmDelete = true }
-                        } else if !account.isReauthenticating {
-                            Button("계정 삭제를 위한 본인 확인", role: .destructive) {
-                                email = account.user?.email ?? ""
-                                code = ""
-                                createUser = false
-                                account.beginDeletion()
+                    Form {
+                        if welcome {
+                            Section {
+                                Text("헬스노트에 오신 것을 환영해요").font(.title2.bold())
+                                Text("로그인하면 운동 기록을 계정에 저장합니다. Wi-Fi가 없을 때도 기기에 남은 기록으로 계속 운동할 수 있어요.")
+                                    .font(.footnote).foregroundStyle(.secondary)
+                                Button("로그인 없이 기기에서 계속하기") { account.continueAsGuest() }
                             }
                         }
-                        if account.isReauthenticating && !account.needsLogin {
-                            Button("계정 삭제 취소", role: .cancel) { account.cancelDeletion(); code = "" }
+                        if !welcome {
+                            Section("저장 상태") {
+                                Label(account.modeDescription, systemImage: account.isOnline ? "wifi" : "wifi.slash")
+                                Text(account.user == nil
+                                     ? "게스트 기록은 이 기기에 저장합니다. 로그인 후 기록 가져오기로 계정에 이어서 저장할 수 있어요."
+                                     : "연결이 끊겨도 같은 계정의 기기 기록을 사용합니다. Wi-Fi가 다시 연결되면 변경한 기록을 자동으로 저장합니다.")
+                                    .font(.footnote).foregroundStyle(.secondary)
+                            }
                         }
-                    } footer: {
-                        Text("로그아웃하면 계정 기록은 숨겨지고 게스트 기록으로 돌아갑니다. 계정 삭제는 서버 기록과 이 기기의 계정 사본을 삭제합니다.")
+                        if let user = account.user {
+                            Section("내 계정") {
+                                Label(user.email ?? "로그인됨", systemImage: "person.crop.circle.fill")
+                                Button("지금 동기화") { Task { await account.synchronize() } }
+                                    .disabled(!account.isOnline || account.needsLogin || account.isReauthenticating || account.conflict != nil)
+                                if account.canImport {
+                                    Button("이 기기의 게스트 기록 가져오기") { confirmImport = true }
+                                        .disabled(account.needsLogin || account.isReauthenticating || account.conflict != nil)
+                                }
+                                Button("로그아웃", role: .destructive) { confirmLogout = true }
+                            }
+                        } else {
+                            Section {
+                                Label("로그인 없이도 운동할 수 있어요", systemImage: "iphone")
+                                Text("현재 기록은 이 기기에 저장됩니다. 로그인하면 내 계정으로 기록을 백업하고 다른 기기에서 복원할 수 있어요.")
+                                    .font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+        
+                        if !account.configured {
+                            Section { Text("계정 연결을 준비 중입니다. 지금은 기기에 기록을 저장할 수 있어요.").foregroundStyle(.secondary) }
+                        } else if account.user == nil || account.isReauthenticating {
+                            loginSection
+                        }
+        
+                        if account.conflict != nil {
+                            Section("다른 기기에서 기록이 바뀌었어요") {
+                                Text("자동 덮어쓰기를 멈췄어요. 서버 기록을 불러오면 현재 기기의 기록은 복구용 사본으로 보관합니다. 이 기기 기록으로 교체하면 다른 기기의 변경이 서버에서 대체됩니다.")
+                                    .font(.footnote)
+                                Button("서버 기록 불러오기") { Task { await account.resolveConflict(useCloud: true) } }
+                                Button("이 기기 기록으로 서버 교체", role: .destructive) { confirmReplace = true }
+                            }
+                        }
+        
+                        if let message = account.message {
+                            Section { Text(message).font(.footnote).accessibilityLabel(message) }
+                        }
+                        if account.busy { Section { ProgressView("처리 중…") } }
+        
+                        if account.user != nil {
+                            Section {
+                                if account.readyToDelete {
+                                    Button("계정과 서버 기록 영구 삭제", role: .destructive) { confirmDelete = true }
+                                } else if !account.isReauthenticating {
+                                    Button("계정 삭제를 위한 본인 확인", role: .destructive) {
+                                        email = account.user?.email ?? ""
+                                        code = ""
+                                        createUser = false
+                                        account.beginDeletion()
+                                    }
+                                }
+                                if account.isReauthenticating && !account.needsLogin {
+                                    Button("계정 삭제 취소", role: .cancel) { account.cancelDeletion(); code = "" }
+                                }
+                            } footer: {
+                                Text("로그아웃하면 계정 기록은 숨겨지고 게스트 기록으로 돌아갑니다. 계정 삭제는 서버 기록과 이 기기의 계정 사본을 삭제합니다.")
+                            }
+                        }
                     }
                 }
             }
             .disabled(account.busy || !account.initialized)
-            .navigationTitle(welcome ? "로그인" : "계정")
+            .navigationTitle(account.user == nil && !account.isReauthenticating ? "" : "계정")
+            .navigationBarTitleDisplayMode(.inline)
             .confirmationDialog("기기 기록을 계정으로 가져올까요?", isPresented: $confirmImport, titleVisibility: .visible) {
                 Button("가져오기") { Task { await account.importGuest() } }
             } message: { Text("원본을 보관하고 현재 계정에 추가합니다. 가져온 운동 기록은 서버에 저장됩니다.") }
