@@ -110,6 +110,22 @@ struct DayLog: Codable, Hashable {
     var doneSets: [String: Int] = [:]  // 운동 ID → 완료한 세트 수
 }
 
+// 운동을 시작할 때 계획을 복사해 저장. 이후 계획을 수정해도 일지는 유지됨.
+struct WorkoutSession: Codable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var startedAt: Date
+    var endedAt: Date?
+    var plan: DayPlan
+    var completedSets: [String: Int] = [:]
+
+    var day: String { DayKey.key(startedAt) }
+    var done: Int { plan.exercises.reduce(0) { $0 + doneSets($1) } }
+    var total: Int { plan.totalSets }
+    func doneSets(_ exercise: Exercise) -> Int {
+        min(max(completedSets[exercise.id.uuidString] ?? 0, 0), max(exercise.sets, 0))
+    }
+}
+
 // MARK: - 전체 데이터
 
 struct AppData: Codable, Equatable {
@@ -121,9 +137,11 @@ struct AppData: Codable, Equatable {
     var restSound: Bool          // 휴식 끝 알림 소리 (기본: 끔)
     var scheduledPlans: [String: DayPlan] = [:] // 날짜별 일정, 자동으로 반복하지 않음
     var exerciseLibrary: [Exercise] = []
+    var activeWorkout: WorkoutSession?
+    var workouts: [WorkoutSession] = []
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary
+        case week, recordTypes, records, logs, defaultRest, restSound, scheduledPlans, exerciseLibrary, activeWorkout, workouts
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -148,6 +166,8 @@ struct AppData: Codable, Equatable {
         logs = try c.decodeIfPresent([DayLog].self, forKey: .logs) ?? []
         defaultRest = try c.decodeIfPresent(Int.self, forKey: .defaultRest) ?? 90
         restSound = try c.decodeIfPresent(Bool.self, forKey: .restSound) ?? false
+        activeWorkout = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeWorkout)
+        workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
         padWeek()
         if let saved = try c.decodeIfPresent([String: DayPlan].self, forKey: .scheduledPlans) {
             scheduledPlans = saved
@@ -196,6 +216,16 @@ enum DayKey {
         return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: monday) }
     }
 
+    static func monthDates(containing date: Date) -> [Date] {
+        let calendar = Calendar.current
+        guard let month = calendar.dateInterval(of: .month, for: date),
+              let range = calendar.range(of: .day, in: .month, for: date) else { return [] }
+        let leading = (calendar.component(.weekday, from: month.start) + 5) % 7
+        let count = ((leading + range.count + 6) / 7) * 7
+        let start = calendar.date(byAdding: .day, value: -leading, to: month.start) ?? month.start
+        return (0..<count).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    }
+
     static func key(_ date: Date = Date()) -> String {
         let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
@@ -219,19 +249,22 @@ extension AppData {
 
     func doneSets(_ exercise: Exercise, on date: Date = Date()) -> Int {
         let key = DayKey.key(date)
+        if let session = activeWorkout, session.day == key, session.plan.exercises.contains(where: { $0.id == exercise.id }) {
+            return session.doneSets(exercise)
+        }
         let raw = logs.first(where: { $0.day == key })?.doneSets[exercise.id.uuidString] ?? 0
         return min(max(raw, 0), max(exercise.sets, 0))
     }
 
     func progress(on date: Date = Date()) -> (done: Int, total: Int) {
-        let p = plan(for: date)
+        let p = activeWorkout.flatMap { $0.day == DayKey.key(date) ? $0.plan : nil } ?? plan(for: date)
         let done = p.exercises.reduce(0) { $0 + doneSets($1, on: date) }
         return (done, p.totalSets)
     }
 
     /// 다음에 할 세트 (휴식 타이머와 위젯에 표시)
     func nextUp(on date: Date = Date()) -> (title: String, info: String) {
-        let p = plan(for: date)
+        let p = activeWorkout.flatMap { $0.day == DayKey.key(date) ? $0.plan : nil } ?? plan(for: date)
         if p.isRestDay { return ("휴식일", "") }
         for exercise in p.exercises {
             let done = doneSets(exercise, on: date)
@@ -276,7 +309,8 @@ extension AppData {
 
     /// 세트 수를 delta만큼 바꿈. wrap이 true면 다 채운 상태에서 +1 할 때 0으로 돌아감 (위젯에서 되돌리기용)
     mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date()) {
-        guard let exercise = plan(for: date).exercises.first(where: { $0.id == exerciseID }) else { return }
+        let currentPlan = activeWorkout.flatMap { $0.day == DayKey.key(date) ? $0.plan : nil } ?? plan(for: date)
+        guard let exercise = currentPlan.exercises.first(where: { $0.id == exerciseID }) else { return }
         let key = DayKey.key(date)
         if !logs.contains(where: { $0.day == key }) {
             logs.append(DayLog(day: key))
@@ -287,9 +321,42 @@ extension AppData {
         var next = current + delta
         if wrap && delta > 0 && current >= exercise.sets { next = 0 }
         logs[i].doneSets[exerciseID.uuidString] = min(max(next, 0), max(exercise.sets, 0))
+        if activeWorkout?.day == key {
+            activeWorkout?.completedSets[exerciseID.uuidString] = logs[i].doneSets[exerciseID.uuidString]
+            if delta > 0, let session = activeWorkout, session.total > 0, session.done == session.total {
+                finishWorkout()
+            }
+        }
 
         // 1년 넘은 기록은 정리
         if logs.count > 400 { logs.removeFirst(logs.count - 400) }
+    }
+
+    @discardableResult
+    mutating func startWorkout(at date: Date = Date()) -> Bool {
+        guard activeWorkout == nil else { return false }
+        let currentPlan = plan(for: date)
+        guard !currentPlan.isRestDay else { return false }
+        var session = WorkoutSession(startedAt: date, plan: currentPlan)
+        for exercise in currentPlan.exercises {
+            session.completedSets[exercise.id.uuidString] = doneSets(exercise, on: date)
+        }
+        activeWorkout = session
+        if session.total > 0 && session.done == session.total { finishWorkout(at: date) }
+        return true
+    }
+
+    @discardableResult
+    mutating func finishWorkout(at date: Date = Date()) -> Bool {
+        guard var session = activeWorkout, session.done > 0 else { return false }
+        session.endedAt = max(date, session.startedAt)
+        if let index = workouts.firstIndex(where: { $0.id == session.id }) {
+            workouts[index] = session
+        } else {
+            workouts.append(session)
+        }
+        activeWorkout = nil
+        return true
     }
 
     /// 기록을 추가하고, 신기록이면 true

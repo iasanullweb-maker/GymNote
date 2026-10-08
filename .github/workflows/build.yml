@@ -2,7 +2,7 @@ name: Build IPA
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/**"]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 # 빌드가 겹치면 이전 것을 취소 (source.json이 꼬이지 않게)
 concurrency:
-  group: build
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -80,6 +80,7 @@ jobs:
 
       # 빌드마다 고정 주소(build-N) 릴리스 + 'latest' 릴리스
       - name: Publish releases
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -100,6 +101,7 @@ jobs:
 
       # AltStore 소스 갱신: altstore 브랜치의 source.json
       - name: Update AltStore source
+        if: github.ref == 'refs/heads/main'
         run: |
           URL="https://github.com/${{ github.repository }}/releases/download/build-$BUILD_NUMBER/GymNote.ipa"
           python3 scripts/make_source.py GymNote.ipa "$APP_VERSION" "$BUILD_NUMBER" "$URL" /tmp/source.json
