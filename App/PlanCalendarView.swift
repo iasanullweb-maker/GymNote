@@ -97,7 +97,7 @@ struct PlanCalendarView: View {
 
 private struct PlanCalendarPreview: View {
     @State private var selectedDate = Date()
-    @State private var model = AppModel()
+    @State private var model = AppModel(previewData: AppData.sample)
 
     var body: some View {
         ScrollView {
@@ -105,6 +105,5 @@ private struct PlanCalendarPreview: View {
                 .padding()
         }
         .environment(model)
-        .onAppear { model.data = AppData.sample }
     }
 }

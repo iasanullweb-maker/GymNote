@@ -40,6 +40,11 @@ final class AppModel {
         stopRest()
     }
 
+    // 미리보기에서는 실제 계정 저장소를 열거나 샘플 데이터로 덮어쓰지 않음.
+    init(previewData: AppData) {
+        replaceData(previewData)
+    }
+
     init() {
         do {
             selection = try SharedStore.activate(userID: nil)
