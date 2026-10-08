@@ -2,6 +2,16 @@
 
 마지막 업데이트: 2026-10-08
 
+## Google·Apple 로그인 (로컬 main 통합, 배포 대기)
+- 사용자 요청: Claude 작업 완료 후 한 번에 배포. **사용자가 최종 배포를 요청하기 전에는 main push·릴리스·AltStore 소스 갱신 금지.** 이 작업은 노트북 로컬 main에만 병합됨(원격 main은 0.1.43 상태).
+- Google: Supabase OAuth + PKCE(S256)를 `ASWebAuthenticationSession`(ephemeral)로 실행. 복귀 주소 `com.gymnote.app://auth-callback`(Info.plist 미등록, Supabase Redirect URLs에 정확히 추가 필요). 앱에 Client Secret 없음. `/auth/v1/settings`에서 서버가 켠 방식만 버튼 활성화.
+- Apple: 코드 경로는 같지만 Sign in with Apple은 Apple 공식 표상 유료 Apple Developer Program(연 99 USD) 전용 → 현재 비활성. Supabase에서 Apple을 켜면 자동 활성.
+- 로그인 완료는 이메일·소셜 공통 `completeSignIn`: 서버 검증 UUID로만 계정 전환, Keychain 저장, 동의 시에만 게스트 기록 가져오기. 이메일 문자열로 기록 합치지 않음(Supabase의 확인된 이메일 자동 연결만 같은 UUID).
+- 계정 삭제: 연결된 방법으로만 본인 확인(Google 계정은 Google 재인증). 다른 계정 인증 거부 + 그 세션 종료, 대체된 이전 세션 종료. `delete-account`는 5분 이내 `otp` 또는 `oauth` AMR만 인정, 기존 getUser·활성 세션·소유자 검사 유지. **함수 재배포 필요.**
+- 사용자 설정 필요: Google Cloud(브랜딩·대상·데이터 액세스·웹 클라이언트), Supabase(Google provider, Redirect URLs, Confirm email 유지, 수동 연결 끔), 함수 재배포. 화면별 절차는 `docs/LOGIN_SETUP.md` 6~9번.
+- 검증: `codex/social-login` 브랜치 Validate GymNote #22 성공(모델·계정·일상 검사, iPad 시뮬레이터 XCTest: PKCE RFC 벡터, 복귀 주소 검증, 취소·거부·실패, 동의 없는 가져오기 금지, 비활성/오프라인 버튼, 삭제 재인증 계정 일치, 기존 오프라인·계정 분리 테스트 / DB 권한 / 삭제 함수 OTP·OAuth 재인증), Build IPA #46(앱·위젯 Release, IPA, 릴리스 단계 건너뜀) 성공. CI에 시뮬레이터 테스트 실패 annotation 단계 추가.
+- 실제 Google 계정 로그인은 사용자 설정 후 아이패드에서 확인 필요.
+
 ## 현재 배포: 0.1.43 (통합 배포, 배포 보류 해제)
 - 2026-10-08 17시대. AltStore 소스 버전 **0.1.43**, 릴리스 `build-43`·`latest` (GymNote.ipa 1,102,338바이트, sha256 a1da52d6…be9a, 두 릴리스 동일).
 - 포함: 운동·일상 공간, 큰 운동/일상 전환 버튼, 로그인 선택 화면(이메일, Apple·Google은 준비 중)·오프라인 동기화, 일상 위젯과 운동 위젯 운동 이름·횟수 표시, 휴식 하나로 통일(세트 완료 시 설정 휴식 자동 시작), 휴식 −/+ 간격 설정.
