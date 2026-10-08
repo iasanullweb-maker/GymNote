@@ -14,6 +14,15 @@ enum RestDuration {
 // MARK: - 루틴
 
 struct Exercise: Codable, Identifiable, Hashable {
+    /// Only an unambiguous repetition target supplies the default; time/ranges stay free-form.
+    var plannedReps: Int? {
+        guard detail.range(of: "[0-9]\\s*[-~–]\\s*[0-9]", options: .regularExpression) == nil,
+              let regex = try? NSRegularExpression(pattern: "(?<![0-9.−-])([0-9]+)\\s*회") else { return nil }
+        let matches = regex.matches(in: detail, range: NSRange(detail.startIndex..., in: detail))
+        guard matches.count == 1, let range = Range(matches[0].range(at: 1), in: detail),
+              let value = Int(detail[range]), (0...9999).contains(value) else { return nil }
+        return value
+    }
     var id: UUID = UUID()
     var name: String
     var sets: Int
@@ -149,12 +158,34 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
     var endedAt: Date?
     var plan: DayPlan
     var completedSets: [String: Int] = [:]
+    // Missing entries mean the actual count was not recorded (older journals).
+    var actualReps: [String: [Int?]] = [:]
 
     var day: String { DayKey.key(startedAt) }
     var done: Int { plan.exercises.reduce(0) { $0 + doneSets($1) } }
     var total: Int { plan.totalSets }
     func doneSets(_ exercise: Exercise) -> Int {
         min(max(completedSets[exercise.id.uuidString] ?? 0, 0), max(exercise.sets, 0))
+    }
+
+    func repetitions(_ exercise: Exercise, set index: Int) -> Int? {
+        guard index >= 0, index < doneSets(exercise),
+              let values = actualReps[exercise.id.uuidString], index < values.count else { return nil }
+        return values[index]
+    }
+}
+
+extension WorkoutSession {
+    private enum CodingKeys: String, CodingKey { case id, startedAt, endedAt, plan, completedSets, actualReps }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        endedAt = try c.decodeIfPresent(Date.self, forKey: .endedAt)
+        plan = try c.decode(DayPlan.self, forKey: .plan)
+        completedSets = try c.decodeIfPresent([String: Int].self, forKey: .completedSets) ?? [:]
+        actualReps = try c.decodeIfPresent([String: [Int?]].self, forKey: .actualReps) ?? [:]
     }
 }
 
@@ -362,7 +393,7 @@ extension AppData {
     }
 
     /// 세트 수를 delta만큼 바꿈. wrap이 true면 다 채운 상태에서 +1 할 때 0으로 돌아감 (위젯에서 되돌리기용)
-    mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date()) {
+    mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date(), actualReps: Int? = nil) {
         let currentPlan = activeWorkout.flatMap { $0.day == DayKey.key(date) ? $0.plan : nil } ?? plan(for: date)
         guard let exercise = currentPlan.exercises.first(where: { $0.id == exerciseID }) else { return }
         let key = DayKey.key(date)
@@ -377,6 +408,14 @@ extension AppData {
         logs[i].doneSets[exerciseID.uuidString] = min(max(next, 0), max(exercise.sets, 0))
         if activeWorkout?.day == key {
             activeWorkout?.completedSets[exerciseID.uuidString] = logs[i].doneSets[exerciseID.uuidString]
+            let count = logs[i].doneSets[exerciseID.uuidString] ?? 0
+            var values = activeWorkout?.actualReps[exerciseID.uuidString] ?? []
+            values = Array(values.prefix(count))
+            while values.count < current && values.count < count { values.append(nil) }
+            while values.count < count {
+                values.append((actualReps ?? exercise.plannedReps).map { min(max($0, 0), 9999) })
+            }
+            activeWorkout?.actualReps[exerciseID.uuidString] = values
             if delta > 0, let session = activeWorkout, session.total > 0, session.done == session.total {
                 finishWorkout()
             }
@@ -384,6 +423,21 @@ extension AppData {
 
         // 1년 넘은 기록은 정리
         if logs.count > 400 { logs.removeFirst(logs.count - 400) }
+    }
+
+    mutating func updateRepetitions(sessionID: UUID, exerciseID: UUID, set index: Int, value: Int) {
+        func updated(_ session: WorkoutSession) -> WorkoutSession {
+            guard let exercise = session.plan.exercises.first(where: { $0.id == exerciseID }),
+                  index >= 0, index < session.doneSets(exercise) else { return session }
+            var copy = session
+            var values = copy.actualReps[exerciseID.uuidString] ?? []
+            while values.count < copy.doneSets(exercise) { values.append(nil) }
+            values[index] = min(max(value, 0), 9999)
+            copy.actualReps[exerciseID.uuidString] = values
+            return copy
+        }
+        if let session = activeWorkout, session.id == sessionID { activeWorkout = updated(session) }
+        if let i = workouts.firstIndex(where: { $0.id == sessionID }) { workouts[i] = updated(workouts[i]) }
     }
 
     /// 오늘 이미 저장한 운동 일지가 있는지

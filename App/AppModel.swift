@@ -112,10 +112,10 @@ final class AppModel {
 
     /// 세트 완료 → 기록하고 설정한 기본 휴식(모든 운동 공통) 타이머 시작.
     /// 마지막 세트까지 끝나 운동이 일지로 저장되면 휴식은 켜지 않는다.
-    func completeSet(_ exercise: Exercise) {
+    func completeSet(_ exercise: Exercise, actualReps: Int? = nil) {
         guard data.activeWorkout != nil else { return }
         let date = workoutDate
-        data.changeSets(exercise.id, by: 1, on: date)
+        data.changeSets(exercise.id, by: 1, on: date, actualReps: actualReps)
         if data.activeWorkout == nil { stopRest(); return }
         let progress = workoutProgress
         guard progress.done < progress.total else { return }
