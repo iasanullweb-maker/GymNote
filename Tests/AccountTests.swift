@@ -670,7 +670,8 @@ final class AccountTests: XCTestCase {
         try vault.write(AccountSession(accessToken: "a", refreshToken: "r", expiresAt: Date().timeIntervalSince1970 + 3600,
                                        user: AccountUser(id: id, email: "me@example.com")))
         socialStub(id: id, challenge: { nil })
-        let account = AccountModel(model: AppModel(), client: client, initialConnection: .online, monitorConnectivity: false)
+        let model = AppModel() // AccountModel holds AppModel unowned; keep it alive for the test.
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
         await account.bootstrap()
         await account.refreshProviders()
         XCTAssertTrue(account.canSignIn(with: .google), "로그인 화면에서는 사용 가능")
