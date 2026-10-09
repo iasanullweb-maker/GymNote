@@ -1,0 +1,4 @@
+interface:
+  display_name: "GymNote UX 확인"
+  short_description: "시나리오로 화면 흐름을 확인하고 웹·실기기 근거를 구분"
+  default_prompt: "$gymnote-ux-check로 변경한 GymNote 화면 흐름을 확인하고 문제와 검증 근거를 기록해줘."

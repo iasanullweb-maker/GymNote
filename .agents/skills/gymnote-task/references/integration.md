@@ -1,0 +1,19 @@
+# 로컬 통합
+
+저장소 루트 기준 경로다. `AGENTS.md`의 상시 통합 지시와 시작 당시 기존 브랜치를 따른다. main으로 임의 변경하지 않는다.
+
+## 기존 도구 선택
+
+- `workspaces.json`의 A/B/C/D 경로·브랜치와 일치하는 워크트리는 `powershell -NoProfile -File scripts/parallel_work.ps1 -Mode Integrate -Role A|B|C|D`에서 실제 역할 하나를 선택한다. unified 배정과 일치할 때만 `-Unified`를 사용한다.
+- UX의 지정 브랜치는 `scripts/ux_simulation_integrate.ps1 -SourceBranch <실제 지정 브랜치>`를 사용한다. 스크립트의 ValidateSet을 확인한다.
+- 별도 작업 브랜치에 이 도구의 역할·브랜치 제약을 맞추려고 배정표를 수정하지 않는다. 직접 병합도 아래 공통 잠금과 상태 검사를 따른다.
+
+## 직접 통합이 필요한 경우
+
+1. `git worktree list --porcelain`과 manifest를 대조해 원본 폴더·기존 브랜치를 확정한다. 본인 변경을 커밋하고 소스 HEAD를 기록한다.
+2. 기존 스크립트와 동일한 **원본 폴더**의 `.validation-tools/ux-integration.lock`을 FileMode.CreateNew로 원자적으로 획득한다. 잠금에 브랜치·소스 커밋·PID를 기록한다. 획득 실패 시 소유자 잠금을 삭제하지 않는다.
+3. 잠금 안에서 소스 HEAD 불변, 원본의 대상 브랜치, 양쪽 진행 중 merge/rebase/cherry-pick/revert 부재, 본인 추적 변경 없음, 원본 추적 변경 없음, `git diff --check <대상>...HEAD`를 확인한다. 원본의 미추적 파일은 그대로 보존한다. 다른 소유자의 미커밋 변경을 대신 커밋하지 않는다.
+4. 원본 폴더에서 기록한 소스 커밋을 `git merge --no-edit <소스 커밋>`으로 병합한다. 실패하면 실제 내용으로 충돌을 판단하고, 본인 병합 상태를 보존해 해결한다. 충돌이 남아 있으면 다음 통합을 시작하지 않는다. reset·강제 push·임의 stash로 해결하지 않는다.
+5. 통합 뒤 공백 검사와 필요한 통합 검사를 수행하고 `git merge-base --is-ancestor <소스 커밋> <대상 HEAD>`의 성공을 확인한다. finally에서 **본인이 획득한 잠금만** 닫고 해제한다. 다른 작업이 잠금 없이 상태를 바꾼 정황이 있으면 완료 주장을 멈추고 확인한다.
+
+권한 때문에 원본 폴더·Git 공통 디렉터리에 접근할 수 없다면 해당 작업에 필요한 권한으로 실행한다. 실제 거부가 남으면 편집·검증·커밋·통합 중 완료한 단계와 차단 원인을 보고한다. push와 배포는 로컬 통합의 일부가 아니다.
