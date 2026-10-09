@@ -1,7 +1,54 @@
 import SwiftUI
 import UIKit
 
-/// 기록 탭의 '친구': 내 닉네임·친구 코드, 공통 종목 순위(친구 전체/그룹), 친구·그룹 관리.
+/// 친구 탭에서 기록 탭의 순위로, 기록 탭에서 친구 탭으로 이동할 때 쓰는 동작
+private struct OpenFriendsTabKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var openFriendsTab: (() -> Void)? {
+        get { self[OpenFriendsTabKey.self] }
+        set { self[OpenFriendsTabKey.self] = newValue }
+    }
+}
+
+/// 로그인·서버·연결 상태에 따라 안내를 보여 주고, 사용할 수 있으면 overview로 내용을 그린다.
+private struct SocialGate<Content: View>: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
+    @ViewBuilder var content: (SocialOverview) -> Content
+
+    var body: some View {
+        let social = model.social
+        if !account.configured {
+            Section { Text("계정 연결을 준비 중이에요.").foregroundStyle(.secondary) }
+        } else if account.user == nil {
+            Section {
+                Label("로그인하면 친구와 공통 종목 기록을 겨룰 수 있어요", systemImage: "person.2.fill")
+                Text("설정 탭 → 계정에서 로그인해 주세요. 기록은 닉네임을 정한 뒤부터 친구에게 보여요.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        } else if social.unavailable {
+            Section {
+                Label("친구 기능 서버를 준비 중이에요", systemImage: "server.rack")
+                Text("서버 설정이 끝나면 바로 사용할 수 있어요. 기기의 기록은 그대로예요.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        } else if let overview = social.overview {
+            content(overview)
+        } else if !account.isOnline {
+            Section { Label("친구 기능은 인터넷 연결이 필요해요", systemImage: "wifi.slash") }
+        } else {
+            Section { ProgressView("친구 정보를 불러오는 중…") }
+        }
+        if let message = social.message {
+            Section { Text(message).font(.footnote) }
+        }
+    }
+}
+
+/// 친구 탭: 내 닉네임·친구 코드, 친구 추가·요청, 그룹 만들기·초대. 순위는 기록 탭 → 친구에서 본다.
 struct FriendsView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
@@ -15,71 +62,62 @@ struct FriendsView: View {
     @State private var removing: SocialOverview.Friend?
 
     private var social: SocialModel { model.social }
-    private var types: [RecordType] { account.catalogTypes.filter(\.active).map(\.recordType) }
 
     var body: some View {
-        List {
-            if !account.configured {
-                Section { Text("계정 연결을 준비 중이에요.").foregroundStyle(.secondary) }
-            } else if account.user == nil {
-                Section {
-                    Label("로그인하면 친구와 공통 종목 기록을 겨룰 수 있어요", systemImage: "person.2.fill")
-                    Text("설정 탭 → 계정에서 로그인해 주세요. 기록은 닉네임을 정한 뒤부터 친구에게 보여요.")
-                        .font(.footnote).foregroundStyle(.secondary)
+        NavigationStack {
+            List {
+                SocialGate { overview in
+                    if let profile = overview.profile {
+                        profileSection(profile)
+                        friendSections(overview)
+                        groupSections(overview)
+                        Section {
+                            Label("순위는 기록 탭 → 친구에서 볼 수 있어요", systemImage: "trophy")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        }
+                    } else {
+                        onboarding
+                    }
                 }
-            } else if social.unavailable {
-                Section {
-                    Label("친구 기능 서버를 준비 중이에요", systemImage: "server.rack")
-                    Text("서버 설정이 끝나면 이 화면에서 바로 사용할 수 있어요. 기기의 기록은 그대로예요.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
-            } else if let overview = social.overview {
-                if let profile = overview.profile {
-                    profileSection(profile)
-                    rankingSections(overview)
-                    friendSections(overview)
-                    groupSections(overview)
-                } else {
-                    onboarding
-                }
-            } else if !account.isOnline {
-                Section { Label("친구 순위는 인터넷 연결이 필요해요", systemImage: "wifi.slash") }
-            } else {
-                Section { ProgressView("친구 정보를 불러오는 중…") }
             }
-            if let message = social.message {
-                Section { Text(message).font(.footnote) }
+            .navigationTitle("친구")
+            .toolbar {
+                if social.hasProfile {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { code = ""; addingFriend = true } label: { Label("친구 추가", systemImage: "person.badge.plus") }
+                    }
+                }
             }
+            .disabled(social.working)
+            .task(id: account.user?.id) { await social.refresh() }
+            .refreshable { await social.refresh() }
+            .alert("친구 추가", isPresented: $addingFriend) {
+                TextField("친구 코드 8자리", text: $code)
+                    .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                Button("요청 보내기") { let value = code; Task { await social.sendFriendRequest(code: value) } }
+                Button("취소", role: .cancel) {}
+            } message: { Text("친구에게 받은 친구 코드를 입력해 주세요. 상대가 수락하면 서로의 공통 종목 기록이 보여요.") }
+            .alert("그룹 만들기", isPresented: $creatingGroup) {
+                TextField("그룹 이름 (예: 헬스 동아리)", text: $groupName)
+                Button("만들기") { let value = groupName; Task { await social.createGroup(name: value) } }
+                Button("취소", role: .cancel) {}
+            } message: { Text("만든 뒤 친구를 초대할 수 있어요.") }
+            .alert("닉네임 바꾸기", isPresented: $renaming) {
+                TextField("닉네임", text: $nickname)
+                Button("저장") {
+                    let value = nickname, sharing = social.overview?.profile?.share_records ?? true
+                    Task { await social.saveProfile(nickname: value, share: sharing) }
+                }
+                Button("취소", role: .cancel) {}
+            }
+            .confirmationDialog("친구를 끊을까요?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                                titleVisibility: .visible) {
+                Button("친구 끊기", role: .destructive) {
+                    if let friend = removing { Task { await social.remove(friend) } }
+                    removing = nil
+                }
+            } message: { Text("서로의 기록이 더 이상 보이지 않아요. 함께 있는 그룹 순위에는 계속 나와요.") }
         }
-        .disabled(social.working)
-        .task(id: account.user?.id) { await social.refresh() }
-        .refreshable { await social.refresh() }
-        .alert("친구 추가", isPresented: $addingFriend) {
-            TextField("친구 코드 8자리", text: $code)
-                .textInputAutocapitalization(.characters).autocorrectionDisabled()
-            Button("요청 보내기") { let value = code; Task { await social.sendFriendRequest(code: value) } }
-            Button("취소", role: .cancel) {}
-        } message: { Text("친구에게 받은 친구 코드를 입력해 주세요. 상대가 수락하면 서로의 공통 종목 기록이 보여요.") }
-        .alert("그룹 만들기", isPresented: $creatingGroup) {
-            TextField("그룹 이름 (예: 헬스 동아리)", text: $groupName)
-            Button("만들기") { let value = groupName; Task { await social.createGroup(name: value) } }
-            Button("취소", role: .cancel) {}
-        } message: { Text("만든 뒤 친구를 초대할 수 있어요.") }
-        .alert("닉네임 바꾸기", isPresented: $renaming) {
-            TextField("닉네임", text: $nickname)
-            Button("저장") {
-                let value = nickname, sharing = social.overview?.profile?.share_records ?? true
-                Task { await social.saveProfile(nickname: value, share: sharing) }
-            }
-            Button("취소", role: .cancel) {}
-        }
-        .confirmationDialog("친구를 끊을까요?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
-                            titleVisibility: .visible) {
-            Button("친구 끊기", role: .destructive) {
-                if let friend = removing { Task { await social.remove(friend) } }
-                removing = nil
-            }
-        } message: { Text("서로의 기록이 더 이상 보이지 않아요. 함께 있는 그룹 순위에는 계속 나와요.") }
     }
 
     // MARK: 처음 시작
@@ -96,7 +134,7 @@ struct FriendsView: View {
         } header: {
             Text("친구와 기록 겨루기")
         } footer: {
-            Text("친구에게는 닉네임과 공통 종목(푸쉬업·풀업 등) 최고기록만 보여요. 이메일은 보이지 않아요. 공개를 켜 두면 기록 탭의 최고 기록이 바뀔 때 자동으로 올라가고, 끄면 서버에서 지워져요.")
+            Text("닉네임을 정하면 친구 코드가 생겨요. 친구에게는 닉네임과 공통 종목(푸쉬업·풀업 등) 최고기록만 보여요. 이메일은 보이지 않아요. 공개를 켜 두면 최고 기록이 바뀔 때 자동으로 올라가고, 끄면 서버에서 지워져요.")
         }
     }
 
@@ -125,34 +163,8 @@ struct FriendsView: View {
             Text("내 정보")
         } footer: {
             Text(profile.share_records
-                 ? "공통 종목 최고기록이 친구·그룹원에게 자동으로 보여요."
+                 ? "공통 종목 최고기록이 친구·그룹원에게 자동으로 보여요. 친구 코드를 알려 주면 친구 요청을 받을 수 있어요."
                  : "공개를 꺼서 내 기록은 다른 사람에게 보이지 않아요. 친구 기록은 계속 볼 수 있어요.")
-        }
-    }
-
-    // MARK: 순위
-
-    @ViewBuilder
-    private func rankingSections(_ overview: SocialOverview) -> some View {
-        Section {
-            Picker("순위 보기", selection: Binding(get: { social.scope },
-                                               set: { next in Task { await social.select(next) } })) {
-                Text("내 친구 전체").tag(SocialModel.Scope.friends)
-                ForEach(overview.joinedGroups) { group in
-                    Text(group.name).tag(SocialModel.Scope.group(group.id))
-                }
-            }
-        }
-        ForEach(types) { type in
-            Section {
-                let rows = social.ranked(type)
-                if rows.isEmpty {
-                    Text("아직 공개된 기록이 없어요.").font(.footnote).foregroundStyle(.secondary)
-                }
-                ForEach(rows) { row in RankRow(row: row) }
-            } header: {
-                Text(type.name).font(.title3.bold()).textCase(nil)
-            }
         }
     }
 
@@ -160,14 +172,21 @@ struct FriendsView: View {
 
     @ViewBuilder
     private func friendSections(_ overview: SocialOverview) -> some View {
-        Section {
-            ForEach(overview.incomingRequests) { friend in
-                HStack {
-                    Label("\(friend.nickname)님의 친구 요청", systemImage: "person.badge.plus")
-                    Spacer()
-                    Button("수락") { Task { await social.respond(to: friend, accept: true) } }.buttonStyle(.borderedProminent)
-                    Button("거절") { Task { await social.respond(to: friend, accept: false) } }.buttonStyle(.bordered)
+        if !overview.incomingRequests.isEmpty {
+            Section("받은 친구 요청") {
+                ForEach(overview.incomingRequests) { friend in
+                    HStack {
+                        Label(friend.nickname, systemImage: "person.badge.plus")
+                        Spacer()
+                        Button("수락") { Task { await social.respond(to: friend, accept: true) } }.buttonStyle(.borderedProminent)
+                        Button("거절") { Task { await social.respond(to: friend, accept: false) } }.buttonStyle(.bordered)
+                    }
                 }
+            }
+        }
+        Section {
+            if overview.acceptedFriends.isEmpty {
+                Text("아직 친구가 없어요. 친구 코드를 주고받아 추가해 보세요.").font(.footnote).foregroundStyle(.secondary)
             }
             ForEach(overview.acceptedFriends) { friend in
                 Label(friend.nickname, systemImage: "person.fill")
@@ -192,16 +211,19 @@ struct FriendsView: View {
 
     @ViewBuilder
     private func groupSections(_ overview: SocialOverview) -> some View {
-        Section {
-            ForEach(overview.groupInvites) { group in
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("'\(group.name)' 그룹 초대", systemImage: "envelope.open")
+        if !overview.groupInvites.isEmpty {
+            Section("받은 그룹 초대") {
+                ForEach(overview.groupInvites) { group in
                     HStack {
+                        Label(group.name, systemImage: "envelope.open")
+                        Spacer()
                         Button("참여") { Task { await social.respond(to: group, accept: true) } }.buttonStyle(.borderedProminent)
                         Button("거절") { Task { await social.respond(to: group, accept: false) } }.buttonStyle(.bordered)
                     }
                 }
             }
+        }
+        Section {
             ForEach(overview.joinedGroups) { group in
                 NavigationLink {
                     GroupDetailView(groupID: group.id)
@@ -214,6 +236,66 @@ struct FriendsView: View {
             Text("그룹")
         } footer: {
             Text("그룹원은 내 친구 중에서 초대할 수 있어요. 같은 그룹이면 서로 친구가 아니어도 그룹 순위에서 기록이 보여요.")
+        }
+    }
+}
+
+/// 기록 탭의 '친구': 공통 종목 순위(내 친구 전체/그룹별). 친구 관리는 친구 탭에서 한다.
+struct FriendRankingView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
+    @Environment(\.openFriendsTab) private var openFriendsTab
+
+    private var social: SocialModel { model.social }
+    private var types: [RecordType] { account.catalogTypes.filter(\.active).map(\.recordType) }
+
+    var body: some View {
+        List {
+            SocialGate { overview in
+                if overview.profile == nil {
+                    Section {
+                        Label("친구 탭에서 닉네임을 정하면 순위를 볼 수 있어요", systemImage: "person.2.fill")
+                        if let openFriendsTab {
+                            Button("친구 탭으로 가기", action: openFriendsTab)
+                        }
+                    }
+                } else {
+                    rankingSections(overview)
+                }
+            }
+        }
+        .task(id: account.user?.id) { await social.refresh() }
+        .refreshable { await social.refresh() }
+    }
+
+    @ViewBuilder
+    private func rankingSections(_ overview: SocialOverview) -> some View {
+        Section {
+            Picker("순위 보기", selection: Binding(get: { social.scope },
+                                               set: { next in Task { await social.select(next) } })) {
+                Text("내 친구 전체").tag(SocialModel.Scope.friends)
+                ForEach(overview.joinedGroups) { group in
+                    Text(group.name).tag(SocialModel.Scope.group(group.id))
+                }
+            }
+            if overview.acceptedFriends.isEmpty && overview.joinedGroups.isEmpty {
+                HStack {
+                    Text("친구를 추가하면 함께 순위가 보여요.").font(.footnote).foregroundStyle(.secondary)
+                    Spacer()
+                    if let openFriendsTab { Button("친구 추가", action: openFriendsTab).font(.footnote) }
+                }
+            }
+        }
+        ForEach(types) { type in
+            Section {
+                let rows = social.ranked(type)
+                if rows.isEmpty {
+                    Text("아직 공개된 기록이 없어요.").font(.footnote).foregroundStyle(.secondary)
+                }
+                ForEach(rows) { row in RankRow(row: row) }
+            } header: {
+                Text(type.name).font(.title3.bold()).textCase(nil)
+            }
         }
     }
 }

@@ -25,6 +25,11 @@ final class SocialModel {
     private var account: AccountModel { model.account }
     var signedIn: Bool { account.user != nil }
     var hasProfile: Bool { overview?.profile != nil }
+    /// 친구 탭 배지: 받은 친구 요청 + 그룹 초대
+    var pendingCount: Int {
+        guard let overview, loadedFor == account.user?.id else { return 0 }
+        return overview.incomingRequests.count + overview.groupInvites.count
+    }
 
     private func publishedKey(_ user: UUID) -> String { "com.gymnote.social.published.\(user.uuidString)" }
     /// 닉네임을 정하고 공개를 켠 계정인지(친구 화면을 열지 않은 실행에서도 자동 공개하기 위해 기억)
@@ -43,7 +48,8 @@ final class SocialModel {
     }
 
     /// 내 정보·친구·그룹과 현재 선택한 순위를 새로 불러온다.
-    func refresh() async {
+    /// quiet: 앱 시작·복귀 때 배지용으로 조용히 불러온다(실패해도 메시지를 띄우지 않음).
+    func refresh(quiet: Bool = false) async {
         guard signedIn, !loading else { return }
         loading = true
         defer { loading = false }
@@ -58,7 +64,13 @@ final class SocialModel {
             if case .group(let id) = scope, !latest.joinedGroups.contains(where: { $0.id == id }) { scope = .friends }
             if latest.profile != nil { await publish(force: false) }
             try await loadLeaderboard(scope, access: access)
-        } catch { show(error) }
+        } catch {
+            if quiet {
+                if case AccountError.featureUnavailable = error { unavailable = true }
+            } else {
+                show(error)
+            }
+        }
     }
 
     func select(_ next: Scope) async {

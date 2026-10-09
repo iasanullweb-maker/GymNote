@@ -24,7 +24,7 @@ struct RecordsView: View {
                 if tab == .journal {
                     WorkoutJournalView()
                 } else if tab == .friends {
-                    FriendsView()
+                    FriendRankingView()
                 } else {
                     List {
                         if let message = account.catalogMessage {
