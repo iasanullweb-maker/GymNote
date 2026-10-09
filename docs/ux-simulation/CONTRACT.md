@@ -48,3 +48,9 @@ fixtureId=demo-v1, 기준 시각=2026-10-12T09:00:00+09:00, timezone=Asia/Seoul,
 observation-only는 가상 관찰, app-state는 실제 상태 증거, manual은 사람 확인이 필요하다. 근거가 없거나 해당 실행 모드가 검사를 수행하지 못하면 not-evaluated. 스크린샷을 봤다는 이유만으로 저장 성공·개인정보 보호·알림 도착을 pass로 표시하지 않는다.
 
 동일 persona/scenario를 3회 반복하더라도 실제 사용자 3명의 의견이나 실제 발생률로 해석하지 않는다. 보고서는 표본 수 대신 합성 실행 수, 미실행 수, 증거 위치, 앱·모델·프롬프트 버전을 표시한다. 모델 지연시간은 사람의 작업 소요시간과 분리한다.
+
+## 공통 검증 도구와 캡처 보관
+
+A의 simulation/contracts/validate.mjs는 v1 계약의 구조·참조·실행 상태를 검사한다. audit.mjs는 B/C 실제 입력과 캡처 파일 준비 상태를 점검한다. 명령과 범위는 simulation/contracts/README.md를 따른다. 사용자·시나리오·캡처가 아직 없으면 awaiting-inputs이며 평가 성공으로 표시하지 않는다.
+
+Git에 포함되는 simulation/capture/manifest.json은 캡처 전 pending 목록일 수 있다. 실제 PNG와 생성 manifest는 simulation/runs/<capture-run>/ 아래에 함께 저장하고, 생성 manifest의 relativePath는 그 디렉터리 안의 PNG를 가리킨다. tracked manifest에서 ../runs 경로를 사용하지 않는다. 실제 실행은 생성 manifest 경로를 명시적으로 전달한다. 생성 manifest의 appCommit은 실제 캡처한 코드 SHA다.

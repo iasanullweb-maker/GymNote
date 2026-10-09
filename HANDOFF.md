@@ -2,6 +2,12 @@
 
 마지막 업데이트: 2026-10-09
 
+## UX 시뮬레이션 A 공통 검증기 (2026-10-09)
+- A 워크트리에서 simulation/contracts/validate.mjs, audit.mjs, test_validate.mjs와 사용 안내를 추가했다. 기존 v1 스키마는 변경하지 않는다. 구조·참조·화면 변형·dry-run 상태·증거 있는 검사 결과를 점검하고, screen-review로 앱 저장 검사를 통과 처리하지 못하게 한다.
+- audit는 실제 B/C 입력을 읽고 사용자 4개×시나리오 5개×3회 준비와 이미지 파일의 경로·PNG signature/IHDR·해시를 검사한다. 입력 미존재는 awaiting-inputs이며 모델 호출·UI 조작·이미지 전체 디코딩을 수행하지 않는다. PNG와 생성 manifest를 같은 무시된 실행 결과 폴더에 보관하는 계약을 명확히 했다.
+- 검증: Codex Node REPL에서 exported 함수로 회귀 검사 41개 통과. 합성 패널 60회 계획, 누락 담당 입력, 잘못된 성공·모델 호출 주장, 중복·미등록 ID, PNG 해시/형식, 심볼릭 링크 탈출을 포함한다. git diff --check 통과. 독립 Node CLI·전체 iOS 빌드·XCTest·실제 화면 캡처·모델 평가는 미실행.
+- A 준비 작업은 검토 후 기존 로컬 main에 통합한다. B/C/D의 실제 산출물 연결·통합 검증은 해당 작업이 준비되면 이어간다. 원격 push·배포·운영 DB 변경은 하지 않는다.
+
 ## UX 시뮬레이션 병행 작업 기반 준비 (2026-10-09)
 - 현재 대화 포함 4개 작업의 [안내](docs/ux-simulation/PARALLEL_WORK.md), [공통 계약](docs/ux-simulation/CONTRACT.md), [워크트리 구성](docs/ux-simulation/workspaces.json), 대화별 시작 프롬프트를 준비했다. A 공통 규격·통합, B 고정 데이터·화면 캡처, C 사용자·시나리오, D 실행기·보고서를 담당한다. 작업 폴더는 .worktrees/ux-coordinator, ux-capture, ux-scenarios, ux-runner이고 로컬 main을 통합 대상으로 한다.
 - 공통 JSON 규격 4개·미실행 예시, 동일 커밋에서 네 작업 폴더를 생성하는 스크립트, 통합 잠금과 원본 추적 파일 변경 확인을 수행하는 로컬 병합 스크립트를 추가했다. 다른 작업 파일·미추적 파일은 커밋·삭제하지 않고 보존한다. 실제 캡처/모델 평가/앱 조작은 후속 담당 작업이다.
