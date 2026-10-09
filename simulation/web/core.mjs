@@ -1,5 +1,5 @@
 // Offline behavioural prototype. This is not the Swift app or its storage.
-export const SCREENS = ['workout-ready','workout-active','workout-rest','plan-month','plan-date-detail','records-overview','journal-calendar','journal-entry','friends-home','friends-ranking'];
+export const SCREENS = ['workout-ready','workout-active','workout-rest','plan-month','plan-date-detail','records-overview','journal-calendar','journal-entry','friends-home','friends-ranking','settings'];
 const copy = x => JSON.parse(JSON.stringify(x));
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const count = x => { const n=Number(x); if (String(x).trim()==='' || !Number.isInteger(n) || n<0 || n>999) throw Error('0~999의 정수를 입력하세요.'); return n; };
@@ -22,23 +22,22 @@ function reduce(state,a) {
   switch(a.type) {
     case 'navigate':
       if (!SCREENS.includes(a.screen)) throw Error('Unknown screen');
-      // A draft is deliberately discarded when leaving its screen.
-      if (s.draft && a.screen!==s.screen) s.draft=null;
+      if (s.draft && a.screen!==s.screen) throw Error('저장하거나 취소한 뒤 이동하세요.');
       s.screen=a.screen; break;
     case 'select-date':
-      if (s.screen!=='plan-month' || !s.scheduledPlans[a.date]) throw Error('계획이 있는 날짜를 선택하세요.');
+      if (s.screen!=='plan-month' || !/^2026-10-(0[1-9]|[12][0-9]|3[01])$/.test(a.date)) throw Error('10월 날짜를 선택하세요.');
       s.selectedDate=a.date;s.screen='plan-date-detail';break;
     case 'start':
       if(s.screen!=='workout-ready' || s.activeWorkout) throw Error('시작할 운동이 없습니다.');
-      s.activeWorkout={date:'2026-10-12',completedSets:0,actualReps:[]};s.screen='workout-active';break;
+      s.activeWorkout={date:'2026-10-12',completedSets:0,actualReps:[]};s.restSeconds=0;s.screen='workout-active';break;
     case 'reps':
       if(s.screen!=='workout-active') throw Error('운동 화면에서 입력하세요.');s.inputReps=count(a.value);break;
     case 'complete-set':
       if(s.screen!=='workout-active' || !s.activeWorkout || s.activeWorkout.completedSets>=3) throw Error('완료할 세트가 없습니다.');
       s.activeWorkout.actualReps.push(s.inputReps);s.activeWorkout.completedSets++;s.screen='workout-rest';s.restSeconds=60;break;
     case 'tick':
-      if(s.screen!=='workout-rest') throw Error('휴식 중에만 시간을 이동할 수 있습니다.');
-      s.restSeconds=Math.max(0,s.restSeconds-count(a.seconds));if(!s.restSeconds)s.screen='workout-active';break;
+      if(!s.activeWorkout || s.restSeconds<=0) throw Error('휴식 중에만 시간을 이동할 수 있습니다.');
+      s.restSeconds=Math.max(0,s.restSeconds-count(a.seconds));if(!s.restSeconds && s.screen==='workout-rest')s.screen='workout-active';break;
     case 'new-journal':
       if(!['records-overview','journal-calendar'].includes(s.screen)) throw Error('기록 또는 일지에서 시작하세요.');
       s.draft={kind:'journal',date:'2026-10-11',title:'',reps:'',exercise:'푸쉬업'};s.screen='journal-entry';break;
@@ -102,6 +101,7 @@ export function visible(s) {
     case 'journal-entry':return {draft:s.draft};
     case 'friends-home':return {code:s.friendCode,requests:s.social.requests,sharing:s.social.share_records,message:s.message};
     case 'friends-ranking':return {published:s.social.published};
+    case 'settings':return {environment:'합성 오프라인 저장소',restSeconds:60,restStep:15};
   }
 }
 function predicates(run) {
@@ -109,7 +109,7 @@ function predicates(run) {
   return {
     'first-set-saved':s.activeWorkout?.completedSets===1 && same(s.activeWorkout.actualReps,[7]) && same(s.workouts,b.workouts),
     'plan-preserved':same(s.scheduledPlans,b.scheduledPlans),
-    'selected-date-retained':s.screen==='plan-date-detail' && s.selectedDate==='2026-10-14' && e.some(x=>x.after.screen==='records-overview') && e.some(x=>x.after.screen==='plan-date-detail'),
+    'selected-date-retained':['plan-date-detail','plan-month'].includes(s.screen) && s.selectedDate==='2026-10-14' && e.some(x=>x.after.screen==='records-overview') && e.some(x=>x.after.screen==='plan-date-detail'),
     'navigation-does-not-edit':same(s.scheduledPlans,b.scheduledPlans) && same(s.records,b.records),
     'previous-workout-saved':s.workouts.length===b.workouts.length+1 && s.workouts.at(-1).date==='2026-10-11' && s.workouts.at(-1).title==='어제 푸쉬업' && s.workouts.at(-1).completedSets===3 && same(s.workouts.at(-1).actualReps,[10,8,6]) && s.activeWorkout===null,
     'previous-data-preserved':same(s.workouts.slice(0,b.workouts.length),b.workouts) && same(s.activeWorkout,b.activeWorkout) && same(s.scheduledPlans,b.scheduledPlans) && same(s.records,b.records) && same(s.logs,b.logs),

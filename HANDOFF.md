@@ -507,3 +507,8 @@
 
 - 사용자 승인 HTTP 미리보기에서 실제 Chrome의 5개 시나리오 조작·390px 반응형·JSON 다운로드 검증 완료. onchange 입력 누락을 input 즉시 반영+연속 입력 단계 병합으로 수정했다. 회귀19개·DOM5흐름·재생60세션 통과.
 - 재사용 가능한 루프백 단일 페이지 서버: node simulation/web/serve.mjs <preview-run-id>. 수정 HTML 생성 후 서버 재시작 필요. 상세 근거 docs/ux-simulation/results/web.md. 실제 iOS/전체 빌드/live 모델은 미실행.
+
+### 2026-10-09 iPad 사진 기반 가상 환경 재현
+
+- 사용자가 제공한 5개 iPad 화면을 참고해 simulation/web의 검은 배경/주황 강조/상단 전환/중앙 탭/카드/달력을 반영. 운동 일지·순위는 기록 하위 세그먼트, 친구 추가는 창, draft 편집 중 탭 이동 차단, 계획 복귀 시 캘린더와 선택 날짜 유지. 원본 사진과 실제 개인정보는 저장소에 복사하지 않음.
+- 상태22개·DOM5흐름·고정 재생60세션 통과. Chrome에서 중간 기록/계획 배치는 확인했으나 이후 연결 중단으로 최종본 실제 전체 흐름/모바일 재검증은 미완료. 실제 iOS·전체 빌드/live 모델은 미실행. 근거·충실도 한계: docs/ux-simulation/results/ipad-reference.md.
