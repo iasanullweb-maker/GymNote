@@ -491,3 +491,8 @@
 - 회귀 검사 19개·git diff --check·PowerShell 파서 검사 통과. 실제 로컬 관리자 브라우저에서 인증·메모 저장·실행 대기·중지 표시를 확인하고 검증용 서버를 종료했다. 다른 대화의 최신 웹 UX 커밋 41f85f6을 보존했다.
 - 실제 Telegram 토큰/허용 ID가 없어 봇 연결은 켜지 않았다. 유료 Codex 실행·Claude 어댑터·완료 알림 자동 발송·기존 세션 질문 답변 재개는 미검증 또는 미구현이다. 코드 통합과 실제 외부 운영을 구분한다. 설정·시작·한계는 automation/README.md 참조.
 - 원격 push·배포·운영 DB 변경·전체 iOS 빌드/XCTest는 미실행. 로컬 통합 결과와 커밋은 해당 작업 완료 응답에 기록한다.
+
+### 2026-10-09 웹 실제 렌더링 검증
+
+- 사용자 승인 HTTP 미리보기에서 실제 Chrome의 5개 시나리오 조작·390px 반응형·JSON 다운로드 검증 완료. onchange 입력 누락을 input 즉시 반영+연속 입력 단계 병합으로 수정했다. 회귀19개·DOM5흐름·재생60세션 통과.
+- 재사용 가능한 루프백 단일 페이지 서버: node simulation/web/serve.mjs <preview-run-id>. 수정 HTML 생성 후 서버 재시작 필요. 상세 근거 docs/ux-simulation/results/web.md. 실제 iOS/전체 빌드/live 모델은 미실행.

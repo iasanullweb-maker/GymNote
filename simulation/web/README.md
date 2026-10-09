@@ -15,6 +15,14 @@ node simulation/web/build.mjs batch web-batch-001
 
 생성된 `simulation/runs/web-preview-001/index.html`을 Chrome/Edge에서 직접 연다. 이미 있는 출력 폴더는 덮어쓰지 않으므로 다시 생성할 때 새 이름을 지정한다. Node가 없는 PC에서는 이미 생성된 HTML을 열어 사용할 수 있다. 실행 파일·결과는 Git에서 무시되며 재생성 가능하다.
 
+브라우저 검증 도구가 file://를 허용하지 않으면 단일 문서 HTTP 미리보기를 사용한다:
+
+```powershell
+node simulation/web/serve.mjs web-preview-001
+```
+
+출력된 `http://127.0.0.1:<포트>/`를 연다. 로컬 루프백에만 바인딩하고 `/`의 GET만 허용하며 파일 목록·다른 경로·외부 Host 접근을 제공하지 않는다. Ctrl+C로 중지한다. 서버는 시작 시 HTML 사본을 읽으므로 새 수정본을 생성했으면 서버도 다시 시작한다.
+
 ## 역할과 흐름
 
 1. **사용자 역할**: 사용자·시나리오를 선택하고 새 세션을 시작한다. 목표를 읽고 화면을 직접 조작한다. 10개 화면은 운동/계획/기록/일지/친구 분야로 연결된다. 실제 횟수와 계획 값은 분리되고, 편집은 저장 전까지 draft에만 남는다.
@@ -27,6 +35,7 @@ node simulation/web/build.mjs batch web-batch-001
 
 - 기준 날짜/시각은 demo-v1, 2026-10-12 09:00 서울. 타이머는 버튼으로 가상 시간을 이동하며 시스템 시계는 사용하지 않는다.
 - 세션마다 새 메모리 사본. 합성 친구 요청은 미수락, 공개 해제는 공개 행 제거와 개인 백업 보존으로 재현한다. 운영 계정·DB·알림·localStorage는 사용하지 않는다. 페이지 새로고침 전 JSON을 내보내야 한다.
+- 입력은 input 이벤트로 즉시 반영한다. 같은 필드의 연속 타이핑은 하나의 논리적 조작으로 합쳐 최초 before와 최종 after를 보존하며, 키 입력 수로 단계 한도를 소모하지 않는다.
 - 결과는 별도 `webFormat:1`, `environment:web-prototype`이며 `prototypeResult`와 `nativeResult`를 분리한다. 기존 네이티브 session v1의 mode를 임의 확장하지 않는다.
 - observation-only/manual은 항상 not-evaluated. 웹 app-state만 이벤트·before/after로 판정한다. iOS 결과는 항상 not-evaluated이고 모델 요청은 0이다.
 - batch의 `native-not-run.json`은 D의 `buildDryRunSession()`으로 만들고 A의 검증기로 검사한 미실행 세션이다. B의 pending manifest를 captured로 변경하지 않는다.

@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 let run,output;
 function text(parent,tag,value){const n=document.createElement(tag);n.textContent=value;parent.append(n);return n;}
 function button(parent,label,action){const n=text(parent,'button',label);n.type='button';n.disabled=run.finished;n.onclick=()=>dispatch(action);return n;}
-function input(parent,label,value,handler,type='text'){const id='field-'+parent.childElementCount;const l=text(parent,'label',label);l.htmlFor=id;const n=document.createElement('input');n.id=id;n.type=type;n.value=value;n.disabled=run.finished;n.onchange=()=>{try{handler(n.value);$('error').textContent='';}catch(e){$('error').textContent=e.message;}};parent.append(n);return n;}
+function input(parent,label,value,handler,type='text'){const id='field-'+parent.childElementCount;const l=text(parent,'label',label);l.htmlFor=id;const n=document.createElement('input');n.id=id;n.type=type;n.value=value;n.disabled=run.finished;n.oninput=()=>{try{handler(n.value);$('error').textContent='';}catch(e){$('error').textContent=e.message;}};parent.append(n);return n;}
 function updateField(action){act(run,action);$('packet').textContent=JSON.stringify(userPacket(run),null,2);$('steps').textContent='조작 '+run.events.length+' / '+run.scenario.maxSteps;}
 function dispatch(action){try{act(run,action);render();$('error').textContent='';}catch(e){$('error').textContent=e.message;}}
 const titles={'workout-ready':'오늘 운동','workout-active':'진행 중 운동','workout-rest':'세트 사이 휴식','plan-month':'10월 운동 계획','plan-date-detail':'선택 날짜 계획','records-overview':'내 기록','journal-calendar':'운동 일지','journal-entry':'지난 운동 입력','friends-home':'친구','friends-ranking':'친구 최고기록'};

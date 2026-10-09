@@ -76,9 +76,14 @@ function reduce(state,a) {
 }
 export function act(run,action) {
   if(run.finished)throw Error('종료된 세션입니다.');
-  if(run.events.length>=run.scenario.maxSteps)throw Error('시나리오 단계 한도에 도달했습니다.');
+  // Continuous typing is one logical input action, not a step per keystroke.
+  const prior=run.events.at(-1);
+  const mergeInput=['reps','draft','friend-code'].includes(action.type) && prior?.action.type===action.type && prior.action.field===action.field && prior.screen===run.state.screen;
+  if(!mergeInput && run.events.length>=run.scenario.maxSteps)throw Error('시나리오 단계 한도에 도달했습니다.');
   const before=copy(run.state),after=reduce(before,action);
-  run.events.push({step:run.events.length+1,screen:before.screen,action:copy(action),before,after:copy(after)});run.state=after;
+  if(mergeInput){prior.action=copy(action);prior.after=copy(after);}
+  else run.events.push({step:run.events.length+1,screen:before.screen,action:copy(action),before,after:copy(after)});
+  run.state=after;
   return run;
 }
 export function userPacket(run) {
