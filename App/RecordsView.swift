@@ -70,6 +70,7 @@ struct RecordsView: View {
                 }
             }
             .navigationTitle("기록")
+            .task(id: tab) { await account.refreshRecordCatalog() }
             .task(id: account.user?.id) { await account.refreshRecordCatalog() }
             .onChange(of: account.user?.id) { _, _ in
                 showingTypes = false
@@ -194,17 +195,17 @@ struct RecordRow: View {
     var isBest: Bool = false
 
     var body: some View {
-            HStack {
-                Text(entry.date, format: .dateTime.year().month().day())
-                    .foregroundStyle(.primary)
-                Spacer()
-                if isBest {
-                    Image(systemName: "trophy.fill")
-                        .foregroundStyle(.orange)
-                }
-                Text(type.display(entry))
-                    .foregroundStyle(.primary)
+        HStack {
+            Text(entry.date, format: .dateTime.year().month().day())
+                .foregroundStyle(.primary)
+            Spacer()
+            if isBest {
+                Image(systemName: "trophy.fill")
+                    .foregroundStyle(.orange)
             }
+            Text(type.display(entry))
+                .foregroundStyle(.primary)
+        }
     }
 }
 

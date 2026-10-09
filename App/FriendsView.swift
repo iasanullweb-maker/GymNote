@@ -89,6 +89,11 @@ struct FriendsView: View {
             .navigationTitle("친구")
             .disabled(social.working)
             .task(id: account.user?.id) { await social.refresh() }
+            .onChange(of: account.user?.id) { _, _ in
+                nickname = ""; share = true; code = ""; groupName = ""
+                addingFriend = false; creatingGroup = false; renaming = false
+                removing = nil; confirmingWithdrawal = false
+            }
             .refreshable { await social.refresh() }
             .confirmationDialog("친구 기능에서 탈퇴할까요?", isPresented: $confirmingWithdrawal, titleVisibility: .visible) {
                 Button("친구 기능 탈퇴", role: .destructive) {

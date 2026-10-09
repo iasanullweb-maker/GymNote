@@ -1,12 +1,12 @@
 # 친구·기록·실행 화면 개선: Codex / Claude 분담
 
-2026-10-09 사용자 요청으로 분담했다. 최초 가입 안내·튜토리얼·사용자 조사는 제외한다. 기존 아이디어 자동화와 UX 시뮬레이션 소유 범위는 변경하지 않는다. 아래 코드는 구현 중인 체크포인트이며 완료·배포 상태가 아니다.
+2026-10-09 사용자 요청으로 분담했다. 최초 가입 안내·튜토리얼·사용자 조사는 제외한다. 기존 아이디어 자동화와 UX 시뮬레이션 소유 범위는 변경하지 않는다. Codex 담당은 구현·격리 DB/구문 검증을 완료했으며 실행 탭·전체 iOS 검사·운영 적용은 남아 있다.
 
 ## 작업 폴더
 
 | 담당 | 절대 경로 | 브랜치 | 상태 |
 |---|---|---|---|
-| Codex | `C:/Users/Donghyun/.codex/worktrees/346d/GymNote` | `codex/friends-records-ui` | 친구·기록·서버 변경 초안, 검증·마무리 필요 |
+| Codex | `C:/Users/Donghyun/.codex/worktrees/346d/GymNote` | `codex/friends-records-ui` | 담당 구현·격리 DB/구문 검사 완료. 자세한 결과는 reports/ui-codex.md |
 | Claude | `C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/claude-workout-flow` | `codex/claude-workout-flow` | 실행 탭 초안 `5c20bde`에서 이어서 작업 |
 | 로컬 통합 대상 | `C:/Users/Donghyun/Documents/2026_IASA/GymNote` | `main` | 최종 검토·검증 후 직렬 통합 |
 
@@ -30,7 +30,7 @@ Claude 워크트리는 실제 생성했으며, Claude 실행·채팅 메시지 �
 
 ## Codex: 친구·기록·공통 종목
 
-담당 파일: `App/FriendsView.swift`, `App/SocialModel.swift`, `App/AuthClient.swift`, `App/AccountModel.swift`, `App/RecordsView.swift`, `App/ResponsiveLayout.swift`, `supabase/migrations/202610090003_social_withdraw.sql`, `scripts/test_social_withdraw.sql`, `scripts/test_record_catalog.sql`, `Tests/RecordCatalogTests.swift`, `Tests/AccountTests.swift`, `.github/workflows/check.yml`, `docs/SOCIAL_SETUP.md`, `docs/parallel-work/UI_HANDOFF.md`, `docs/parallel-work/ASSIGNMENTS.md`, `docs/parallel-work/reports/ui-codex.md`, `HANDOFF.md`.
+담당 파일: `App/FriendsView.swift`, `App/SocialModel.swift`, `App/AuthClient.swift`, `App/AccountModel.swift`, `App/RecordsView.swift`, `App/ResponsiveLayout.swift`, `supabase/migrations/202610090003_social_withdraw.sql`, `scripts/test_social_withdraw.sql`, `scripts/test_record_catalog.sql`, `Tests/RecordCatalogTests.swift`, `Tests/AccountTests.swift`, `.github/workflows/check.yml`, `docs/SOCIAL_SETUP.md`, `docs/RECORD_CATALOG_SETUP.md`, `docs/parallel-work/UI_HANDOFF.md`, `docs/parallel-work/ASSIGNMENTS.md`, `docs/parallel-work/reports/ui-codex.md`, `HANDOFF.md`.
 
 완료 기준:
 

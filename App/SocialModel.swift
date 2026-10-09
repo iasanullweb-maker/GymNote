@@ -8,7 +8,11 @@ import Observation
 final class SocialModel {
     enum Scope: Hashable { case friends, group(UUID) }
 
-    private(set) var overview: SocialOverview?
+    private var storedOverview: SocialOverview?
+    private(set) var overview: SocialOverview? {
+        get { loadedFor == account.user?.id ? storedOverview : nil }
+        set { storedOverview = newValue }
+    }
     private(set) var entries: [Scope: [SocialEntry]] = [:]
     private(set) var loading = false
     private(set) var working = false
@@ -20,10 +24,15 @@ final class SocialModel {
     @ObservationIgnored private var publishTask: Task<Void, Never>?
     @ObservationIgnored private var loadedFor: UUID?
     @ObservationIgnored private var revision = 0
+    @ObservationIgnored private var withdrawing = false
+    @ObservationIgnored private let suppliedAccount: AccountModel?
 
-    init(model: AppModel) { self.model = model }
+    init(model: AppModel, account: AccountModel? = nil) {
+        self.model = model
+        suppliedAccount = account
+    }
 
-    private var account: AccountModel { model.account }
+    private var account: AccountModel { suppliedAccount ?? model.account }
     var signedIn: Bool { account.user != nil }
     var hasProfile: Bool { overview?.profile != nil }
     /// 친구 탭 배지: 받은 친구 요청 + 그룹 초대
@@ -42,6 +51,7 @@ final class SocialModel {
     /// 계정이 바뀌면 이전 계정의 친구 정보가 남지 않게 비운다.
     private func resetIfAccountChanged(_ user: UUID) {
         guard loadedFor != user else { return }
+        revision += 1
         overview = nil
         entries = [:]
         scope = .friends
@@ -51,13 +61,17 @@ final class SocialModel {
     /// 내 정보·친구·그룹과 현재 선택한 순위를 새로 불러온다.
     /// quiet: 앱 시작·복귀 때 배지용으로 조용히 불러온다(실패해도 메시지를 띄우지 않음).
     func refresh(quiet: Bool = false) async {
-        guard signedIn, !loading else { return }
+        guard signedIn, !loading, !withdrawing else { return }
         loading = true
         defer { loading = false }
+        let accessRevision = revision
+        var requestRevision = revision
+        let requestedUser = account.user?.id
         do {
             let access = try await account.socialAccess()
+            guard !withdrawing, accessRevision == revision, account.user?.id == access.userID else { return }
             resetIfAccountChanged(access.userID)
-            let requestRevision = revision
+            requestRevision = revision
             let latest = try await access.client.socialOverview(token: access.token)
             guard account.user?.id == access.userID, requestRevision == revision else { return }
             overview = latest
@@ -67,6 +81,7 @@ final class SocialModel {
             if latest.profile != nil { await publish(force: false) }
             try await loadLeaderboard(scope, access: access)
         } catch {
+            guard account.user?.id == requestedUser, requestRevision == revision, !withdrawing else { return }
             if quiet {
                 if case AccountError.featureUnavailable = error { unavailable = true }
             } else {
@@ -102,24 +117,31 @@ final class SocialModel {
     func withdraw() async -> Bool {
         guard !working else { return false }
         working = true
+        withdrawing = true
         revision += 1
         publishTask?.cancel()
         message = nil
-        defer { working = false }
+        let requestedUser = account.user?.id
+        defer { working = false; withdrawing = false }
         do {
             let access = try await account.socialAccess()
             guard try await access.client.withdrawSocial(token: access.token) else { throw AccountError.server }
+            UserDefaults.standard.removeObject(forKey: publishedKey(access.userID))
+            UserDefaults.standard.set(false, forKey: sharingKey(access.userID))
             guard account.user?.id == access.userID else { return false }
             revision += 1
             overview = SocialOverview(profile: nil, friends: [], groups: [])
             entries = [:]
             scope = .friends
             loadedFor = access.userID
-            UserDefaults.standard.removeObject(forKey: publishedKey(access.userID))
-            UserDefaults.standard.set(false, forKey: sharingKey(access.userID))
             message = "친구 기능에서 탈퇴했어요. 개인 운동 기록은 그대로예요."
             return true
+        } catch AccountError.featureUnavailable {
+            guard account.user?.id == requestedUser else { return false }
+            message = "친구 기능 탈퇴를 준비 중이에요. 서버 업데이트 후 다시 시도해 주세요."
+            return false
         } catch {
+            guard account.user?.id == requestedUser else { return false }
             show(error)
             return false
         }
@@ -221,7 +243,8 @@ final class SocialModel {
     /// 공통 종목 최고기록을 올린다. 마지막으로 올린 내용과 같으면 보내지 않는다.
     /// 닉네임을 정하지 않았거나 공개를 껐으면 서버가 아무것도 저장하지 않는다.
     func publish(force: Bool) async {
-        guard signedIn, account.isOnline, let user = account.user?.id else { return }
+        guard signedIn, account.isOnline, !withdrawing, let user = account.user?.id else { return }
+        let requestRevision = revision
         let sharing = (loadedFor == user ? overview : nil).map { $0.profile?.share_records == true }
             ?? UserDefaults.standard.bool(forKey: sharingKey(user))
         guard sharing else { return }
@@ -230,13 +253,14 @@ final class SocialModel {
         let signature = String(decoding: encoded, as: UTF8.self)
         do {
             let access = try await account.socialAccess()
+            guard requestRevision == revision, !withdrawing, access.userID == user else { return }
             let key = publishedKey(access.userID)
             if !force, UserDefaults.standard.string(forKey: key) == signature { return }
             _ = try await access.client.publishRecords(payload, token: access.token)
-            guard account.user?.id == access.userID else { return }
+            guard account.user?.id == access.userID, requestRevision == revision, !withdrawing else { return }
             UserDefaults.standard.set(signature, forKey: key)
         } catch AccountError.featureUnavailable {
-            unavailable = true
+            if account.user?.id == user, requestRevision == revision, !withdrawing { unavailable = true }
         } catch {
             // 자동 공개 실패는 조용히 넘기고 다음 변경·새로고침 때 다시 시도한다.
         }
