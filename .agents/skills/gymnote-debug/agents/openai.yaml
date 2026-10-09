@@ -1,0 +1,4 @@
+interface:
+  display_name: "GymNote 오류 조사"
+  short_description: "앱·서버·빌드 오류의 재현 근거를 찾고 수정 후 회귀 확인"
+  default_prompt: "$gymnote-debug로 이 GymNote 오류를 재현·진단하고 승인된 범위에서 수정해줘."

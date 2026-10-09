@@ -2,6 +2,24 @@
 
 마지막 업데이트: 2026-10-09
 
+## 앞으로 작업할 때 적용할 GymNote 스킬
+
+사용자 지시: 앞으로 GymNote 작업에서는 아래 스킬을 단계와 내용에 맞게 읽고 사용한다. 구현·문서 수정은 `gymnote-task`로 시작하고 변경 검증에는 `gymnote-verify`, 결과 기록에는 `gymnote-handoff`를 적용한다. UI·오류·데이터·배포에는 해당 스킬을 추가한다. 단순 질문에는 커밋·통합·배포를 만들지 않으며 매번 모든 스킬을 로드하지 않는다.
+
+| 상황 | 읽고 사용할 스킬 |
+|---|---|
+| 작업 시작·구현·검토·커밋·로컬 통합 | [gymnote-task](.agents/skills/gymnote-task/SKILL.md) |
+| 변경별 검사 선택·실행·회귀 검증 | [gymnote-verify](.agents/skills/gymnote-verify/SKILL.md) |
+| 화면·사용 흐름·시뮬레이션·실기기 | [gymnote-ux-check](.agents/skills/gymnote-ux-check/SKILL.md) |
+| 오류 재현·앱/서버/CI/설치 원인 조사 | [gymnote-debug](.agents/skills/gymnote-debug/SKILL.md) |
+| 로그인·계정 저장·동기화·서버/권한 변경 | [gymnote-data-change](.agents/skills/gymnote-data-change/SKILL.md) |
+| 배포 준비·승인된 실행·결과 대조 | [gymnote-release](.agents/skills/gymnote-release/SKILL.md) |
+| 결과 보고·HANDOFF/담당 보고서·다음 대화 인계 | [gymnote-handoff](.agents/skills/gymnote-handoff/SKILL.md) |
+
+호출/설치와 검증 범위는 [스킬 사용 안내](docs/GYMNOTE_SKILLS.md)를 따른다. 현재 대화 목록에 없으면 위 저장소 파일을 직접 읽어 같은 절차를 적용한다. 실행 시 최신 AGENTS·배정표·워크플로를 확인하고 스킬 설치/사용을 push·배포·운영 DB·외부 메시지·유료 실행 승인으로 확대하지 않는다. 이미 승인된 범위는 다시 승인받지 않는다. 웹/dry-run·실제 iOS·운영 적용 결과를 구분한다.
+
+2026-10-09: 일곱 스킬의 구조·UI 설정·내부 링크·검사 경로와 이 적용 표를 검사하고 개인 Codex 폴더에 설치/갱신했다. 원본·설치본의 SHA-256 일치를 확인했다. 스킬·문서 변경이며 전체 iOS 빌드·XCTest·원격 push·배포·운영 DB·Claude 설치/실행은 수행하지 않았다. 실제 작업에서의 판단 품질은 첫 사용 결과를 보고 필요한 부분만 개선한다.
+
 ## 최신 앱 배포: 0.1.91 (2026-10-09 23:00 KST)
 - 사용자 요청으로 친구·기록·Claude 실행 탭 변경을 교차 검토하고 로컬 main에 통합한 뒤 배포했다. 배포 커밋 `0128f23`, 앱 코드 통합 `50bad50`, 검증 소스 `9f218e7`. 최초 가입 안내·튜토리얼·사용자 조사는 제외했다.
 - [Validate GymNote 37937581607](https://github.com/iasanullweb-maker/GymNote/actions/runs/37937581607): 모델·계정 스크립트, PostgreSQL 17 권한/친구 탈퇴, 계정 삭제, iPad XCTest 성공(74개 중 실패 0·기존 UX 캡처 5개 건너뜀). WorkoutFlowTests 10개와 RecordCatalogTests 10개 모두 통과했다. 탭 이탈 취소 오류 및 실패 세트의 휴식 시작/재시작 회귀를 포함한다.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "GymNote 배포"
+  short_description: "배포 대상·검증을 확정하고 승인된 IPA·AltStore 배포 확인"
+  default_prompt: "$gymnote-release로 이번 GymNote 변경의 배포 준비 상태와 대상 커밋을 확인해줘."

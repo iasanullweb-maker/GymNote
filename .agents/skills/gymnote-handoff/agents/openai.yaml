@@ -1,0 +1,4 @@
+interface:
+  display_name: "GymNote 인수인계"
+  short_description: "코드·검증·통합·배포 근거와 남은 작업을 인수인계에 기록"
+  default_prompt: "$gymnote-handoff로 이번 GymNote 작업의 확인된 결과와 남은 작업을 담당 문서에 기록해줘."
