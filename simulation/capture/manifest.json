@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "demo-v1",
+  "anchorTime": "2026-10-12T09:00:00+09:00",
+  "timezone": "Asia/Seoul",
+  "locale": "ko_KR",
+  "appCommit": null,
+  "captures": [
+    {
+      "id": "workout-ready",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows. TodayView idle state requires the anchor day; no injected clock."
+    },
+    {
+      "id": "workout-active",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows."
+    },
+    {
+      "id": "workout-rest",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows. No injected clock for WorkoutStatusBanner TimelineView/timer."
+    },
+    {
+      "id": "plan-month",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows."
+    },
+    {
+      "id": "plan-date-detail",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows."
+    },
+    {
+      "id": "records-overview",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows."
+    },
+    {
+      "id": "journal-calendar",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows. WorkoutJournalView initial selectedDate is private Date()."
+    },
+    {
+      "id": "journal-entry",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows."
+    },
+    {
+      "id": "friends-home",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows. No offline authenticated SocialModel state injection for FriendsView."
+    },
+    {
+      "id": "friends-ranking",
+      "status": "pending",
+      "width": 834,
+      "height": 1194,
+      "textScale": "standard",
+      "error": "iOS render not run on Windows. No offline authenticated SocialModel ranking injection for FriendRankingView."
+    }
+  ]
+}
