@@ -4,7 +4,7 @@
 
 1단계 실제 iPad → AirServer → Computer Use 자동 관찰 확인 완료. CLI와 AirServer를 같은 활성 Windows 가상 데스크톱에 두고 수신 창을 전면 표시해야 한다. 실제 설정 → 계획 → 설정 복귀와 휴식 90초/간격 15초 유지 확인.
 
-2단계는 BrowserStack 체험 계정 가입 대기. 실제 클라우드 설치·실행·가상 사용자 반복 실험은 미검증.
+2단계: BrowserStack 가입·로그인·0.1.88 IPA 업로드 및 실제 iPad Pro 11 (2024)/iPadOS 17.5 설치 성공 확인. 홈/실행 중 앱 화면 제어 확인. GymNote 첫 화면은 재시작 후에도 미확인이며, 실행 성공·가상 사용자 반복 실험은 아직 미검증. 첫 세션은 종료했다. [첫 세션 결과](../../docs/ux-simulation/results/cloud-first-session.md).
 
 ## 업로드 파일
 
