@@ -75,12 +75,12 @@
 | `xcodebuild test` (GymNoteTests, `WorkoutFlowTests` 포함), 전체 iOS 빌드 | **미실행** |
 | 화면 캡처(iPhone 좁은 화면·가로·iPad·큰 글자·휴식 상태), VoiceOver | **미실행** |
 
-미실행 이유: 이 Windows PC에는 Swift/Xcode가 없고, Claude 작업 환경(Linux)도 Swift 툴체인 다운로드(download.swift.org)가 네트워크 정책으로 차단됐다. 구문만 확인했으므로 **타입 검사·컴파일 오류 가능성은 남아 있다.** 통합 검증 때 Mac/Xcode에서 위 세 검사를 먼저 돌려야 한다.
+미실행 이유: 이 Windows PC에는 Swift/Xcode가 없고, Claude 작업 환경(Linux)도 Swift 툴체인 다운로드(download.swift.org)가 네트워크 정책으로 차단됐다. 구문만 확인했으므로 **타입 검사·컴파일 오류 가능성은 남아 있다.** 기존 절차대로 로컬 통합 후 사용자 승인으로 push해 GitHub Actions **Validate GymNote**(모델·계정 회귀 검사 스크립트, iPad 시뮬레이터 XCTest)와 **Build IPA**에서 확인한다. 새로 추가한 `executionOrderChecks`, `test_accounts.swift` 병합 검사, `WorkoutFlowTests`가 통과하는지 특히 본다(Mac 준비는 사용자 결정으로 보류 중).
 
-통합 검증 때 기기에서 꼭 볼 것:
+배포 후 아이패드에서 AltStore로 업데이트해 꼭 볼 것(아이폰 화면 검증은 보류 중):
 1. 편집 모드가 아닌 상태에서 운동 행을 길게 눌러 끌기가 되는지(iOS 16+ onMove 동작). 행 안 버튼 탭과 충돌이 없는지.
 2. 미완료 운동을 완료 묶음 쪽으로 끌었을 때 미완료 끝으로 돌아가는 모습이 어색하지 않은지.
-3. iPhone SE 세로/가로, iPad, 접근성 큰 글자, 휴식 중에 배너가 탭 막대·마지막 버튼을 가리지 않는지.
+3. iPad 세로/가로·분할 화면, 접근성 큰 글자, 휴식 중에 배너가 탭 막대·마지막 버튼을 가리지 않는지. 운동 마치기 애니메이션(운동 중 → 운동 완료 → 운동 일지에 저장됨).
 
 ## 남은 문제·Codex 확인 요청 (내가 수정하지 않은 파일)
 
