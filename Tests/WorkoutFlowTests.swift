@@ -153,6 +153,17 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertNil(model.savedWorkout)
     }
 
+    func testFailedSetDoesNotStartRest() throws {
+        let model = makeModel()
+        model.startWorkout()
+        let session = try XCTUnwrap(model.data.activeWorkout)
+        try breakPersistence()
+        model.completeSet(a, actualReps: 10)
+        XCTAssertEqual(model.data.activeWorkout, session, "저장 실패한 세트는 기록하지 않음")
+        XCTAssertNil(model.restEnd, "기록되지 않은 세트로 휴식을 시작하지 않음")
+        XCTAssertNotNil(model.storageError)
+    }
+
     func testAccountSwitchClearsSavedWorkout() async throws {
         let model = makeModel()
         model.startWorkout()
