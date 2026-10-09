@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "createdOn": "2026-10-09",
+  "integrationWorkspace": "C:/Users/Donghyun/Documents/2026_IASA/GymNote",
+  "integrationBranch": "main",
+  "lockRelativePath": ".validation-tools/ux-integration.lock",
+  "roles": [
+    {
+      "id": "A",
+      "name": "총괄·통합",
+      "branch": "codex/parallel-coordinator",
+      "path": "C:/Users/Donghyun/.codex/worktrees/0fb0/GymNote",
+      "prompt": "docs/parallel-work/prompts/A.md"
+    },
+    {
+      "id": "B",
+      "name": "메시지 연동",
+      "branch": "codex/automation-ingress",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/automation-ingress",
+      "prompt": "docs/parallel-work/prompts/B.md"
+    },
+    {
+      "id": "C",
+      "name": "에이전트 실행",
+      "branch": "codex/automation-worker",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/automation-worker",
+      "prompt": "docs/parallel-work/prompts/C.md"
+    },
+    {
+      "id": "D",
+      "name": "관리자 화면",
+      "branch": "codex/automation-admin",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/automation-admin",
+      "prompt": "docs/parallel-work/prompts/D.md"
+    }
+  ]
+}

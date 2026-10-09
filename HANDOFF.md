@@ -265,7 +265,9 @@
   - 카카오톡을 선택하면 일반 채팅방 수신 API로 가정하지 말고 카카오톡 채널 챗봇·스킬 서버 방식을 검토한다. 연동 참고: [카카오톡 메시지 API](https://developers.kakao.com/docs/ko/kakaotalk-message/rest-api), [챗봇 스킬 API](https://docs.kakaoi.ai/skill/api_reference/), [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook), [Codex 연동](https://developers.openai.com/blog/codex-as-a-platform), [Claude Code 자동 실행](https://code.claude.com/docs/en/headless).
   - 필수 기능: 메모와 실행 요청 구분, 입력 사용자 인증, 중복 실행 방지, 작업 상태·이력 저장, 실패 재시도·재개·중지, 동시 작업 충돌 방지, 비용·실행 시간 제한, 완료·실패·사용자 판단 필요 시 알림. 에이전트 실행 자격 증명은 서버/실행기에 보관한다.
   - 기존 작업 규칙대로 검토·검증 후 기존 작업 브랜치에 로컬 통합하고, 원격 push·배포는 해당 작업의 승인 범위를 따른다. 로컬 실행기는 PC가 켜져 있어야 하며, 전체 iOS 빌드는 Mac/Xcode 또는 기존 macOS CI 실행 환경을 사용한다.
-  - 상태: 아이디어와 권장 구성을 해야 할 일로 기록한 단계. 구현·외부 연동·자동 작업 실행은 미착수.
+  - 상태: 해야 할 일 기록과 4개 대화 병행 작업 지침·프롬프트·환경 스크립트 준비. 기능 구현·외부 연동·자동 작업 실행은 미착수.
+  - 사용자 선택(2026-10-09): 이 대화 포함 4개 대화는 **A 총괄·B 메시지 연동·C 에이전트 실행·D 관리자 화면**으로 분담한다. [공통 지침](docs/parallel-work/GUIDE.md), [작업 배정표](docs/parallel-work/ASSIGNMENTS.md), [폴더·브랜치 목록](docs/parallel-work/workspaces.json), [시작 프롬프트](docs/parallel-work/prompts/), [작업 규격 초안](automation/contracts/TASKS.md)을 따른다. A는 현재 워크트리를 유지하고 B/C/D는 원본 저장소 .worktrees/automation-ingress·automation-worker·automation-admin을 사용한다. 기존 UX 시뮬레이션 워크트리는 보존한다.
+  - scripts/parallel_work.ps1은 환경 생성/재사용·상태 확인·CLI 시작·로컬 통합을 제공한다. UX 통합과 공통 잠금을 사용한다. 격리 Git 저장소에서 생성·재실행·본인/원본 미커밋 변경 거부·다른 소유자 잠금 보존·잠금 정리·실제 병합·미추적 변경 보존·역할 간 통합 차단 검사 통과. PowerShell 문법·diff 검사 통과. 전체 iOS 빌드·테스트, 봇 등록, 유료 모델 호출, 원격 push·배포는 미실행.
 - [ ] **앱 내 대화형 에이전트와 맞춤형 알림:** 앱에서 에이전트와 채팅 형식으로 대화하고, 사용자별 운동·일상 계획과 선호에 맞춘 알림을 제공한다.
 - [ ] **가상 시뮬레이션 기반 편의성 개선 시스템:** 사용자가 언급한 토스 사례를 참고해 가상 사용자와 기획자 역할을 부여하고, 가상 환경에서 앱 사용 흐름을 시뮬레이션하여 불편한 점을 찾고 개선안을 도출하는 시스템을 구축한다. 참고할 구체적인 사례와 평가 기준은 착수 시 정한다.
 - [ ] **가상 시뮬레이션 환경 구축:** 위 편의성 개선 시스템에 필요한 가상 사용자·기획자 역할, 사용 시나리오, 앱 상태·조작 재현, 실행 결과와 평가 기록을 관리할 환경을 구축한다. 편의성 개선 시스템의 기반 작업으로 진행한다.
