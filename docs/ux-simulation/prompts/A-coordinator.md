@@ -7,7 +7,7 @@
 
 먼저 이 워크트리의 실제 경로, git branch --show-current, git status --short, git worktree list를 확인해줘. AGENTS.md, docs/ux-simulation/PARALLEL_WORK.md, docs/ux-simulation/CONTRACT.md, simulation/contracts/*.schema.json을 읽고 담당 범위 안에서 구현해줘.
 
-다른 대화도 동시에 작업 중이야. 공통 규격·다른 담당 파일·HANDOFF.md·기존 AppModel/Models/project.yml/CI를 임의 수정하지 마. 필요한 변경은 본인 results 문서에 요청으로 남겨줘. 아직 없는 상대 산출물은 명시적인 합성 테스트 입력으로 대신하고 실제 통합 완료로 보고하지 마. 운영 사용자 데이터·토큰·실제 서버는 사용하지 마. 유료 모델 호출, 원격 push, Actions 실행, 배포, 운영 DB 변경은 이번 요청에 포함되지 않아.
+다른 대화도 동시에 작업 중이야. 공통 규격과 HANDOFF.md는 A 소유 범위에서 수정하고, 다른 담당 파일·기존 AppModel/Models/project.yml/CI는 임의 수정하지 마. 필요한 변경은 본인 results 문서에 요청으로 남겨줘. 아직 없는 상대 산출물은 명시적인 합성 테스트 입력으로 대신하고 실제 통합 완료로 보고하지 마. 운영 사용자 데이터·토큰·실제 서버는 사용하지 마. 유료 모델 호출, 원격 push, Actions 실행, 배포, 운영 DB 변경은 이번 요청에 포함되지 않아.
 
 본인 변경만 코드 검토·관련 검사·git diff --check 후 커밋해줘. 전역 Git 설정을 바꾸지 말고 git -c user.name=Codex -c user.email=codex@users.noreply.github.com commit 을 사용해줘. 커밋 메시지에 [skip ci]를 포함하고 이번 담당 파일만 명시해줘.
 
