@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "friend-request-and-private-records",
+  "title": "친구 요청·기록 공개 끄기",
+  "userGoal": "친구에게 받은 코드 ABCD2345로 연결 요청을 보내고 싶습니다. 아직 상대가 수락하기 전입니다. 내 최고기록은 친구나 그룹 사람들에게 보이지 않도록 해 주세요.",
+  "startCaptureId": "friends-home",
+  "captureIds": [
+    "friends-home",
+    "friends-ranking"
+  ],
+  "maxSteps": 22,
+  "checks": [
+    {
+      "id": "request-and-sharing-understood",
+      "kind": "observation-only",
+      "description": "현재 화면과 메모로 요청 대기와 친구 수락 상태, 공개 끄기의 의미를 구분하는지 확인한다. 순위가 비어 있는 캡처만으로 개인정보 보호 성공을 판단하지 않는다."
+    },
+    {
+      "id": "friend-request-pending",
+      "kind": "app-state",
+      "description": "네트워크가 차단된 합성 친구 저장소의 실행 전·후 상태/호출 기록에서 ABCD2345의 합성 대상에게 요청이 정확히 1개 생성되고 accepted=false여야 한다. 자기 코드나 이미 친구인 대상은 이 시나리오의 사전조건에 부합하지 않는다."
+    },
+    {
+      "id": "sharing-disabled-and-cleared",
+      "kind": "app-state",
+      "description": "동일한 합성 계정의 share_records=false 및 공개 최고기록 행 0개를 저장소 증거로 확인한다. 이후 갱신에도 개인 백업 기록은 그대로이고 새 공개 기록이 생성되지 않아야 한다. UI 토글이나 로컬 UserDefaults 값만으로 판정하지 않는다."
+    },
+    {
+      "id": "independent-viewer-confirmation",
+      "kind": "manual",
+      "description": "사람이 독립된 합성 친구/그룹 관찰자 상태에서 해당 계정의 공개 기록이 보이지 않는지 확인하고 증거를 남긴다. 현재 단계에는 이 검사를 수행할 환경이 없으므로 not-evaluated이며 실제 계정·운영 서버를 사용하지 않는다."
+    }
+  ],
+  "fixtureId": "demo-v1",
+  "allowedActionTypes": [
+    "inspect",
+    "tap",
+    "scroll",
+    "input",
+    "back",
+    "stop"
+  ]
+}

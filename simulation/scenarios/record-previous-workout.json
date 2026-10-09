@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "record-previous-workout",
+  "title": "지난 운동을 날짜·세트별로 입력",
+  "userGoal": "어제(2026년 10월 11일) 한 푸쉬업 3세트를 남겨 주세요. 실제 횟수는 순서대로 10회, 8회, 6회이고 일지 제목은 ‘어제 푸쉬업’입니다. 오늘 운동과 기존 일지는 그대로 두고 싶습니다.",
+  "startCaptureId": "records-overview",
+  "captureIds": [
+    "records-overview",
+    "journal-calendar",
+    "journal-entry"
+  ],
+  "maxSteps": 25,
+  "checks": [
+    {
+      "id": "past-entry-discoverable",
+      "kind": "observation-only",
+      "description": "현재 화면 증거와 관찰 메모에서 지난 날짜에 운동을 남기는 진입점 및 세트별 횟수의 의미를 찾는지 확인한다."
+    },
+    {
+      "id": "previous-workout-saved",
+      "kind": "app-state",
+      "description": "실행 전·후 저장 스냅샷의 workouts 차이에서 새 ID의 지난 운동 일지가 정확히 1개 추가돼야 한다. Asia/Seoul 날짜는 2026-10-11, plan.title은 ‘어제 푸쉬업’, 푸쉬업 3세트 completedSets=3, actualReps=[10,8,6]이어야 한다. 수동 지난 운동 입력은 경과시간을 만들어 내지 않으므로 endedAt이 없는 것이 정상이며 실행 중 activeWorkout으로 저장되지 않아야 한다. 화면의 저장 완료 문구만으로 판정하지 않는다."
+    },
+    {
+      "id": "previous-data-preserved",
+      "kind": "app-state",
+      "description": "추가된 일지를 제외한 기존 workouts, 오늘의 activeWorkout, scheduledPlans, logs가 의도치 않게 바뀌지 않아야 한다. 최고기록 계산 결과는 변경 가능하지만 기존 수동 records 항목은 덮어쓰지 않아야 한다."
+    }
+  ],
+  "fixtureId": "demo-v1",
+  "allowedActionTypes": [
+    "inspect",
+    "tap",
+    "scroll",
+    "input",
+    "back",
+    "stop"
+  ]
+}

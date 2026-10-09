@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "return-to-selected-plan",
+  "title": "계획 상세에서 다른 분야 확인 후 복귀",
+  "userGoal": "2026년 10월 14일에 할 운동을 확인해 주세요. 이어서 최근 최고기록을 살펴본 뒤, 아까 확인하던 날짜의 계획으로 돌아와 계속 읽고 싶습니다.",
+  "startCaptureId": "plan-month",
+  "captureIds": [
+    "plan-month",
+    "plan-date-detail",
+    "records-overview"
+  ],
+  "maxSteps": 18,
+  "checks": [
+    {
+      "id": "selected-date-understood",
+      "kind": "observation-only",
+      "description": "캡처와 짧은 메모로 월간 일정과 선택 날짜 상세의 관계를 이해하는지, 복귀한 날짜를 식별하는지 확인한다. 여러 정적 화면을 순서대로 제공한 것만으로 실제 탭 이동을 수행했다고 하지 않는다."
+    },
+    {
+      "id": "selected-date-retained",
+      "kind": "app-state",
+      "description": "실제 조작 실행기의 화면 상태 덤프 또는 접근성 기반 상태 증거에서 계획 상세→기록 확인→계획 복귀 이벤트와 최종 선택 날짜 2026-10-14를 확인한다. 선택 날짜는 일시 UI 상태일 수 있으므로 디스크 스냅샷만으로 판정하지 않는다."
+    },
+    {
+      "id": "navigation-does-not-edit",
+      "kind": "app-state",
+      "description": "실행 전·후 운동 계획과 개인 기록 저장 스냅샷이 동일해야 한다. 화면 이동 과정에서 다른 날짜를 저장하거나 계획을 초기화하지 않아야 한다."
+    }
+  ],
+  "fixtureId": "demo-v1",
+  "allowedActionTypes": [
+    "inspect",
+    "tap",
+    "scroll",
+    "input",
+    "back",
+    "stop"
+  ]
+}

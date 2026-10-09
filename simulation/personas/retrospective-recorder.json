@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "retrospective-recorder",
+  "name": "지난 운동을 몰아서 기록하는 사용자",
+  "experience": "returning",
+  "context": "운동 당일 기록하지 못한 내용을 메모와 대조해 한 번에 정리한다. 날짜와 세트별 값을 꼼꼼히 읽는다.",
+  "goals": [
+    "지난 운동을 정확한 날짜와 실제 횟수로 남기고 싶다.",
+    "이미 있던 기록을 덮어쓰거나 중복시키지 않고 싶다."
+  ],
+  "attention": "normal",
+  "readingStyle": "thorough",
+  "synthetic": true
+}
