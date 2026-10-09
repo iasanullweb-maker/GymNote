@@ -271,6 +271,126 @@ struct ModelChecks {
         oldSession.removeValue(forKey: "actualReps")
         let legacySession = try decoder.decode(WorkoutSession.self, from: JSONSerialization.data(withJSONObject: oldSession))
         assert(legacySession.done == 3 && legacySession.repetitions(first, set: 0) == nil, "예전 일지 실제 횟수는 미기록")
-        print("Model checks passed: migration, calendars, workout sessions, journals, persistence, repetitions, stale/twice/widget/repeat")
+        try executionOrderChecks(encoder: encoder, decoder: decoder)
+        print("Model checks passed: migration, calendars, workout sessions, journals, persistence, repetitions, stale/twice/widget/repeat, execution order")
+    }
+
+    /// 실행 탭: 끌어서 순서 바꾸기(위·아래·맨 끝), 완료 운동 하단 표시, 진행 기록 보존.
+    static func executionOrderChecks(encoder: JSONEncoder, decoder: JSONDecoder) throws {
+        let today = Date()
+        let key = DayKey.key(today)
+        let a = Exercise(name: "A", sets: 2, detail: "10회")
+        let b = Exercise(name: "B", sets: 1, detail: "8회")
+        let c = Exercise(name: "C", sets: 3, detail: "1분")
+        let d = Exercise(name: "D", sets: 2, detail: "12회")
+        func names(_ data: AppData, _ date: Date = today) -> String {
+            data.executionExercises(on: date).map(\.name).joined()
+        }
+        func stored(_ data: AppData) -> String {
+            (data.activeWorkout?.plan ?? data.plan(for: today)).exercises.map(\.name).joined()
+        }
+
+        // 진행 중 운동이 없을 때는 그날 일정 순서를 바꾼다.
+        var idle = AppData(week: [])
+        idle.scheduledPlans[key] = DayPlan(title: "전신", exercises: [a, b, c, d])
+        assert(idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 0), toOffset: 2, on: today))
+        assert(names(idle) == "BACD", "아래로 한 칸 (List.onMove 규칙: 대상 뒤 위치)")
+        assert(idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 0), toOffset: 4, on: today))
+        assert(names(idle) == "ACDB", "맨 끝으로 이동")
+        assert(idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 3), toOffset: 0, on: today))
+        assert(names(idle) == "BACD", "맨 위로 이동")
+        assert(!idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 1), toOffset: 1, on: today), "제자리는 변경 없음")
+        assert(!idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 1), toOffset: 2, on: today), "바로 아래 칸도 제자리")
+        assert(!idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 9), toOffset: 0, on: today), "범위 밖 거부")
+        assert(!idle.moveExecutionExercises(fromOffsets: IndexSet(integer: 0), toOffset: 5, on: today), "범위 밖 거부")
+        assert(idle.moveExecutionExercises(fromOffsets: IndexSet([0, 2]), toOffset: 4, on: today))
+        assert(names(idle) == "ADBC", "여러 개 이동")
+        assert(idle.moveExecutionExercise(a.id, .down, on: today) && names(idle) == "DABC")
+        assert(idle.moveExecutionExercise(c.id, .top, on: today) && names(idle) == "CDAB")
+        assert(idle.moveExecutionExercise(d.id, .bottom, on: today) && names(idle) == "CABD")
+        assert(idle.moveExecutionExercise(a.id, .up, on: today) && names(idle) == "ACBD")
+        assert(!idle.canMoveExecutionExercise(a.id, .up, on: today) && !idle.canMoveExecutionExercise(a.id, .top, on: today))
+        assert(!idle.canMoveExecutionExercise(d.id, .down, on: today) && !idle.canMoveExecutionExercise(d.id, .bottom, on: today))
+        assert(idle.week.allSatisfy(\.exercises.isEmpty), "주간 기본 루틴은 그대로")
+
+        // 진행 중 운동: 완료한 운동은 아래로, 사용자가 정한 순서는 저장 순서로 유지.
+        var training = AppData(week: [])
+        training.scheduledPlans[key] = DayPlan(title: "전신", exercises: [a, b, c, d])
+        assert(training.startWorkout(at: today))
+        training.changeSets(b.id, by: 1, on: today, actualReps: 7)
+        let sessionID = training.activeWorkout!.id
+        assert(names(training) == "ACDB", "완료한 B는 아래에 표시")
+        assert(stored(training) == "ABCD", "저장 순서는 바꾸지 않음")
+        training.changeSets(a.id, by: 1, on: today, actualReps: 9)
+        training.activeWorkout!.actualWeights[a.id.uuidString] = [40]
+        // 끌어서 맨 끝으로: 미완료 묶음의 끝(완료 B 위)에 놓인다.
+        assert(training.moveExecutionExercises(fromOffsets: IndexSet(integer: 0), toOffset: 4, on: today))
+        assert(names(training) == "CDAB", "완료 운동 경계를 넘겨도 미완료 묶음 끝에")
+        assert(stored(training) == "CBDA", "완료 B의 저장 위치(두 번째)는 유지")
+        // 완료 운동을 미완료 쪽 맨 위로 끌어도 완료 묶음 안에 남는다.
+        assert(!training.moveExecutionExercises(fromOffsets: IndexSet(integer: 3), toOffset: 0, on: today))
+        assert(names(training) == "CDAB")
+        assert(!training.canMoveExecutionExercise(b.id, .up, on: today), "완료 묶음에 하나뿐이면 이동 동작 없음")
+        let session = training.activeWorkout!
+        assert(session.id == sessionID, "세션 ID 유지")
+        assert(session.doneSets(a) == 1 && session.repetitions(a, set: 0) == 9, "실제 횟수 유지")
+        assert(session.actualWeights[a.id.uuidString] == [40], "무게 유지")
+        assert(session.doneSets(b) == 1 && session.repetitions(b, set: 0) == 7)
+        assert(Set(session.plan.exercises.map(\.id)) == Set([a, b, c, d].map(\.id)), "운동 ID 유지")
+        assert(training.plan(for: today).exercises.map(\.name).joined() == "CBDA", "같은 날 일정 순서도 맞춤")
+        assert(training.workouts.isEmpty, "순서 변경은 일지를 만들지 않음")
+        assert(training.nextUp(on: today).title == "C", "다음 운동도 화면 순서를 따른다")
+
+        // 완료 취소: B가 원래(저장) 자리로 돌아온다.
+        training.changeSets(b.id, by: -1, on: today)
+        assert(names(training) == "CBDA", "완료 취소 시 원래 위치")
+        training.changeSets(b.id, by: 1, on: today, actualReps: 8)
+        assert(names(training) == "CDAB")
+
+        // 앱 재실행(디코딩) 후에도 순서와 진행 기록 유지.
+        let relaunched = try decoder.decode(AppData.self, from: encoder.encode(training))
+        assert(relaunched == training && names(relaunched) == "CDAB", "재실행 후 순서·진행 유지")
+
+        // 일지 저장 후: 저장된 일지는 그때 순서·기록 그대로, 이후 순서 변경이 일지를 덮어쓰지 않는다.
+        for exercise in [c, c, c, d, d, a] { training.changeSets(exercise.id, by: 1, on: today) }
+        assert(training.activeWorkout == nil && training.workouts.count == 1, "마지막 세트 자동 저장")
+        let journal = training.workouts[0]
+        assert(journal.id == sessionID && journal.plan.exercises.map(\.name).joined() == "CBDA")
+        assert(journal.repetitions(a, set: 0) == 9 && journal.actualWeights[a.id.uuidString] == [40])
+        assert(names(training) == "CBDA", "저장 후에는 모두 완료라 저장 순서대로 표시")
+        assert(training.moveExecutionExercises(fromOffsets: IndexSet(integer: 0), toOffset: 4, on: today))
+        assert(training.workouts[0] == journal, "저장 후 순서 변경은 일지를 바꾸지 않음")
+        assert(training.startWorkout(at: today), "새 운동 시작")
+        assert(stored(training) == "BDAC", "새 운동은 바뀐 일정 순서")
+        assert(training.activeWorkout!.done == 0 && names(training) == "BDAC")
+        assert(training.workouts[0] == journal)
+
+        // 자정이 지나도 시작한 날의 진행 중 운동 순서를 바꾼다.
+        let calendar = Calendar.current
+        let lateStart = calendar.date(byAdding: .minute, value: -5, to: calendar.startOfDay(for: today))!
+        let afterMidnight = calendar.date(byAdding: .minute, value: 10, to: lateStart)!
+        var overnight = AppData(week: [])
+        overnight.scheduledPlans[DayKey.key(lateStart)] = DayPlan(title: "밤", exercises: [a, b, c])
+        overnight.scheduledPlans[DayKey.key(afterMidnight)] = DayPlan(title: "다음 날", exercises: [d])
+        assert(overnight.startWorkout(at: lateStart))
+        overnight.changeSets(a.id, by: 1, on: lateStart, actualReps: 10)
+        let workoutDate = overnight.activeWorkout!.startedAt
+        assert(names(overnight, workoutDate) == "ABC")
+        assert(overnight.moveExecutionExercise(c.id, .top, on: workoutDate))
+        assert(names(overnight, workoutDate) == "CAB" && overnight.activeWorkout!.doneSets(a) == 1)
+        assert(overnight.plan(for: afterMidnight).exercises == [d], "다음 날 일정은 그대로")
+        // 다른 날짜를 넘겨도(오래된 화면) 진행 중 운동만 기준으로 삼는다.
+        assert(overnight.executionExercises(on: afterMidnight).map(\.name).joined() == "CAB")
+
+        // 같은 ID가 겹친 예전 계획은 순서를 바꾸지 않는다(어느 쪽인지 알 수 없음).
+        var duplicated = AppData(week: [])
+        duplicated.scheduledPlans[key] = DayPlan(title: "중복", exercises: [a, a, b])
+        assert(!duplicated.moveExecutionExercises(fromOffsets: IndexSet(integer: 2), toOffset: 0, on: today))
+        assert(duplicated.plan(for: today).exercises.map(\.name).joined() == "AAB")
+
+        // 휴식일·빈 목록은 아무것도 하지 않는다.
+        var rest = AppData(week: [])
+        assert(!rest.moveExecutionExercises(fromOffsets: IndexSet(integer: 0), toOffset: 1, on: today))
+        assert(rest.executionExercises(on: today).isEmpty)
     }
 }
