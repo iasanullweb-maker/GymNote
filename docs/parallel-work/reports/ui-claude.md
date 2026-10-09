@@ -2,9 +2,31 @@
 
 - 작업 폴더: `C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/claude-workout-flow`
 - 브랜치: `codex/claude-workout-flow` (시작점 `5c20bde` 구현 초안)
-- 기준 문서: `docs/parallel-work/UI_HANDOFF.md` — Codex 워크트리 폴더가 이 대화에 연결되지 않아 같은 저장소의 커밋 `05ae172`(codex/friends-records-ui)에 있는 판을 읽었다. 그 뒤 미커밋 수정이 있었다면 다시 대조가 필요하다.
+- 기준 문서: `docs/parallel-work/UI_HANDOFF.md`. 최초 작업은 커밋 `05ae172`의 판, 후속 작업은 Codex 워크트리(`346d`)의 'Claude 후속 인수인계 (2026-10-09)'를 직접 읽고 따랐다(읽기만 함).
 - 제외: 최초 가입 안내·튜토리얼·사용자 조사. 친구·기록·AccountModel·서버·공통 문서는 수정하지 않았다.
-- 상태: 구현·코드 검토 완료, **Swift 컴파일·iOS 테스트·화면 확인은 미실행**(아래 검증 참고). main 통합 안 함(Codex 담당).
+- 상태: 구현 완료. 통합 후보 `81ea364`의 macOS CI에서 **컴파일·모델/계정 검사 통과, 실행 탭 XCTest 실패 없음**. 실기기·화면 확인은 미실행. main 통합 안 함(Codex 담당).
+
+## 후속 작업 (2026-10-09, `a0dd283` 이후)
+
+- **CI 확인**: 통합 후보 `codex/workout-integration-review`의 `81ea364`(내 `17ce159` 포함, 원격에 올라간 최신 판)에서 [Validate GymNote #37935579499](https://github.com/iasanullweb-maker/GymNote/actions/runs/37935579499)와 [Build IPA #37935579428](https://github.com/iasanullweb-maker/GymNote/actions/runs/37935579428)을 확인했다. `93cd1b3`는 원격에 없어 CI가 돌지 않았다.
+  - `ios` 작업의 "Model and account regression checks" 단계 **성공**: `executionOrderChecks`와 `test_accounts.swift` 순서 병합 검사가 macOS에서 컴파일·실행돼 통과했다.
+  - "iPad simulator build and security regression tests" 단계 **실패**. 앱·테스트 컴파일은 성공했고, 실패 주석은 Codex 담당 `RecordCatalogTests.testCancelledRefreshPreservesCatalogWithoutShowingAnError`(`RecordCatalogTests.swift:87`, 취소 뒤에도 "공통 종목을 갱신하지 못했어요"가 남음) **1건뿐**이다. `WorkoutFlowTests`에는 실패 주석이 없다.
+  - 한계: 원본 로그·`.xcresult`·화면 캡처 산출물(`iPad-test-results`)은 GitHub 밖 저장소 호스트에 있어 이 환경에서 받을 수 없었다. 통과 판단은 단계 결과와 실패 주석에 근거한다.
+  - `Build IPA` 성공(Release 빌드).
+- **Codex 수정 반영**: `81ea364`에서 Codex가 고친 `AppModel.completeSet`을 이 브랜치에 그대로 가져왔다. 세트 저장이 실패해 되돌려졌는데도 휴식 타이머를 새로 시작하던 내 버그다(완료 세트 수가 실제로 늘었을 때만 휴식 시작). 같은 커밋의 `WorkoutFlowTests` 휴식 유지 단언도 가져왔다.
+- **회귀 추가**: `testFailedSetDoesNotStartRest`(마지막이 아닌 세트 저장 실패 시 기록·휴식 모두 없음). 이 테스트는 아직 CI에서 돌지 않았다.
+- 공유 API는 후속 인수인계의 최신 정의와 같다(`moveExecutionExercises(fromOffsets:toOffset:on:)`·`moveExecutionExercise(_:_:on:)`, `AddRecordView` 호출 유지, `addRecord(_:) -> Bool` 유지·`saveRecord(_:)`). 변경 없음.
+
+### 확인 항목별 상태
+
+| 항목 | 근거 | 실기기·화면 |
+|---|---|---|
+| 편집 모드 없이 길게 눌러 순서 이동 | `ForEach.onMove`(iOS 16+), 모델 이동 규칙은 CI 모델 검사 통과 | **미실행** — 시뮬레이터 XCTest는 터치 끌기를 검사하지 않음 |
+| 완료/미완료 경계 이동 | CI 모델 검사(`executionOrderChecks`)·`WorkoutFlowTests` 통과 | **미실행**(놓은 뒤 묶음 끝으로 돌아가는 모습) |
+| iPhone SE 세로·가로, iPad, 큰 글자, 휴식 중 하단 배너 | 코드 검토(각 탭 하단 safeAreaInset, 좁은 높이 대응, 글자 상한) | **미실행** — CI 화면 캡처 산출물을 받지 못함, 실기기 없음 |
+| 운동 중 → 운동 완료 → 저장됨 애니메이션 | `savedWorkout`은 실제 저장 성공 시에만 설정, `WorkoutFlowTests` 통과 | **미실행**(애니메이션 모습) |
+| 실제 저장 성공·저장 실패·자동 마지막 세트 | `WorkoutFlowTests`(저장 성공/실패/0세트/자동 마지막 세트 성공·실패/계정 전환) 실패 없음 | 해당 없음 |
+| macOS GitHub Actions XCTest | 위 링크. 실행 탭 실패 0, Codex 테스트 1건 실패 | — |
 
 ## 변경 파일
 
@@ -68,14 +90,15 @@
 
 | 검사 | 결과 |
 |---|---|
-| tree-sitter-swift 구문 분석 (변경한 Swift 7개 파일) | 통과, 오류 0 |
+| tree-sitter-swift 구문 분석 (변경한 Swift 7개 파일, 후속 2개 포함) | 통과, 오류 0 |
 | 순서 알고리즘 Python 이식 + `executionOrderChecks`와 같은 시나리오 재현 (34개 단언) | 통과 — 검사 스크립트의 기대값을 이것으로 확인 |
-| `swiftc Shared/Models.swift scripts/test_models.swift` 실행 | **미실행** |
-| `swiftc ... scripts/test_accounts.swift` 실행 | **미실행** |
-| `xcodebuild test` (GymNoteTests, `WorkoutFlowTests` 포함), 전체 iOS 빌드 | **미실행** |
-| 화면 캡처(iPhone 좁은 화면·가로·iPad·큰 글자·휴식 상태), VoiceOver | **미실행** |
+| `swiftc Shared/Models.swift scripts/test_models.swift` 실행 | **통과** (CI `81ea364`, 모델·계정 검사 단계) |
+| `swiftc ... scripts/test_accounts.swift` 실행 | **통과** (같은 단계) |
+| `xcodebuild test` (iPad 시뮬레이터, `WorkoutFlowTests` 포함) | 컴파일 성공, `WorkoutFlowTests` 실패 없음. 작업 전체는 Codex 테스트 1건으로 실패. 후속 추가 테스트 1개는 미실행 |
+| Build IPA (Release) | **통과** (CI `81ea364`) |
+| 화면 캡처(iPhone SE·가로·iPad·큰 글자·휴식 상태), VoiceOver, 실기기 터치 | **미실행** |
 
-미실행 이유: 이 Windows PC에는 Swift/Xcode가 없고, Claude 작업 환경(Linux)도 Swift 툴체인 다운로드(download.swift.org)가 네트워크 정책으로 차단됐다. 구문만 확인했으므로 **타입 검사·컴파일 오류 가능성은 남아 있다.** 기존 절차대로 로컬 통합 후 사용자 승인으로 push해 GitHub Actions **Validate GymNote**(모델·계정 회귀 검사 스크립트, iPad 시뮬레이터 XCTest)와 **Build IPA**에서 확인한다. 새로 추가한 `executionOrderChecks`, `test_accounts.swift` 병합 검사, `WorkoutFlowTests`가 통과하는지 특히 본다(Mac 준비는 사용자 결정으로 보류 중).
+최초 작업 때는 Windows PC·Claude 작업 환경 모두 Swift 툴체인이 없어 구문만 확인했고, 후속에서 위 CI 결과로 컴파일·검사를 확인했다. 기존 절차대로 로컬 통합 후 사용자 승인으로 push해 GitHub Actions **Validate GymNote**(모델·계정 회귀 검사 스크립트, iPad 시뮬레이터 XCTest)와 **Build IPA**에서 확인한다. 새로 추가한 `executionOrderChecks`, `test_accounts.swift` 병합 검사, `WorkoutFlowTests`가 통과하는지 특히 본다(Mac 준비는 사용자 결정으로 보류 중).
 
 배포 후 아이패드에서 AltStore로 업데이트해 꼭 볼 것(아이폰 화면 검증은 보류 중):
 1. 편집 모드가 아닌 상태에서 운동 행을 길게 눌러 끌기가 되는지(iOS 16+ onMove 동작). 행 안 버튼 탭과 충돌이 없는지.
@@ -84,8 +107,8 @@
 
 ## 남은 문제·Codex 확인 요청 (내가 수정하지 않은 파일)
 
-1. **`AccountModel.refreshRecordCatalog()`가 매번 `catalogAdminUserID = nil`로 지우고 `refreshCatalogAdmin()`에서 `startOperation("관리자 권한을 확인하는 중…")`을 연다.** 60초 갱신과 함께 쓰면 관리자 화면이 1분마다 깜빡이고, 확인하는 동안 `busy`라 다른 계정 작업(백업 등)이 막히거나 진행 문구가 뜰 수 있다. 제안: 결과가 나올 때까지 이전 값 유지, 같은 사용자를 최근 확인했으면 건너뛰기, 또는 이 확인을 `busy` 작업에서 분리.
-2. 같은 함수가 취소(`CancellationError`/`URLError.cancelled`)도 "공통 종목을 갱신하지 못했어요"로 표시한다. 내 60초 갱신은 취소하지 않게 했지만 `RecordsView`·`SettingsView`의 `.task`는 탭을 떠나면 취소된다. 취소는 무시하길 제안.
-3. 병합 시: `codex/friends-records-ui`는 `5c20bde` 이전에서 갈라져 이 네 파일(`TodayView`·`GymNoteApp`·`AppModel`·`Models`)이 초안 이전 상태로 보인다. 이 파일들은 이 브랜치 판을 기준으로 합쳐야 한다.
+1. (Codex `81ea364`에서 처리: 관리자 확인을 `busy`에서 분리·이전 상태 유지) ~~`AccountModel.refreshRecordCatalog()`가 매번 `catalogAdminUserID = nil`로 지우고 `refreshCatalogAdmin()`에서 `startOperation("관리자 권한을 확인하는 중…")`을 연다.** 60초 갱신과 함께 쓰면 관리자 화면이 1분마다 깜빡이고, 확인하는 동안 `busy`라 다른 계정 작업(백업 등)이 막히거나 진행 문구가 뜰 수 있다. 제안: 결과가 나올 때까지 이전 값 유지, 같은 사용자를 최근 확인했으면 건너뛰기, 또는 이 확인을 `busy` 작업에서 분리.~~
+2. **CI 실패 원인(Codex 확인 필요)**: `81ea364`의 `RecordCatalogTests.testCancelledRefreshPreservesCatalogWithoutShowingAnError`가 `RecordCatalogTests.swift:87`에서 실패한다. 취소 후에도 `catalogMessage`가 "공통 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."로 남는다. 취소가 `URLError(.cancelled)` 등 다른 형태로 도착하거나, 취소 판정 전에 메시지를 설정하는 경로가 남은 것으로 보인다. 원래 요청: 같은 함수가 취소(`CancellationError`/`URLError.cancelled`)도 "공통 종목을 갱신하지 못했어요"로 표시한다. 내 60초 갱신은 취소하지 않게 했지만 `RecordsView`·`SettingsView`의 `.task`는 탭을 떠나면 취소된다. 취소는 무시하길 제안.
+3. (통합 후보 `ef039d2`에서 처리) 병합 시: `codex/friends-records-ui`는 `5c20bde` 이전에서 갈라져 이 네 파일(`TodayView`·`GymNoteApp`·`AppModel`·`Models`)이 초안 이전 상태로 보인다. 이 파일들은 이 브랜치 판을 기준으로 합쳐야 한다.
 4. `RecordsView`는 `model.addRecord(_:) -> Bool`(신기록 여부)을 계속 쓸 수 있다. 신기록이 아닐 때도 저장됨을 알리려면 새 `model.saveRecord(_:)`(`.rejected/.saved/.newBest`)를 쓰면 된다. `AddRecordView` 인터페이스는 바꾸지 않았다.
 5. 키보드가 올라오는 화면(친구 탭 입력 등)에서는 하단 배너도 키보드 위로 올라온다. 대부분의 편집은 시트라 영향이 작아 이번 범위에서 바꾸지 않았다.
