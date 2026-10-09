@@ -317,6 +317,10 @@ struct AddRecordView: View {
     }
 
     private var type: RecordType? { types.first { $0.id == typeID } }
+    private var validInput: Bool {
+        guard let type, let value, type.acceptsValue(value), (0...1_000_000).contains(value) else { return false }
+        return (0...1_000_000).contains(extra ?? 0)
+    }
 
     var body: some View {
         NavigationStack {
@@ -339,13 +343,14 @@ struct AddRecordView: View {
                         } else {
                             HStack {
                                 TextField("기록", value: $value, format: .number)
-                                    .keyboardType(.decimalPad)
+                                    .keyboardType(type.requiresWholeValue ? .numberPad : .decimalPad)
                                 Text(type.unit)
                                     .foregroundStyle(.secondary)
                             }
                         }
                         DatePicker("날짜", selection: $date, displayedComponents: .date)
                     } footer: {
+                        if type.requiresWholeValue { Text("횟수와 라운드는 소수점 없이 정수로 입력해 주세요.") }
                         if !type.hint.isEmpty { Text(type.hint) }
                     }
                 }
@@ -357,7 +362,7 @@ struct AddRecordView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("저장") { save() }
-                        .disabled(type == nil || value == nil || !(value?.isFinite ?? false) || (value ?? -1) < 0 || (value ?? 0) > 1_000_000 || (extra ?? 0) < 0 || (extra ?? 0) > 1_000_000)
+                        .disabled(!validInput)
                 }
             }
             .onChange(of: typeID) { _, _ in
@@ -369,8 +374,7 @@ struct AddRecordView: View {
     }
 
     private func save() {
-        guard let type = type, let v = value, v.isFinite, v >= 0, v <= 1_000_000,
-              (extra ?? 0) >= 0, (extra ?? 0) <= 1_000_000 else { return }
+        guard validInput, let type, let v = value else { return }
         var entry = RecordEntry(typeID: type.id, date: date, value: v)
         if let existing = existing { entry.id = existing.id }
         if type.style == .rounds {

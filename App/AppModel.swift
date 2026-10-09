@@ -189,7 +189,7 @@ final class AppModel {
     @discardableResult
     func addRecord(_ entry: RecordEntry) -> Bool {
         guard let definition = account.catalogTypes.first(where: { $0.id == entry.typeID && $0.active }),
-              entry.value.isFinite, entry.value >= 0, entry.value <= 1_000_000,
+              definition.recordType.acceptsValue(entry.value), entry.value >= 0, entry.value <= 1_000_000,
               entry.extraReps >= 0, entry.extraReps <= 1_000_000 else {
             storageError = "입력할 수 없는 종목 또는 기록이에요. 공통 목록과 입력값을 확인해 주세요."
             return false

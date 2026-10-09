@@ -38,6 +38,24 @@ struct SocialRankingChecks {
         assert(fast.map(\.nickname) == ["빠름", "느림"] && fast.map(\.rank) == [1, 2])
         assert(SocialRanking.rank([], for: push).isEmpty)
 
+        // 횟수·라운드의 소수와 숨은 추가 횟수는 경쟁에서 제외한다.
+        assert(push.requiresWholeValue && cindy.requiresWholeValue)
+        assert(push.acceptsValue(40) && !push.acceptsValue(40.004))
+        assert(!cindy.acceptsValue(12.9) && !push.acceptsValue(.infinity))
+        assert(!timed.requiresWholeValue && timed.acceptsValue(12.34))
+        let weighted = RecordType(id: "common-weight-v1", name: "무게", unit: "kg")
+        assert(weighted.acceptsValue(72.5))
+        assert(SocialRanking.rank([
+            entry("정상", push.id, 40, day: "2026-10-01"),
+            entry("소수", push.id, 40.004, day: "2026-10-01"),
+            entry("추가 횟수", push.id, 40, 1, day: "2026-10-01"),
+        ], for: push).map(\.nickname) == ["정상"])
+        assert(SocialRanking.rank([
+            entry("정상", cindy.id, 12, 29, day: "2026-10-01"),
+            entry("소수", cindy.id, 12.9, day: "2026-10-01"),
+            entry("범위 초과", cindy.id, 12, 30, day: "2026-10-01"),
+        ], for: cindy).map(\.nickname) == ["정상"])
+
         // 공개 값 = 기록 탭에 보이는 값: 횟수 종목은 직접 기록과 운동 일지 중 높은 한 세트, 라운드형은 직접 기록
         var data = AppData(week: Array(repeating: DayPlan(title: "휴식", exercises: []), count: 7))
         assert(data.socialPublishPayload(catalog: catalog).isEmpty, "기록이 없으면 공개할 것도 없음")
@@ -47,6 +65,12 @@ struct SocialRankingChecks {
         var payload = data.socialPublishPayload(catalog: catalog)
         assert(payload == [PublishedRecord(type_id: push.id, value: 30, extra_reps: 0, achieved_at: "2026-10-01"),
                            PublishedRecord(type_id: cindy.id, value: 12, extra_reps: 7, achieved_at: "2026-10-02")], "\(payload)")
+        let originalRecords = data.records
+        data.records += [RecordEntry(typeID: push.id, date: at(10, 3), value: 40.004),
+                         RecordEntry(typeID: cindy.id, date: at(10, 3), value: 12.9)]
+        assert(data.socialPublishPayload(catalog: catalog) == payload, "소수 최고기록 대신 다음 유효 정수 기록을 공개")
+        assert(data.records.count == originalRecords.count + 2, "개인 소수 기록은 삭제하거나 반올림하지 않음")
+        data.records = originalRecords
         let exercise = Exercise(name: "푸쉬업", sets: 2, detail: "10회")
         var session = WorkoutSession(startedAt: at(10, 5), plan: DayPlan(title: "상체", exercises: [exercise]))
         session.completedSets[exercise.id.uuidString] = 2

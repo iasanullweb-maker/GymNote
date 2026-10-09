@@ -78,7 +78,8 @@ enum SocialRanking {
     /// 종목 규칙(높을수록/낮을수록, 라운드형 점수)으로 정렬. 같은 점수는 같은 순위(1, 1, 3)이고
     /// 화면 순서는 먼저 달성한 사람 → 닉네임 순.
     static func rank(_ entries: [SocialEntry], for type: RecordType) -> [RankedRow] {
-        let rows = entries.filter { $0.type_id == type.id }.map { ($0, $0.entry) }
+        let rows = entries.filter { $0.type_id == type.id && type.acceptsCompetitiveRecord($0.entry) }
+            .map { ($0, $0.entry) }
         let sorted = rows.sorted { a, b in
             let sa = type.score(a.1), sb = type.score(b.1)
             if sa != sb { return type.lowerIsBetter ? sa < sb : sa > sb }
@@ -102,12 +103,16 @@ extension AppData {
         let all = exerciseRecords()
         return CatalogRecordType.sorted(catalog).filter(\.active).compactMap { definition in
             let type = definition.recordType
+            // 기존 백업의 소수 기록은 보존하되 경쟁 후보에서 제외한 뒤 최고기록을 고른다.
+            var eligible = self
+            eligible.records.removeAll { $0.typeID == type.id && !type.acceptsCompetitiveRecord($0) }
             if Self.acceptsWorkoutRepetitions(type),
-               let combined = combinedBestSet(for: type, auto: exerciseRecords(for: type, in: all)) {
+               let combined = eligible.combinedBestSet(for: type, auto: exerciseRecords(for: type, in: all)),
+               type.acceptsCompetitiveRecord(RecordEntry(typeID: type.id, date: combined.date, value: combined.value)) {
                 return PublishedRecord(type_id: type.id, value: combined.value, extra_reps: 0,
                                        achieved_at: DayKey.key(combined.date))
             }
-            guard let manual = self.best(type) else { return nil }
+            guard let manual = eligible.best(type) else { return nil }
             return PublishedRecord(type_id: type.id, value: manual.value, extra_reps: manual.extraReps,
                                    achieved_at: DayKey.key(manual.date))
         }

@@ -78,6 +78,21 @@ struct RecordType: Codable, Identifiable, Hashable {
     var lowerIsBetter: Bool = false
     var hint: String = ""
 
+    /// 횟수와 완료 라운드는 정수로만 기록한다. 무게·시간의 소수는 유지한다.
+    var requiresWholeValue: Bool {
+        let normalizedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines)
+        return style == .rounds || normalizedUnit == "회" || normalizedUnit.isEmpty
+    }
+
+    func acceptsValue(_ value: Double) -> Bool {
+        value.isFinite && (!requiresWholeValue || value.rounded(.towardZero) == value)
+    }
+
+    func acceptsCompetitiveRecord(_ entry: RecordEntry) -> Bool {
+        guard acceptsValue(entry.value), (0...100_000).contains(entry.value), entry.extraReps >= 0 else { return false }
+        return style == .rounds ? entry.extraReps < repsPerRound : entry.extraReps == 0
+    }
+
     static let defaults: [RecordType] = [
         RecordType(id: "pushup", name: "푸쉬업", hint: "한 세트 최대 반복 횟수"),
         RecordType(id: "pullup", name: "풀업", hint: "한 세트 최대 반복 횟수"),

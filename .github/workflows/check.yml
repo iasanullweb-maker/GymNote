@@ -95,6 +95,8 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610080001_accounts.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610080002_record_catalog.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610090001_social.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610090002_integer_records.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_auth_policies.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_record_catalog.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_social.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_integer_records.sql

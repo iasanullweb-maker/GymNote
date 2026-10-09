@@ -50,6 +50,8 @@ final class RecordCatalogTests: XCTestCase {
         XCTAssertEqual(model.data.records, [common])
         XCTAssertNotNil(model.data.recordType(common.typeID))
         XCTAssertFalse(model.addRecord(RecordEntry(typeID: common.typeID, date: Date(), value: .infinity)))
+        XCTAssertFalse(model.addRecord(RecordEntry(typeID: common.typeID, date: Date(), value: 5.004)))
+        XCTAssertFalse(model.addRecord(RecordEntry(typeID: CatalogRecordType.defaults[2].id, date: Date(), value: 12.9)))
         XCTAssertEqual(model.data.records.count, 1)
     }
 }
