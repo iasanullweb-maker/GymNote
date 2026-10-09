@@ -8,7 +8,7 @@
 |---|---|---|---|
 | Codex | `C:/Users/Donghyun/.codex/worktrees/346d/GymNote` | `codex/workout-integration-review` | 검증 소스 `9f218e7`에 Claude 후속 변경과 취소 오류 수정 포함. reports/ui-codex.md 참고 |
 | Claude | `C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/claude-workout-flow` | `codex/claude-workout-flow` | 실행 탭 구현 `17ce159`, 문서 `a0dd283`, 저장 실패 회귀 `b65301a` 완료 |
-| 로컬 통합 대상 | `C:/Users/Donghyun/Documents/2026_IASA/GymNote` | `main` | 최종 검토·검증 후 직렬 통합 |
+| 로컬 통합 대상 | `C:/Users/Donghyun/Documents/2026_IASA/GymNote` | `main` | 검증된 앱 코드 `50bad50`에 로컬 통합 완료 |
 
 Claude 워크트리는 실제 생성했으며, Claude 실행·채팅 메시지 전달은 하지 않았다. Claude 워크트리의 기존 배정표에는 이 새 분담이 아직 없으므로 이 문서와 아래 최신 인수인계를 우선한다.
 
@@ -31,7 +31,7 @@ Claude 후속 `b65301a`를 통합 후보에 병합했다. `AppModel.completeSet`
 
 남은 실기기 항목은 편집 모드 없이 길게 눌러 끌기, 완료/미완료 경계에서 놓은 모습, iPhone SE 세로·가로·iPad·큰 글자·휴식 중 배너와 탭 막대/마지막 버튼의 배치, 운동 중 → 운동 완료 → 운동 일지에 저장됨 애니메이션의 실제 모습이다. 코드·모델 검증 성공과 실기기 확인을 구분한다.
 
-후속 커밋은 담당 파일만 포함하고 `docs/parallel-work/reports/ui-claude.md`에 변경·CI 링크·실기기 미실행 여부를 갱신한다. Codex는 해당 커밋을 다시 교차 검토한 뒤 `C:/Users/Donghyun/Documents/2026_IASA/GymNote`의 `main`에 UX 통합 잠금을 사용해 로컬 병합한다. 원격 `main` push, 운영 SQL 적용, 릴리스 배포는 별도 승인 없이는 하지 않는다.
+Codex가 `b65301a`를 교차 검토하고 취소 오류 수정을 더한 후보를 검증한 뒤, UX 통합 잠금 아래 로컬 main에 병합했다(`50bad50`). 다른 대화의 텔레그램 체크리스트 `6a18b0c`와 기존 미추적 폴더를 보존했으며 통합 앱 소스는 CI 대상 `9f218e7`와 동일하다. 원격 main push·운영 SQL 적용·릴리스 배포는 실행하지 않았다. 후속 실기기 검증은 위 남은 항목을 따른다.
 
 ## Claude: 실행 탭 완성
 
