@@ -2,11 +2,11 @@
 
 마지막 업데이트: 2026-10-09
 
-## 친구 탭 분리 (2026-10-09, 로컬 main 통합·미배포)
+## 친구 탭 분리 (2026-10-09, 0.1.85 배포)
 - 사용자 요청: 기록에서 친구 순위가 보이는 건 유지하고, 친구 등록 등은 별도 탭으로.
 - 하단 탭에 **친구**(실행·계획·기록·친구·설정, 운동/일상 공통) 추가: 닉네임 설정, 친구 코드 복사·공유, 공개 토글, 받은 친구 요청·그룹 초대(별도 섹션), 친구 목록·끊기, 친구 코드로 추가(툴바 버튼 포함), 그룹 만들기·상세(초대·나가기). 받은 요청+그룹 초대 수를 탭 배지로 표시(앱 시작·복귀 때 조용히 새로고침, 실패 메시지 없음, 다른 계정의 배지 미표시).
 - 기록 탭 → 친구는 순위 전용(`FriendRankingView`): 닉네임 전이거나 친구가 없으면 '친구 탭으로 가기' 버튼. 설정 탭 tag 3→4.
-- 검증: `codex/friends-tab` 0edb3f1 Validate GymNote #55(iOS XCTest·DB·계정 삭제) · Build IPA #84 성공. 원격 main push·배포 없음.
+- 검증: `codex/friends-tab` 0edb3f1 Validate GymNote #55(iOS XCTest·DB·계정 삭제) · Build IPA #84 성공. 2026-10-09 15:48 main `71594a5` push(fast-forward) → Build IPA #85(workflow_dispatch), build-85, AltStore 0.1.85. Codex 작업 중인 `codex/integer-competition-records`(횟수·라운드 정수 제한, 서버 마이그레이션 `202610090002_integer_records.sql` 포함)는 미커밋 상태라 이번 배포에 미포함.
 
 ## 현재 상태 — 2026-10-09 문서 대조 완료
 - **최신 배포는 0.1.83**(한국 시간 10월 9일 14:02), 앱 코드 기준 커밋은 `4497785`. [Validate GymNote #54](https://github.com/iasanullweb-maker/GymNote/actions/runs/37820389616)의 iOS·DB·계정 삭제 검사, [Build IPA #82](https://github.com/iasanullweb-maker/GymNote/actions/runs/37820389652), [main 배포 #83](https://github.com/iasanullweb-maker/GymNote/actions/runs/37886501547)이 모두 성공했다. `latest` 릴리스와 AltStore source.json의 0.1.83/83, 고정 `build-83` 다운로드 주소, IPA 크기 1,893,906바이트를 이번 대조에서 직접 확인했다. 설치된 iPad의 버전은 별도 확인해야 한다.
