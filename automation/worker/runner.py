@@ -124,7 +124,7 @@ class Runner:
             root.parent.mkdir(parents=True, exist_ok=True)
             branch = 'codex/idea-' + item['attempt']
             git(main, 'worktree', 'add', '-b', branch, str(root), base)
-            self.store.state(task, 'running', {'worktree': str(root), 'base': base, 'integrated': False})
+            self.store.state(task, 'running', {'worktree': str(root), 'base': base, 'integrated': False}, attempt=item['attempt'])
             prompt = ('사용자가 텔레그램에서 승인한 로컬 저장소 작업입니다. 다음 아이디어를 구현하고 변경을 검토하고 '
                       '필요한 검사를 실행하세요. 담당 파일만 커밋하세요. 이 실행에서는 오케스트레이터가 통합하므로 '
                       'main 병합, 원격 push, 배포, 운영 DB 변경, 외부 메시지 발송은 수행하지 마세요. '
@@ -140,7 +140,7 @@ class Runner:
             commit = git(root, 'rev-parse', 'HEAD')
             git(root, 'merge-base', '--is-ancestor', base, commit)
             git(root, 'diff', '--check', base, commit)
-            self.store.state(task, 'reviewing')
+            self.store.state(task, 'reviewing', attempt=item['attempt'])
             review = json.loads(self.agent(task, root,
                 f'Review all changes from {base} to HEAD. Check correctness, data preservation and security. '
                 'Do not change files or execute external writes. Return JSON only: '
@@ -151,7 +151,7 @@ class Runner:
             if git(root, 'rev-parse', 'HEAD') != commit or git(root, 'status', '--porcelain'):
                 raise RuntimeError('Worktree changed during review; inspect before integration')
             git(root, 'diff', '--check', base, commit)
-            self.store.state(task, 'validating')
+            self.store.state(task, 'validating', attempt=item['attempt'])
             if self.store.get(task)['cancel']:
                 raise RuntimeError('cancelled')
             integrated = False
@@ -162,7 +162,7 @@ class Runner:
             self.store.state(task, 'completed' if integrated else 'waiting_user',
                              {'summary': result.get('summary'), 'checks': result['checks'],
                               'notRun': result.get('notRun', []), 'commit': commit,
-                              'worktree': str(root), 'integrated': integrated})
+                              'worktree': str(root), 'integrated': integrated}, attempt=item['attempt'])
         except Exception as error:
             cancelled = self.store.get(task)['cancel']
             # Subprocess/OSError strings may include paths; all artifacts stay on disk.
@@ -178,5 +178,5 @@ class Runner:
                              {'summary': summary, 'worktree': str(root) if root else None,
                               'commit': commit, 'checks': result.get('checks', []) if isinstance(result, dict) else [],
                               'notRun': result.get('notRun', []) if isinstance(result, dict) else [],
-                              'integrated': integrated})
+                              'integrated': integrated}, attempt=item['attempt'])
         return True

@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from automation.store import Store
 from automation.ingress.telegram import Telegram
 from automation.worker.runner import Runner
+from automation.contracts.tasks import identifier
 
 
 class InstanceLock:
@@ -97,6 +98,12 @@ def handler(store, config, token):
                                  'defaultProject': config['defaultProject'],
                                  'executionEnabled': config.get('executionEnabled', False),
                                  'executionPaused': config.get('executionPaused', False)})
+            elif self.path.startswith('/api/tasks/') and len(self.path.strip('/').split('/')) == 3:
+                task = store.get(self.path.rsplit('/', 1)[1])
+                if task:
+                    self.reply(200, {'task': task, 'history': store.history(task['id'])})
+                else:
+                    self.reply(404, {'error': 'Not found'})
             else:
                 self.reply(404, {'error': 'Not found'})
 
@@ -112,10 +119,11 @@ def handler(store, config, token):
                     raise ValueError('Expected object')
                 if self.path == '/api/tasks':
                     project = data.get('project', config['defaultProject'])
-                    if project not in config['projects']:
+                    if not isinstance(project, str) or project not in config['projects']:
                         raise ValueError('Project is not allowed')
                     import uuid
-                    task = store.create('web', str(uuid.uuid4()), 'admin', project,
+                    event = identifier(data['requestId'], 'requestId') if 'requestId' in data else str(uuid.uuid4())
+                    task = store.create('web', event, 'admin', project,
                                         data.get('text', ''), data.get('intent', 'memo'))
                     self.reply(201, task)
                     return

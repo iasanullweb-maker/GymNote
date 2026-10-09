@@ -2,6 +2,12 @@
 
 마지막 업데이트: 2026-10-09
 
+## 아이디어 자동화 공통 코드·실행 규격 확정 (2026-10-09)
+- 사용자 요청: 이 대화에서 약속한 공통 코드와 실행 규격을 마무리. 다른 대화의 최신 Python/SQLite 통합 구현(e695d98)을 먼저 반영해 보존했다.
+- automation/contracts/tasks.py에 채널 공통 입력·ID·상태 전이 검증 추가. 동일 이벤트의 다른 내용·사용자·프로젝트·실행 의도 재사용 거부, 종료 상태·취소 진행·이전 실행 시도의 상태 덮어쓰기 차단.
+- Store의 intent·history.result를 기존 SQLite에 비파괴 추가. 상태·결과 이력 보존, 재시도 claim 시 현재 결과 분리, 재시작 시 worktree/base/결과 보존. 관리자 requestId 기반 재전송 중복 방지와 GET /api/tasks/:id 상세·이력 API 추가. 실제 Python 실행·HTTP 규격은 automation/contracts/TASKS.md에 확정했다.
+- 검증: 자동화 회귀 검사 25개 전체 성공(실제 SQLite·기존 DB 이전·localhost HTTP·격리 Git·가짜 에이전트 프로세스). Python 문법·git diff 검사 통과. 기본 샌드박스의 localhost/자식 종료 제한 때문에 로컬 검사만 승인된 권한으로 실행했다. 실제 텔레그램 접속·유료 Codex/Claude 실행·전체 iOS 빌드·XCTest·원격 push·배포는 미실행. 다른 대화에 작업 지시는 보내지 않았다.
+
 ## UX 시뮬레이션 A 공통 검증기 (2026-10-09)
 - A 워크트리에서 simulation/contracts/validate.mjs, audit.mjs, test_validate.mjs와 사용 안내를 추가했다. 기존 v1 스키마는 변경하지 않는다. 구조·참조·화면 변형·dry-run 상태·증거 있는 검사 결과를 점검하고, screen-review로 앱 저장 검사를 통과 처리하지 못하게 한다.
 - audit는 실제 B/C 입력을 읽고 사용자 4개×시나리오 5개×3회 준비와 이미지 파일의 경로·PNG signature/IHDR·해시를 검사한다. 입력 미존재는 awaiting-inputs이며 모델 호출·UI 조작·이미지 전체 디코딩을 수행하지 않는다. PNG와 생성 manifest를 같은 무시된 실행 결과 폴더에 보관하는 계약을 명확히 했다.
