@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "cancel-record-edit",
+  "title": "편집 취소·기존 기록 보존",
+  "userGoal": "기존 푸쉬업 최고기록의 값을 50회로 바꾸려다가 마음을 바꿨습니다. 변경한 내용을 저장하지 않은 채 편집을 끝내고, 원래 기록이 남아 있는지 확인해 주세요.",
+  "startCaptureId": "records-overview",
+  "captureIds": [
+    "records-overview"
+  ],
+  "maxSteps": 16,
+  "checks": [
+    {
+      "id": "cancel-outcome-understood",
+      "kind": "observation-only",
+      "description": "짧은 메모와 캡처로 변경을 버리는 동작과 저장하는 동작을 구분하는지 관찰한다. 편집·취소 화면은 계약의 별도 capture ID가 없으므로 증거 경로로 구분하고 새 capture ID를 만들지 않는다."
+    },
+    {
+      "id": "edit-was-attempted",
+      "kind": "app-state",
+      "description": "실제 조작 이벤트/편집 UI 상태 증거에서 대상 기존 수동 푸쉬업 기록 ID의 편집을 열고 임시 값 50을 입력했음을 확인한다. 단순히 아무 작업도 하지 않은 것을 성공으로 판정하지 않는다."
+    },
+    {
+      "id": "cancel-preserves-record",
+      "kind": "app-state",
+      "description": "편집 종료 후 저장 스냅샷의 records 전체가 실행 전과 동일하며 대상 ID·값·날짜가 그대로여야 한다. 새 기록 생성·중복 저장·기존 기록 삭제가 없어야 한다."
+    }
+  ],
+  "fixtureId": "demo-v1",
+  "allowedActionTypes": [
+    "inspect",
+    "tap",
+    "scroll",
+    "input",
+    "back",
+    "stop"
+  ]
+}

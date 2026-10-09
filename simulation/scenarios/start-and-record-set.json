@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "start-and-record-set",
+  "title": "운동 시작·실제 횟수·첫 세트 완료",
+  "userGoal": "오늘(2026년 10월 12일) 예정된 운동을 시작해 주세요. 첫 운동의 첫 세트는 실제로 7회 했습니다. 그 세트만 마친 상태로 남기고, 나머지 세트는 아직 하지 않은 것으로 두세요.",
+  "startCaptureId": "workout-ready",
+  "captureIds": [
+    "workout-ready",
+    "workout-active",
+    "workout-rest"
+  ],
+  "maxSteps": 18,
+  "checks": [
+    {
+      "id": "workout-entry-understood",
+      "kind": "observation-only",
+      "description": "관찰 메모와 해당 단계 캡처에서 예정된 운동, 진행 중 운동, 세트 완료를 구분하는지 확인한다. 실제 실행 없이 완료 여부를 pass로 판단하지 않는다."
+    },
+    {
+      "id": "first-set-saved",
+      "kind": "app-state",
+      "description": "demo-v1 사본의 실행 전·후 저장 스냅샷을 비교한다. 2026-10-12 첫 운동의 completedSets가 정확히 0→1, actualReps 첫 값이 7이며 다른 세트 완료 수는 변하지 않아야 한다. 운동은 activeWorkout으로 유지되고 workouts에 중복 완료 일지가 추가되지 않아야 한다. 화면 숫자만으로 저장 성공을 판정하지 않는다."
+    },
+    {
+      "id": "plan-preserved",
+      "kind": "app-state",
+      "description": "실행 전·후 scheduledPlans와 해당 운동의 계획 횟수·세트 수가 같아야 한다. 실제 횟수 7은 계획 값 변경으로 처리되지 않아야 한다."
+    }
+  ],
+  "fixtureId": "demo-v1",
+  "allowedActionTypes": [
+    "inspect",
+    "tap",
+    "scroll",
+    "input",
+    "back",
+    "stop"
+  ]
+}

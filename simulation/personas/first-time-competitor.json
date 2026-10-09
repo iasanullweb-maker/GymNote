@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "first-time-competitor",
+  "name": "친구 경쟁을 처음 사용하는 사용자",
+  "experience": "first-time",
+  "context": "개인 운동 기록은 남겨 봤지만 친구 요청과 공개 설정은 처음 접한다. 친구가 알려 준 합성 코드만 알고 있으며 무엇이 공유되는지 신중히 읽는다.",
+  "goals": [
+    "친구와 연결되는 과정과 수락 대기를 구분하고 싶다.",
+    "내 최고기록을 공유할지 직접 결정하고 싶다."
+  ],
+  "attention": "normal",
+  "readingStyle": "thorough",
+  "synthetic": true
+}
