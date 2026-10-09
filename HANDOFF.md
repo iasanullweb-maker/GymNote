@@ -2,6 +2,14 @@
 
 마지막 업데이트: 2026-10-09
 
+## 최신 앱 배포: 0.1.91 (2026-10-09 23:00 KST)
+- 사용자 요청으로 친구·기록·Claude 실행 탭 변경을 교차 검토하고 로컬 main에 통합한 뒤 배포했다. 배포 커밋 `0128f23`, 앱 코드 통합 `50bad50`, 검증 소스 `9f218e7`. 최초 가입 안내·튜토리얼·사용자 조사는 제외했다.
+- [Validate GymNote 37937581607](https://github.com/iasanullweb-maker/GymNote/actions/runs/37937581607): 모델·계정 스크립트, PostgreSQL 17 권한/친구 탈퇴, 계정 삭제, iPad XCTest 성공(74개 중 실패 0·기존 UX 캡처 5개 건너뜀). WorkoutFlowTests 10개와 RecordCatalogTests 10개 모두 통과했다. 탭 이탈 취소 오류 및 실패 세트의 휴식 시작/재시작 회귀를 포함한다.
+- main [Build IPA 37940596587](https://github.com/iasanullweb-maker/GymNote/actions/runs/37940596587): 앱·위젯 Release 빌드, IPA, [build-91](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-91)·latest 릴리스와 AltStore 소스 갱신 성공. 버전 0.1.91/build 91, 2,006,818바이트, SHA-256 `53b15300384025a39cc66b0bcb908d00f4f84ded863b5326c8c316d88aafc803`. 실제 IPA의 앱/위젯 버전·서명 리소스·Supabase 설정과 릴리스·소스 일치를 확인했다. AltStore에서 Sources 새로고침 후 헬스노트를 업데이트한다.
+- **남은 서버 작업:** 현재 브라우저가 Supabase 로그인 화면이라 `202610090003_social_withdraw.sql`은 운영 미적용. `202610090002_integer_records.sql`의 운영 적용 여부도 미확인이다. 로그인 연결 후 읽기 전용 적용/고아 행 확인 → 필요한 002/003을 순서대로 적용 → authenticated 허용/anon 차단 및 FK 확인. 001 또는 테스트 SQL을 재실행하지 않는다. 서버 적용 전 친구 탈퇴는 업데이트 필요 안내이며 기존 친구 기능은 유지한다.
+- **실사용 미확인:** [77개 점검표](docs/RELEASE_DEVICE_CHECKLIST.md)에 준비·첫 실행·길게 끌기·완료 경계·세트 진행도·하단 배너·종료 애니메이션·기록 입력·친구/그룹/공개/탈퇴·두 계정 관리자 종목 노출·오프라인/계정 전환·위젯/Live Activity/알림을 기록했다. 이전 0.1.88 클라우드 iPadOS 17.5 첫 화면 미확인 현상은 원인 불명이며 새 버전의 실제 기기 첫 실행을 우선 확인한다.
+- 배포 이후 추가 문서는 앱 코드 변경 없이 커밋·로컬 통합한다. 다른 대화의 텔레그램·UX 문서와 기존 미추적 폴더를 보존한다. 아래 버전·당시 미실행 상태는 과거 작업 이력으로 읽는다.
+
 ## 텔레그램 자동화 상태 알림·사전 점검 (2026-10-09)
 - 자동화 서비스에 신규 텔레그램 실행 요청의 완료·실패·사용자 확인 필요·실제 중지 상태 알림을 추가했다. SQLite 상태 변경과 같은 트랜잭션으로 알림을 저장하고, 재시작/발송 실패 뒤 재시도한다. 원래 요청 채팅으로만 발송하며 현재 user/chat 허용 목록을 다시 확인한다. 코드·로그·아이디어·모델 상세 요약·토큰은 보내지 않는다.
 - telegramNotificationsEnabled로 발송만 끌 수 있다. sendMessage 성공과 DB 확인 사이의 응답 유실/종료에는 중복 가능성이 있어 알림 번호로 식별하며 exactly-once를 주장하지 않는다. 구형/관리자 요청에 수신자를 소급 추가하지 않는다.
