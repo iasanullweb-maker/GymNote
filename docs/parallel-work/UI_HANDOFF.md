@@ -7,10 +7,25 @@
 | 담당 | 절대 경로 | 브랜치 | 상태 |
 |---|---|---|---|
 | Codex | `C:/Users/Donghyun/.codex/worktrees/346d/GymNote` | `codex/friends-records-ui` | 담당 구현·격리 DB/구문 검사 완료. 자세한 결과는 reports/ui-codex.md |
-| Claude | `C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/claude-workout-flow` | `codex/claude-workout-flow` | 실행 탭 초안 `5c20bde`에서 이어서 작업 |
+| Claude | `C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/claude-workout-flow` | `codex/claude-workout-flow` | 실행 탭 구현 `17ce159`, Actions 문서 `a0dd283`까지 완료. 아래 인수인계 기준으로 이어서 작업 |
 | 로컬 통합 대상 | `C:/Users/Donghyun/Documents/2026_IASA/GymNote` | `main` | 최종 검토·검증 후 직렬 통합 |
 
-Claude 워크트리는 실제 생성했으며, Claude 실행·채팅 메시지 전달은 하지 않았다. Claude 워크트리의 기존 배정표에는 이 새 분담이 아직 없으므로 이 문서와 사용자가 전달하는 아래 지시를 우선한다.
+Claude 워크트리는 실제 생성했으며, Claude 실행·채팅 메시지 전달은 하지 않았다. Claude 워크트리의 기존 배정표에는 이 새 분담이 아직 없으므로 이 문서와 아래 최신 인수인계를 우선한다.
+
+## Claude 후속 인수인계 (2026-10-09)
+
+Claude가 이어서 작업할 기준은 `codex/claude-workout-flow`의 `a0dd283c5c1932dfb8e943998ccad7688d95e017`이다. 실행 탭 구현은 `17ce159`에 있으며, Codex 통합 후보 `codex/workout-integration-review`의 `93cd1b3`에서 친구·기록 UI와 함께 교차 검토 중이다. Claude 워크트리의 담당 파일만 수정하고, 친구·기록·서버·공통 문서는 건드리지 않는다.
+
+통합 후보에서 이미 고정된 공유 API는 다음과 같다.
+
+- `moveExecutionExercise(_:before:on:)`는 제거되었고 `moveExecutionExercises(fromOffsets:toOffset:on:)`, `moveExecutionExercise(_:_:on:)`를 사용한다.
+- `AddRecordView` 호출 형태는 유지된다.
+- `AppModel.addRecord(_:) -> Bool`는 유지되며, 저장 결과가 필요하면 `saveRecord(_:)`의 `.rejected/.saved/.newBest`를 사용한다.
+- `AccountModel.refreshRecordCatalog()`는 관리자 권한 확인을 `busy` 계정 작업에서 분리하고, 이전 관리자 상태를 확인 결과 전까지 유지하며, 취소 오류를 사용자 오류로 표시하지 않는다.
+
+Claude 후속 작업은 macOS CI의 `Validate GymNote` iPad 시뮬레이터 결과를 확인하고 필요한 실행 탭 수정만 커밋하는 것이다. 반드시 확인할 항목은 편집 모드 없이 길게 눌러 끌기, 완료/미완료 경계에서의 이동, iPhone SE 세로·가로, iPad, 큰 글자와 휴식 중 하단 배너가 탭 막대·마지막 버튼을 가리지 않는지, 운동 중 → 운동 완료 → 운동 일지에 저장됨 애니메이션의 실제 저장 성공 연동이다. 현재 Windows에서는 Swift/Xcode를 실행할 수 없으므로 macOS CI 결과를 근거로 기록한다.
+
+후속 커밋은 담당 파일만 포함하고 `docs/parallel-work/reports/ui-claude.md`에 변경·CI 링크·실기기 미실행 여부를 갱신한다. Codex는 해당 커밋을 다시 교차 검토한 뒤 `C:/Users/Donghyun/Documents/2026_IASA/GymNote`의 `main`에 UX 통합 잠금을 사용해 로컬 병합한다. 원격 `main` push, 운영 SQL 적용, 릴리스 배포는 별도 승인 없이는 하지 않는다.
 
 ## Claude: 실행 탭 완성
 
@@ -53,7 +68,7 @@ Claude 워크트리는 실제 생성했으며, Claude 실행·채팅 메시지 �
 GymNote 실행 탭 개선을 맡아줘.
 작업 폴더: C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/claude-workout-flow
 브랜치: codex/claude-workout-flow
-체크포인트: 5c20bde (완료가 아닌 구현 초안)
+체크포인트: a0dd283 (17ce159 실행 탭 구현 및 Actions 검증 문서 반영 후속 기준)
 
 먼저 cwd, 브랜치, git status, AGENTS.md를 확인하고,
 C:/Users/Donghyun/.codex/worktrees/346d/GymNote/docs/parallel-work/UI_HANDOFF.md를 읽어줘.
@@ -65,5 +80,5 @@ C:/Users/Donghyun/.codex/worktrees/346d/GymNote/docs/parallel-work/UI_HANDOFF.md
 실행 탭의 종목 기록 입력과 앱 활성 중 공통 종목 갱신은 유지해줘.
 결과와 검증·미실행·교차 변경 필요사항은 docs/parallel-work/reports/ui-claude.md에 기록하고
 담당 파일만 커밋해줘. 최종 main 교차 검토·직렬 통합은 Codex가 맡아.
-다른 작업자의 변경을 덮어쓰거나 강제 push/reset/임의 stash를 하지 마.
+현재 통합 후보 `codex/workout-integration-review`의 `93cd1b3`에는 네 실행 탭 변경과 Codex 친구·기록 변경이 함께 들어가 있다. 공유 API는 위 인수인계의 최신 정의를 따르고, 다른 작업자의 변경을 덮어쓰거나 강제 push/reset/임의 stash를 하지 마.
 ```

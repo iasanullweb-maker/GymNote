@@ -14,4 +14,4 @@
 - tree-sitter Swift 파서로 변경한 앱 6개 파일 및 XCTest 2개 파일의 구문 검사 통과. diff 공백 검사·코드 검토 통과. 구문 검사는 Swift 컴파일 성공을 뜻하지 않는다.
 - XCTest에 캐시 쓰기 실패 시 최신 목록 표시, 관리자 새 종목 갱신, 네트워크 오류 시 마지막 목록 보존, 탈퇴 후 개인 데이터 보존/공개 중지, 실패/서버 미적용 시 기존 프로필 유지 검사를 추가했다. Windows에 Swift/Xcode가 없어 XCTest 실행·전체 iOS 빌드·UI 렌더 검증은 미실행이다.
 
-Claude 워크트리는 깨끗하고 `5c20bde` 이후 후속 커밋이 없다. 실행 탭 입력·상태 표시·세트 진행도·정렬·드래그·애니메이션은 해당 분담에 남긴다. Codex 변경의 로컬 main 통합은 같은 UX 통합 잠금을 사용해 직렬 수행하며 결과 커밋은 최종 응답에서 확인한다. 원격 push·Actions·배포·운영 SQL 적용은 하지 않았다. 친구 탈퇴를 실제 서버에서 사용하려면 `202610090003_social_withdraw.sql` 추가 적용이 필요하다.
+Claude 워크트리는 깨끗하고 `a0dd283`까지 반영되어 있다. 실행 탭 입력·상태 표시·세트 진행도·정렬·드래그·애니메이션은 `17ce159`에서 통합 후보에 들어갔고, 후속 확인은 `docs/parallel-work/UI_HANDOFF.md`의 2026-10-09 인수인계를 따른다. Codex 통합 후보는 `codex/workout-integration-review`의 `93cd1b3`이며, GitHub Actions에서 모델·계정·DB 검사는 통과했고 iPad XCTest는 진행 중이다. macOS CI 완료 후에도 실제 iPhone SE·가로·iPad 터치와 실기기 하단 배너 확인은 별도 검증으로 남긴다. 원격 `main` push·운영 SQL 적용·릴리스 배포는 하지 않았다. 친구 탈퇴를 실제 서버에서 사용하려면 `202610090003_social_withdraw.sql` 추가 적용이 필요하다.
