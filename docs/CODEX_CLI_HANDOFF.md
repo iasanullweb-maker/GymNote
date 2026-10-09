@@ -68,6 +68,41 @@ codex -c 'cli_auth_credentials_store="file"' login status
 
 Pro 구독을 이용하려면 **Sign in with ChatGPT**를 사용한다. API key 로그인은 별도 API 사용량 과금 방식이다. 기존 앱에서 로그아웃하거나 기존 `.codex`를 복사할 필요는 없다. ([인증과 과금 방식](https://learn.chatgpt.com/docs/auth))
 
+### Git 커밋 작성자 설정 (커밋 실패 시)
+
+새 CLI에서 `Author identity unknown`이 나오면 Git 작성자 이름과 이메일이 설정되지 않은 상태다. ChatGPT 로그인과 Git 작성자 설정은 별개이며, 작성자 설정은 GitHub 인증·push 권한을 부여하지 않는다.
+
+먼저 현재 저장소의 설정과 기존 커밋을 확인한다.
+
+```powershell
+git config --get user.name
+git config --get user.email
+git log -5 --format='%h %an <%ae>'
+```
+
+이 저장소에서 기존 Codex 커밋에 사용한 정보는 `Codex <codex@users.noreply.github.com>`이다. 사용자 개인 이름·이메일을 임의로 만들지 말고, 유효한 기존 설정이 있다면 그대로 사용한다. 작성자 설정이 없으면 아래처럼 **이번 커밋에만** 기존 Codex 정보를 적용할 수 있다. 메시지는 실제 변경 내용으로 바꾸고, 이번 작업 파일만 선택해 stage한 뒤 실행한다.
+
+```powershell
+git -c user.name=Codex -c user.email=codex@users.noreply.github.com commit -m "작업 내용에 맞는 커밋 메시지"
+```
+
+이 저장소의 이후 커밋에도 계속 사용할 때는 저장소 폴더에서 다음 명령으로 로컬 설정을 저장한다. 연결된 워크트리들이 이 저장소 설정을 공유할 수 있으므로 다른 작업에도 적용됨을 고려한다. 전역 설정은 변경하지 않는다.
+
+```powershell
+git config --local user.name "Codex"
+git config --local user.email "codex@users.noreply.github.com"
+```
+
+새 CLI에 전달할 문구:
+
+```text
+Git 작성자 설정이 없으면 저장소의 기존 Codex 작성자
+Codex <codex@users.noreply.github.com>을 git -c user.name=Codex
+-c user.email=codex@users.noreply.github.com 방식으로 이번 커밋에만 적용해줘.
+전역 설정은 바꾸지 말고 이번 작업 파일만 커밋한 다음,
+다른 작업 변경을 보존하면서 검증과 기존 브랜치 로컬 통합을 이어가줘.
+```
+
 ## 4. 병행 작업은 별도 워크트리에서
 
 새 계정도 같은 파일을 수정하면 충돌할 수 있으므로 작업 폴더와 브랜치를 분리한다. 원격만 clone하면 아직 push하지 않은 로컬 변경이 빠질 수 있어, 같은 PC에서는 기존 **로컬 main**에서 워크트리를 만드는 방법을 권장한다.
@@ -140,6 +175,8 @@ project.yml과 최신 워크플로를 읽어줘.
 새 CLI 폴더가 없다면 기존 폴더 상태와 중복 이름을 확인하고,
 다른 작업 변경을 보존하면서 로컬 main에서 별도 codex/ 브랜치와 워크트리를 만들어줘.
 계정 인증 정보나 다른 세션의 토큰을 읽어서 옮기지 마.
+Git 작성자 설정이 없으면 이 자료의 'Git 커밋 작성자 설정' 절대로
+기존 Codex 작성자 정보를 이번 커밋에만 적용하고 전역 설정은 바꾸지 마.
 
 상시 규칙에 따라 작업 완료 후 코드 검토·필요한 검증을 거쳐
 시작 당시 기존 작업 브랜치에 로컬 통합해줘.
