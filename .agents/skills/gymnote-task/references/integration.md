@@ -7,6 +7,7 @@
 - `workspaces.json`의 A/B/C/D 경로·브랜치와 일치하는 워크트리는 `powershell -NoProfile -File scripts/parallel_work.ps1 -Mode Integrate -Role A|B|C|D`에서 실제 역할 하나를 선택한다. unified 배정과 일치할 때만 `-Unified`를 사용한다.
 - UX의 지정 브랜치는 `scripts/ux_simulation_integrate.ps1 -SourceBranch <실제 지정 브랜치>`를 사용한다. 스크립트의 ValidateSet을 확인한다.
 - 별도 작업 브랜치에 이 도구의 역할·브랜치 제약을 맞추려고 배정표를 수정하지 않는다. 직접 병합도 아래 공통 잠금과 상태 검사를 따른다.
+- 지정 스크립트는 소스 워크트리의 미추적 파일도 차단한다. 본인 새 산출물이면 검토 후 필요한 파일만 커밋하고, 다른 작업의 기존 미추적 파일이면 삭제·임의 stage하지 않는다. 그 파일 때문에 지정 스크립트가 막혔다는 사실과 남은 통합 단계를 보고한다. 이를 피하려고 배정이나 스크립트 검사를 완화하지 않는다.
 
 ## 직접 통합이 필요한 경우
 
