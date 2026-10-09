@@ -159,6 +159,7 @@ final class AccountModel {
         catalogLoading = true
         defer { catalogLoading = false }
         do {
+            try Task.checkCancellation()
             let types = try await client.recordCatalog()
             try Task.checkCancellation()
             let cache = RecordCatalogCache(project: client.config.url.host!, types: types, fetchedAt: Date())
@@ -168,12 +169,25 @@ final class AccountModel {
             do { try SharedStore.saveRecordCatalog(cache) }
             catch { catalogMessage = "최신 공통 종목을 불러왔지만 기기에 보관하지 못했어요." }
             await refreshCatalogAdmin()
-        } catch is CancellationError {
-            // Leaving a tab cancels its refresh; keep the last successful state.
-        } catch let error as URLError where error.code == .cancelled {
         } catch {
+            // URLSession may bridge Swift cancellation into NSError (including an underlying error).
+            guard !isCatalogRefreshCancellation(error) else { return }
             catalogMessage = "공통 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."
         }
+    }
+
+    private func isCatalogRefreshCancellation(_ error: Error) -> Bool {
+        if Task.isCancelled || error is CancellationError { return true }
+        let swiftCancellation = CancellationError() as NSError
+        var current = error as NSError
+        // Bound traversal: a malformed underlying-error chain must not loop indefinitely.
+        for _ in 0..<8 {
+            if current.domain == NSURLErrorDomain, current.code == URLError.cancelled.rawValue { return true }
+            if current.domain == swiftCancellation.domain, current.code == swiftCancellation.code { return true }
+            guard let underlying = current.userInfo[NSUnderlyingErrorKey] as? NSError else { return false }
+            current = underlying
+        }
+        return false
     }
 
     private func refreshCatalogAdmin() async {

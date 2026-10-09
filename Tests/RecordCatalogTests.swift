@@ -75,18 +75,37 @@ final class RecordCatalogTests: XCTestCase {
         let model = AppModel(previewData: .empty)
         let account = AccountModel(model: model, client: catalogClient(),
                                    initialConnection: .online, monitorConnectivity: false)
-        AuthStub.reply = { _ in (200, try JSONEncoder().encode([] as [CatalogRecordType])) }
-        await account.refreshRecordCatalog()
-        let fetchedAt = account.catalogFetchedAt
-        let cancellations: [Error] = [CancellationError(), URLError(.cancelled)]
+        let cancellations: [Error] = [CancellationError(), URLError(.cancelled),
+            CancellationError() as NSError,
+            NSError(domain: NSURLErrorDomain, code: URLError.cancelled.rawValue),
+            NSError(domain: "TransportWrapper", code: 1,
+                    userInfo: [NSUnderlyingErrorKey: URLError(.cancelled) as NSError])]
         for error in cancellations {
+            // Each variant starts from success so one failure cannot poison later assertions.
+            AuthStub.reply = { _ in (200, try JSONEncoder().encode([] as [CatalogRecordType])) }
+            await account.refreshRecordCatalog()
+            let fetchedAt = account.catalogFetchedAt
             AuthStub.reply = { _ in throw error }
             await account.refreshRecordCatalog()
             XCTAssertTrue(account.catalogTypes.isEmpty)
             XCTAssertEqual(account.catalogFetchedAt, fetchedAt)
-            XCTAssertNil(account.catalogMessage)
+            XCTAssertNil(account.catalogMessage, "취소 형식: \((error as NSError).domain)")
             XCTAssertFalse(account.catalogLoading)
         }
+    }
+
+    func testAlreadyCancelledTaskDoesNotRequestOrChangeCatalog() async throws {
+        let model = AppModel(previewData: .empty)
+        let account = AccountModel(model: model, client: catalogClient(),
+                                   initialConnection: .online, monitorConnectivity: false)
+        AuthStub.reply = { _ in XCTFail("취소된 갱신은 요청하지 않음"); return (500, Data()) }
+        let refresh = Task { await account.refreshRecordCatalog() }
+        refresh.cancel()
+        await refresh.value
+        XCTAssertEqual(account.catalogTypes, CatalogRecordType.defaults)
+        XCTAssertNil(account.catalogMessage)
+        XCTAssertNil(account.catalogFetchedAt)
+        XCTAssertFalse(account.catalogLoading)
     }
 
     func testAdministratorRefreshKeepsScreenVisibleWithoutBlockingAccountActions() async throws {
