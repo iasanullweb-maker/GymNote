@@ -25,3 +25,5 @@
 ## 로컬 증거 및 한계
 
 원본 오류 로그는 Downloads/GymNote-0.1.88.ipa_2026_10_9_22_24_0.log, 작업용 사본은 .validation-tools/cloud-ipad/first-session/error.log에 보관했다. 원본 로그·개인 화면은 Git에 포함하지 않는다. 문서 검토·공백 검사만 수행하며 앱 코드 변경·전체 iOS 빌드·XCTest·원격 push·배포는 없다.
+
+추가 IPA 실행 파일 검사와 Air 6 재현 결과는 [클라우드 실행 추가 조사](cloud-launch-investigation.md)를 참조한다.
