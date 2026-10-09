@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "createdOn": "2026-10-09",
+  "originalWorkspace": "C:/Users/Donghyun/Documents/2026_IASA/GymNote",
+  "originalBranch": "main",
+  "startingCommit": "fcf4d97cf15283f1f2c1845450dee014392cf346",
+  "state": "configured",
+  "workspaces": [
+    {
+      "id": "A",
+      "slug": "coordinator",
+      "branch": "codex/ux-coordinator",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/ux-coordinator",
+      "prompt": "docs/ux-simulation/prompts/A-coordinator.md"
+    },
+    {
+      "id": "B",
+      "slug": "capture",
+      "branch": "codex/ux-capture",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/ux-capture",
+      "prompt": "docs/ux-simulation/prompts/B-capture.md"
+    },
+    {
+      "id": "C",
+      "slug": "scenarios",
+      "branch": "codex/ux-scenarios",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/ux-scenarios",
+      "prompt": "docs/ux-simulation/prompts/C-scenarios.md"
+    },
+    {
+      "id": "D",
+      "slug": "runner",
+      "branch": "codex/ux-runner",
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/ux-runner",
+      "prompt": "docs/ux-simulation/prompts/D-runner.md"
+    }
+  ],
+  "initialInspectionCommit": "71594a50cace335c3f9a71575089de468e0aec5e",
+  "seedCommitSource": "git rev-parse HEAD in each worktree immediately after setup"
+}

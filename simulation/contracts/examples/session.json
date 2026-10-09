@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "runId": "example-not-executed",
+  "personaId": "first-time-workout",
+  "scenarioId": "record-yesterday",
+  "mode": "dry-run",
+  "synthetic": true,
+  "appCommit": null,
+  "promptVersion": "v1",
+  "model": null,
+  "status": "not-run",
+  "outcome": "not-evaluated",
+  "observations": [],
+  "checks": [
+    {
+      "id": "entry-discoverable",
+      "result": "not-evaluated",
+      "evidence": []
+    },
+    {
+      "id": "saved-reps",
+      "result": "not-evaluated",
+      "evidence": []
+    }
+  ],
+  "usage": {
+    "requests": 0,
+    "inputTokens": 0,
+    "outputTokens": 0
+  }
+}

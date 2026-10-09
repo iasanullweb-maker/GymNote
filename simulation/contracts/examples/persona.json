@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "first-time-workout",
+  "name": "처음 운동을 기록하는 사용자",
+  "synthetic": true,
+  "experience": "first-time",
+  "context": "집에서 운동한 뒤 처음으로 GymNote를 연다.",
+  "goals": [
+    "지난 운동을 기록하고 싶다."
+  ],
+  "attention": "normal",
+  "readingStyle": "brief"
+}

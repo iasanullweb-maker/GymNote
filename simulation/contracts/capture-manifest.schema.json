@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "GymNote capture manifest v1",
+  "required": [
+    "schemaVersion",
+    "fixtureId",
+    "anchorTime",
+    "timezone",
+    "locale",
+    "appCommit",
+    "captures"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "fixtureId": {
+      "const": "demo-v1"
+    },
+    "anchorTime": {
+      "const": "2026-10-12T09:00:00+09:00"
+    },
+    "timezone": {
+      "const": "Asia/Seoul"
+    },
+    "locale": {
+      "const": "ko_KR"
+    },
+    "appCommit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "captures": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "width",
+          "height",
+          "textScale"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "captured",
+              "failed"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "textScale": {
+            "enum": [
+              "standard",
+              "accessibility"
+            ]
+          },
+          "relativePath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "error": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "captured"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "relativePath",
+                "sha256"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

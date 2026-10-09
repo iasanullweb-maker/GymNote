@@ -12,3 +12,7 @@ DerivedData/
 
 # Local syntax/database validation dependencies
 .validation-tools/
+
+# Parallel UX simulation workspaces and generated results
+.worktrees/
+simulation/runs/

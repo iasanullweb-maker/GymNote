@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "GymNote synthetic persona v1",
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "synthetic",
+    "experience",
+    "context",
+    "goals",
+    "attention",
+    "readingStyle"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "synthetic": {
+      "const": true
+    },
+    "experience": {
+      "enum": [
+        "first-time",
+        "returning"
+      ]
+    },
+    "context": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "attention": {
+      "enum": [
+        "normal",
+        "distracted"
+      ]
+    },
+    "readingStyle": {
+      "enum": [
+        "brief",
+        "thorough"
+      ]
+    }
+  }
+}

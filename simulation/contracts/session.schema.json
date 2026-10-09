@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "title": "GymNote simulation session v1",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "personaId",
+    "scenarioId",
+    "mode",
+    "synthetic",
+    "appCommit",
+    "promptVersion",
+    "model",
+    "status",
+    "outcome",
+    "observations",
+    "checks",
+    "usage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "personaId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "scenarioId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "mode": {
+      "enum": [
+        "dry-run",
+        "screen-review",
+        "scripted-native",
+        "agent-native"
+      ]
+    },
+    "synthetic": {
+      "const": true
+    },
+    "appCommit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "promptVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "not-run",
+        "completed",
+        "blocked",
+        "error"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "not-evaluated",
+        "success",
+        "failure",
+        "inconclusive"
+      ]
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step",
+          "captureId",
+          "action",
+          "note"
+        ],
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "captureId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "action": {
+            "enum": [
+              "inspect",
+              "tap",
+              "scroll",
+              "input",
+              "back",
+              "stop"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidencePath": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "result",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "result": {
+            "enum": [
+              "pass",
+              "fail",
+              "not-evaluated"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "usage": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requests",
+        "inputTokens",
+        "outputTokens"
+      ],
+      "properties": {
+        "requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
