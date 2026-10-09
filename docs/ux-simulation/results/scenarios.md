@@ -59,3 +59,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ux_simulation_integr
 ```
 
 로컬 통합은 검토·검증·커밋 후 지정 스크립트의 잠금과 main 상태 검사로 수행하며, 실제 통합 결과와 커밋 SHA는 완료 응답에 보고한다. 잠금이나 추적 파일 미커밋 변경으로 중단되면 그대로 보존한다. C 코드의 main 병합은 B/D 실제 산출물 검증이나 앱 실행 성공을 뜻하지 않는다.
+
+### 실제 완료 기록
+
+- 구현 커밋: `f96bb1329bb2d4a6d12577efe7254de5efeff786` (`feat: add synthetic UX personas and scenarios [skip ci]`).
+- 지정 통합 스크립트가 잠금·main 상태 검사 후 위 커밋의 로컬 main 병합 성공을 출력했다. 충돌 없이 담당 파일 14개만 통합했다.
+- 담당 워크트리는 커밋 후 깨끗하다. 추가하는 이 완료 기록도 별도 문서 커밋으로 같은 통합 스크립트를 사용한다.
+- 스키마/참조 검사와 합성 변조 11개 거부, git diff --check 통과. 실제 캡처·B/D 교차 실행·UX 실행·전체 iOS 빌드는 미실행이며 push/Actions/배포/운영 DB 변경 없음.
