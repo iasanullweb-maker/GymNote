@@ -56,7 +56,8 @@
 
 - Node 24에서는 실행하지 않았다. 코드는 Node 22에도 있는 API(`node:test`, `util.parseArgs`, `fs`, `crypto`)만 쓰며, 24 미만에서는 경고를 남긴다. Windows PATH에는 Node가 없으므로 Windows에서 실행하려면 Node 24 이상을 따로 준비해야 한다.
 - Windows에서 심볼릭 링크를 만들 권한이 없으면 심볼릭 링크 테스트 4개는 건너뛴다. 이번 실행 환경에서는 모두 실행됐다.
-- 위의 C·B 입력 dry-run은 실행기 동작 확인용이다. A의 실제 통합 검증을 대신하지 않는다. B의 manifest는 아직 main에 없으므로 기본 입력 경로(`simulation/capture/manifest.json`)는 B 통합 전까지 missing-file로 실패한다. 그동안은 `--captures simulation/contracts/examples/capture-manifest.json`을 지정한다.
+- 위의 C·B 입력 dry-run은 실행기 동작 확인용이다. A의 실제 통합 검증을 대신하지 않는다.
+- 로컬 main 통합(`d4c3529`, B `2fe7110` 이후) 뒤 main에서 `node --test`(56개 통과)와 기본 경로 `node scripts/ux-sim/run.mjs --validate-only`(persona 4, scenario 5, 반복 3 → 계획 60, 캡처 10)를 확인했다. 파일은 쓰지 않았다.
 - 전체 iOS 빌드·XCTest는 실행하지 않았다(이번 변경은 Swift 코드와 무관).
 
 ## 작업 중 사고와 복구
