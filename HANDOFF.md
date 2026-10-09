@@ -293,7 +293,15 @@
   - 카카오톡을 선택하면 일반 채팅방 수신 API로 가정하지 말고 카카오톡 채널 챗봇·스킬 서버 방식을 검토한다. 연동 참고: [카카오톡 메시지 API](https://developers.kakao.com/docs/ko/kakaotalk-message/rest-api), [챗봇 스킬 API](https://docs.kakaoi.ai/skill/api_reference/), [Telegram Bot API](https://core.telegram.org/bots/api#setwebhook), [Codex 연동](https://developers.openai.com/blog/codex-as-a-platform), [Claude Code 자동 실행](https://code.claude.com/docs/en/headless).
   - 필수 기능: 메모와 실행 요청 구분, 입력 사용자 인증, 중복 실행 방지, 작업 상태·이력 저장, 실패 재시도·재개·중지, 동시 작업 충돌 방지, 비용·실행 시간 제한, 완료·실패·사용자 판단 필요 시 알림. 에이전트 실행 자격 증명은 서버/실행기에 보관한다.
   - 기존 작업 규칙대로 검토·검증 후 기존 작업 브랜치에 로컬 통합하고, 원격 push·배포는 해당 작업의 승인 범위를 따른다. 로컬 실행기는 PC가 켜져 있어야 하며, 전체 iOS 빌드는 Mac/Xcode 또는 기존 macOS CI 실행 환경을 사용한다.
-  - 상태: 해야 할 일 기록과 4개 대화 병행 작업 지침·프롬프트·환경 스크립트 준비. 기능 구현·외부 연동·자동 작업 실행은 미착수.
+  - 현재 상태(2026-10-09): Telegram 수신·메모/실행 구분·SQLite 저장·Codex 큐/별도 검토/로컬 통합·관리자 화면·결과 알림·사전 점검 구현 및 로컬 main 통합 완료. 자동화 회귀 46개 통과. 실제 봇 연결·Codex 실행은 아직 미확인이며 Claude 어댑터·질문 답변 세션 재개는 남아 있다.
+  - **텔레그램 자동화 연결 절차 — 사용자에게 안내한 1~6번 (모두 미완료):** 아래 순서로 진행한다. 설정·명령 상세는 [자동화 실행 안내](automation/README.md)를 참고한다. 토큰은 채팅이나 Git에 기록하지 않는다.
+    1. [ ] **봇 생성:** 공식 @BotFather에서 /newbot으로 봇과 토큰을 만들고, 생성한 봇의 개인 대화에 /start와 연결 확인 메시지를 보낸다.
+    2. [ ] **PowerShell 로컬 설정 준비:** 저장소에서 Python·Codex 경로를 지정하고, %LOCALAPPDATA%/GymNoteAutomation/config.json에 예시 설정을 복사한다(기존 설정 보존). 같은 PowerShell 창에서 TELEGRAM_BOT_TOKEN을 비공개 입력하고 GYMNOTE_AUTOMATION_ADMIN_TOKEN을 생성한다.
+    3. [ ] **허용 사용자·대화 등록:** 서비스가 꺼진 상태에서 getUpdates로 본인의 UserId·ChatId를 확인해 allowedUserIds·allowedChatIds에 숫자로 등록한다. telegramEnabled=true, executionEnabled=false로 저장한다.
+    4. [ ] **메모 수신 확인:** python -m automation.check --config <로컬 설정> 통과 후 python -m automation.service --config <로컬 설정>을 실행한다. 봇에 /memo 운동 기록 화면 개선 아이디어를 보내 저장 응답을 확인한다. 이 단계에서는 자동 코드 실행을 켜지 않는다.
+    5. [ ] **Codex 인증·자동 실행 활성화:** Ctrl+C로 서비스를 멈추고 codex login status를 확인한다. 필요하면 codex login으로 인증한다. executionEnabled=true, 첫 확인용 maxTasksPerSession=1로 설정하고 사전 점검 후 서비스를 재실행한다.
+    6. [ ] **작은 작업으로 전체 흐름 확인:** /run으로 docs/automation-smoke-test.md에 연결 확인 문장만 추가하도록 요청한다(앱 코드 변경 없음). 접수 → 워크트리 구현 → 검증·커밋 → 별도 검토 → 로컬 main 통합 → 결과 알림을 확인한다. /status 작업ID와 /cancel 작업ID도 사용할 수 있다. 첫 작업 성공 후 필요하면 maxTasksPerSession=10으로 바꾸고 재시작한다.
+  - 운영 조건: PC와 서비스가 실행 중이어야 하며, 새 PowerShell 창에서는 환경변수를 다시 설정해야 한다. 위 확인은 로컬 main 통합까지이며 원격 push·배포는 별도다. 문서 기록은 실제 설정/연결/실행 완료로 처리하지 않는다.
   - 사용자 선택(2026-10-09): 이 대화 포함 4개 대화는 **A 총괄·B 메시지 연동·C 에이전트 실행·D 관리자 화면**으로 분담한다. [공통 지침](docs/parallel-work/GUIDE.md), [작업 배정표](docs/parallel-work/ASSIGNMENTS.md), [폴더·브랜치 목록](docs/parallel-work/workspaces.json), [시작 프롬프트](docs/parallel-work/prompts/), [작업 규격 초안](automation/contracts/TASKS.md)을 따른다. A는 현재 워크트리를 유지하고 B/C/D는 원본 저장소 .worktrees/automation-ingress·automation-worker·automation-admin을 사용한다. 기존 UX 시뮬레이션 워크트리는 보존한다.
   - scripts/parallel_work.ps1은 환경 생성/재사용·상태 확인·CLI 시작·로컬 통합을 제공한다. UX 통합과 공통 잠금을 사용한다. 격리 Git 저장소에서 생성·재실행·본인/원본 미커밋 변경 거부·다른 소유자 잠금 보존·잠금 정리·실제 병합·미추적 변경 보존·역할 간 통합 차단 검사 통과. PowerShell 문법·diff 검사 통과. 전체 iOS 빌드·테스트, 봇 등록, 유료 모델 호출, 원격 push·배포는 미실행.
 - [ ] **앱 내 대화형 에이전트와 맞춤형 알림:** 앱에서 에이전트와 채팅 형식으로 대화하고, 사용자별 운동·일상 계획과 선호에 맞춘 알림을 제공한다.
