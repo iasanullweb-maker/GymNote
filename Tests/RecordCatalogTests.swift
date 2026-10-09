@@ -71,6 +71,62 @@ final class RecordCatalogTests: XCTestCase {
         XCTAssertNotNil(account.catalogMessage)
     }
 
+    func testCancelledRefreshPreservesCatalogWithoutShowingAnError() async throws {
+        let model = AppModel(previewData: .empty)
+        let account = AccountModel(model: model, client: catalogClient(),
+                                   initialConnection: .online, monitorConnectivity: false)
+        AuthStub.reply = { _ in (200, try JSONEncoder().encode([] as [CatalogRecordType])) }
+        await account.refreshRecordCatalog()
+        let fetchedAt = account.catalogFetchedAt
+        let cancellations: [Error] = [CancellationError(), URLError(.cancelled)]
+        for error in cancellations {
+            AuthStub.reply = { _ in throw error }
+            await account.refreshRecordCatalog()
+            XCTAssertTrue(account.catalogTypes.isEmpty)
+            XCTAssertEqual(account.catalogFetchedAt, fetchedAt)
+            XCTAssertNil(account.catalogMessage)
+            XCTAssertFalse(account.catalogLoading)
+        }
+    }
+
+    func testAdministratorRefreshKeepsScreenVisibleWithoutBlockingAccountActions() async throws {
+        let client = catalogClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let identity = AccountUser(id: UUID(), email: "admin@example.com")
+        try vault.write(AccountSession(accessToken: "admin-token", refreshToken: "refresh",
+                                       expiresAt: Date().timeIntervalSince1970 + 3600, user: identity))
+        let model = AppModel()
+        let account = AccountModel(model: model, client: client, initialConnection: .online,
+                                   monitorConnectivity: false)
+        await account.bootstrap()
+        AuthStub.reply = { request in
+            if request.url?.path == "/rest/v1/rpc/is_record_catalog_admin" { return (200, Data("true".utf8)) }
+            return (200, try JSONEncoder().encode(CatalogRecordType.defaults))
+        }
+        await account.refreshRecordCatalog()
+        XCTAssertTrue(account.canManageCatalog)
+
+        let checking = expectation(description: "Background administrator check started")
+        let releaseResponse = DispatchSemaphore(value: 0)
+        AuthStub.reply = { request in
+            if request.url?.path == "/rest/v1/rpc/is_record_catalog_admin" {
+                checking.fulfill()
+                guard releaseResponse.wait(timeout: .now() + 5) == .success else { throw URLError(.timedOut) }
+                return (200, Data("false".utf8))
+            }
+            return (200, try JSONEncoder().encode(CatalogRecordType.defaults))
+        }
+        let refresh = Task { await account.refreshRecordCatalog() }
+        await fulfillment(of: [checking], timeout: 2)
+        XCTAssertTrue(account.canManageCatalog, "확인 중에는 기존 관리자 화면 유지")
+        XCTAssertFalse(account.busy, "주기적인 확인이 다른 계정 작업을 막지 않음")
+        releaseResponse.signal()
+        await refresh.value
+        XCTAssertFalse(account.canManageCatalog, "서버가 권한 없음을 확인한 뒤 반영")
+        XCTAssertFalse(account.busy)
+    }
+
     func testLegacyRecordsNeverBecomeCommonRecords() {
         let legacy = RecordEntry(typeID: "pushup", date: Date(), value: 30)
         let data = AppData(week: [], records: [legacy])

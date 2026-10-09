@@ -188,11 +188,12 @@ final class AppModel {
         guard let session = data.activeWorkout else { return }
         let date = workoutDate
         let before = data.exerciseRecords()
+        let completedBefore = session.done
         data.changeSets(exercise.id, by: 1, on: date, actualReps: actualReps)
         // 마지막 세트로 운동이 자동 종료되면 일지가 저장되므로 최고기록도 바로 갱신된다.
         if data.activeWorkout == nil { stopRest(); _ = markSaved(session.id, recordsBefore: before); return }
         let progress = workoutProgress
-        guard progress.done < progress.total else { return }
+        guard progress.done > completedBefore, progress.done < progress.total else { return }
         startDefaultRest()
     }
 

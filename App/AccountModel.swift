@@ -157,10 +157,10 @@ final class AccountModel {
     func refreshRecordCatalog() async {
         guard isOnline, !catalogLoading, !(busy && messageContext == .management), let client else { return }
         catalogLoading = true
-        catalogAdminUserID = nil
         defer { catalogLoading = false }
         do {
             let types = try await client.recordCatalog()
+            try Task.checkCancellation()
             let cache = RecordCatalogCache(project: client.config.url.host!, types: types, fetchedAt: Date())
             catalogTypes = CatalogRecordType.sorted(types)
             catalogFetchedAt = cache.fetchedAt
@@ -168,6 +168,9 @@ final class AccountModel {
             do { try SharedStore.saveRecordCatalog(cache) }
             catch { catalogMessage = "최신 공통 종목을 불러왔지만 기기에 보관하지 못했어요." }
             await refreshCatalogAdmin()
+        } catch is CancellationError {
+            // Leaving a tab cancels its refresh; keep the last successful state.
+        } catch let error as URLError where error.code == .cancelled {
         } catch {
             catalogMessage = "공통 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."
         }
@@ -175,16 +178,22 @@ final class AccountModel {
 
     private func refreshCatalogAdmin() async {
         guard !busy, session != nil, !needsLogin, !deleting, let client else { return }
-        startOperation("관리자 권한을 확인하는 중…", context: .backup)
-        defer { finishOperation() }
+        // This background probe must not block account actions or hide the admin screen.
         let operation = generation
         do {
             let current = try await validSession()
-            if try await client.isCatalogAdmin(token: current.accessToken),
-               operation == generation, session?.user.id == current.user.id {
-                catalogAdminUserID = current.user.id
-            }
-        } catch { catalogAdminUserID = nil }
+            try Task.checkCancellation()
+            let isAdmin = try await client.isCatalogAdmin(token: current.accessToken)
+            try Task.checkCancellation()
+            guard operation == generation, session?.user.id == current.user.id,
+                  !needsLogin, !deleting else { return }
+            catalogAdminUserID = isAdmin ? current.user.id : nil
+        } catch AccountError.unauthorized {
+            if operation == generation { catalogAdminUserID = nil }
+        } catch {
+            // Cancellation and temporary network failures do not revoke a known role.
+            // Catalog writes remain authorized by the server on every request.
+        }
     }
 
     /// Serialize with account operations so rotating a refresh token cannot race a backup or logout.

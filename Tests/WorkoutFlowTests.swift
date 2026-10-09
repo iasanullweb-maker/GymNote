@@ -145,9 +145,11 @@ final class WorkoutFlowTests: XCTestCase {
         model.completeSet(a)
         model.completeSet(b)
         let session = try XCTUnwrap(model.data.activeWorkout)
+        let restEnd = try XCTUnwrap(model.restEnd)
         try breakPersistence()
         model.completeSet(c)
         XCTAssertEqual(model.data.activeWorkout, session, "저장 실패 시 마지막 세트 전 상태 유지")
+        XCTAssertEqual(model.restEnd, restEnd, "실패한 세트는 기존 휴식 시간을 다시 시작하지 않음")
         XCTAssertNil(model.savedWorkout)
     }
 
