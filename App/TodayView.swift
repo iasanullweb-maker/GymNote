@@ -1,13 +1,16 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct TodayView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var draggingExercise: UUID?
     @State private var recordingType: RecordType?
+    /// 기록 입력 시트가 닫힌 뒤에 보여 줄 결과(시트와 알림이 겹쳐 알림이 사라지지 않게).
+    @State private var pendingRecordResult: (result: AppModel.RecordSaveResult, text: String)?
+    @State private var savedRecordText: String?
+
+    private var orderAnimation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.25) }
 
     var body: some View {
         let plan = model.todayPlan
@@ -41,44 +44,60 @@ struct TodayView: View {
                     }
                 }
                 if !plan.isRestDay {
-                    Section("운동") {
-                        ForEach(model.data.executionExercises(on: model.workoutDate)) { exercise in
+                    let date = model.workoutDate
+                    Section {
+                        // 길게 눌러 끌기는 List 기본 순서 바꾸기(onMove)를 쓴다: 위·아래·맨 끝 이동, 끌기 취소,
+                        // 앱 밖 텍스트 끌어 놓기 거부가 시스템 동작으로 처리되고, 놓았을 때 한 번만 저장한다.
+                        ForEach(model.data.executionExercises(on: date)) { exercise in
                             ExerciseRow(
                                 exercise: exercise,
-                                done: model.data.doneSets(exercise, on: model.workoutDate),
+                                done: model.data.doneSets(exercise, on: date),
                                 session: model.data.activeWorkout,
-                                onComplete: { model.completeSet(exercise, actualReps: $0) },
-                                onUndo: { model.undoSet(exercise) }
+                                onComplete: { reps in
+                                    withAnimation(orderAnimation) { model.completeSet(exercise, actualReps: reps) }
+                                },
+                                onUndo: { withAnimation(orderAnimation) { model.undoSet(exercise) } },
+                                availableMoves: ExecutionMove.allCases.filter {
+                                    model.data.canMoveExecutionExercise(exercise.id, $0, on: date)
+                                },
+                                onMove: { move in
+                                    withAnimation(orderAnimation) { model.moveExecutionExercise(exercise.id, move) }
+                                }
                             )
-                                .id("\(model.data.activeWorkout?.id.uuidString ?? "idle")-\(exercise.id)")
-                                .onDrag {
-                                    draggingExercise = exercise.id
-                                    return NSItemProvider(object: exercise.id.uuidString as NSString)
-                                }
-                                .onDrop(of: [UTType.text], delegate: ExerciseOrderDrop(
-                                    target: exercise.id, dragging: $draggingExercise,
-                                    move: { source, target in
-                                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                                            model.moveExecutionExercise(source, before: target)
-                                        }
-                                    }))
-                                .accessibilityAction(named: "맨 위로 이동") {
-                                    if let first = plan.exercises.first { model.moveExecutionExercise(exercise.id, before: first.id) }
-                                }
+                            .id("\(model.data.activeWorkout?.id.uuidString ?? "idle")-\(exercise.id)")
                         }
+                        .onMove { source, destination in
+                            withAnimation(orderAnimation) {
+                                model.moveExecutionExercises(fromOffsets: source, toOffset: destination)
+                            }
+                        }
+                    } header: {
+                        Text("운동")
                     } footer: {
-                        Text("운동을 길게 눌러 끌면 순서를 바꿀 수 있어요. 완료한 운동은 아래에 표시돼요.")
+                        Text("운동을 길게 눌러 끌면 순서를 바꿀 수 있어요. 완료한 운동은 아래에 모이고, 완료를 취소하면 원래 자리로 돌아가요.")
                     }
                 }
-                Section("종목 기록") {
+                Section {
+                    let types = account.catalogTypes.filter(\.active)
                     Menu {
-                        ForEach(account.catalogTypes.filter(\.active)) { type in
-                            Button(type.name) { recordingType = type.recordType }
+                        ForEach(types) { type in
+                            Button {
+                                recordingType = type.recordType
+                            } label: {
+                                Label(type.name, systemImage: type.recordType.style == .rounds ? "repeat" : "number")
+                            }
                         }
-                    } label: { Label("종목 기록 남기기", systemImage: "square.and.pencil") }
-                    .disabled(account.catalogTypes.filter(\.active).isEmpty)
-                    Text("횟수·라운드·무게 등의 기록을 남기면 최고 기록에 반영돼요.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                    } label: {
+                        Label("종목 기록 남기기", systemImage: "square.and.pencil")
+                    }
+                    .disabled(types.isEmpty)
+                    .accessibilityHint("공통 종목을 골라 횟수·라운드·무게·시간 기록을 입력")
+                } header: {
+                    Text("종목 기록")
+                } footer: {
+                    Text(account.catalogTypes.contains(where: \.active)
+                         ? "횟수·라운드·무게 등의 기록을 남기면 최고 기록에 반영돼요."
+                         : "공통 종목 목록을 불러오면 기록을 남길 수 있어요.")
                 }
                 Section {
                     (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
@@ -111,13 +130,20 @@ struct TodayView: View {
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
             .navigationBarTitleDisplayMode(compact ? .inline : .large)
-            .task { await account.refreshRecordCatalog() }
-            .sheet(item: $recordingType) { type in
+            // 공통 종목 갱신은 RootView가 앱 활성 중 60초마다 한다(탭을 오갈 때마다 다시 요청하지 않음).
+            .sheet(item: $recordingType, onDismiss: showRecordResult) { type in
                 AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
-                    if model.addRecord(entry) {
-                        model.recordMessage = "\(type.name) \(type.display(entry))"
-                    }
+                    let result = model.saveRecord(entry)
+                    if result != .rejected { pendingRecordResult = (result, "\(type.name) \(type.display(entry))") }
                 }
+            }
+            .alert("기록을 저장했어요", isPresented: Binding(
+                get: { savedRecordText != nil },
+                set: { if !$0 { savedRecordText = nil } }
+            )) {
+                Button("확인") { savedRecordText = nil }
+            } message: {
+                Text((savedRecordText ?? "") + "\n운동 기록에 남겼어요. 최고 기록은 그대로예요.")
             }
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { model.recordMessage != nil },
@@ -131,17 +157,24 @@ struct TodayView: View {
     }
 }
 
-private struct ExerciseOrderDrop: DropDelegate {
-    let target: UUID
-    @Binding var dragging: UUID?
-    let move: (UUID, UUID) -> Void
-
-    func dropEntered(info: DropInfo) {
-        guard let dragging, dragging != target else { return }
-        move(dragging, target)
+extension TodayView {
+    private func showRecordResult() {
+        guard let pending = pendingRecordResult else { return }
+        pendingRecordResult = nil
+        if pending.result == .newBest { model.recordMessage = pending.text }
+        else { savedRecordText = pending.text }
     }
-    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
-    func performDrop(info: DropInfo) -> Bool { dragging = nil; return true }
+}
+
+extension ExecutionMove {
+    var accessibilityName: String {
+        switch self {
+        case .up: "위로 이동"
+        case .down: "아래로 이동"
+        case .top: "맨 위로 이동"
+        case .bottom: "맨 아래로 이동"
+        }
+    }
 }
 
 struct ExerciseRow: View {
@@ -152,6 +185,9 @@ struct ExerciseRow: View {
     let session: WorkoutSession?
     let onComplete: (Int?) -> Void
     let onUndo: () -> Void
+    /// 접근성 순서 바꾸기(같은 완료 묶음 안). 끌기와 같은 규칙으로 저장된다.
+    var availableMoves: [ExecutionMove] = []
+    var onMove: (ExecutionMove) -> Void = { _ in }
     @State private var draftReps: Int?
     @State private var editingReps = false
 
@@ -165,6 +201,13 @@ struct ExerciseRow: View {
                 .strikethrough(finished)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityValue(finished ? "완료" : "")
+                .accessibilityActions {
+                    ForEach(availableMoves, id: \.self) { move in
+                        Button(move.accessibilityName) { onMove(move) }
+                    }
+                }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 24, maximum: 24), spacing: 10)],
                       alignment: .leading, spacing: 10) {
@@ -335,9 +378,11 @@ struct CompletedRepetitionRows: View {
     }
 }
 
-/// One pinned status area stays reachable while scrolling through exercises.
+/// 운동 중·휴식 상태. RootView가 각 탭 콘텐츠의 하단 safeAreaInset에 놓으므로 탭 막대·목록의 마지막 버튼을
+/// 가리지 않는다. 가로 iPhone처럼 세로 공간이 좁으면 줄 수와 여백을 줄인다.
 struct WorkoutStatusBanner: View {
     @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let startedAt: Date?
     let restStart: Date?
@@ -348,6 +393,8 @@ struct WorkoutStatusBanner: View {
     var doneSets = 0
     var totalSets = 0
 
+    private var tight: Bool { compact || verticalSizeClass == .compact }
+
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let resting = restStart != nil && restEnd.map { context.date < $0 } == true
@@ -357,12 +404,12 @@ struct WorkoutStatusBanner: View {
                     Spacer(minLength: 12)
                     actions(resting: resting)
                 }
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: tight ? 8 : 12) {
                     status(resting: resting, at: context.date)
                     actions(resting: resting)
                 }
             }
-            .padding(compact ? 10 : 16)
+            .padding(tight ? 10 : 16)
             .frame(maxWidth: 720, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay {
@@ -380,23 +427,17 @@ struct WorkoutStatusBanner: View {
             Image(systemName: resting || startedAt == nil ? "timer" : "figure.strengthtraining.traditional")
                 .font(.title2).foregroundStyle(.orange)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: tight ? 2 : 4) {
                 Text(resting ? "휴식 중" : (startedAt == nil ? "휴식 완료" : "운동 중"))
                     .font(.headline)
                     .contentTransition(.opacity)
-                if resting, let end = restEnd {
-                    Text(RestDuration.text(seconds: RestDuration.remaining(until: end, at: now)))
-                        .font(compact ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
-                        .accessibilityHint("남은 휴식 시간")
-                } else if let startedAt {
-                    Text(startedAt, style: .timer)
-                        .font(compact ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
-                        .accessibilityHint("운동 경과 시간")
+                // 시간과 세트 수를 한 줄에 둬서 높이를 줄인다. 큰 글자에서 넘치면 두 줄로.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) { clock(resting: resting, at: now); setCount }
+                    VStack(alignment: .leading, spacing: 2) { clock(resting: resting, at: now); setCount }
                 }
                 if startedAt != nil, totalSets > 0 {
-                    Text("\(doneSets) / \(totalSets) 세트")
-                        .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
-                    ProgressView(value: Double(doneSets), total: Double(max(totalSets, 1)))
+                    ProgressView(value: Double(min(doneSets, totalSets)), total: Double(max(totalSets, 1)))
                         .tint(.orange)
                         .accessibilityLabel("세트 진행도")
                         .accessibilityValue("\(totalSets)세트 중 \(doneSets)세트 완료")
@@ -405,6 +446,28 @@ struct WorkoutStatusBanner: View {
         }
         .frame(minWidth: 100, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private func clock(resting: Bool, at now: Date) -> some View {
+        if resting, let end = restEnd {
+            Text(RestDuration.text(seconds: RestDuration.remaining(until: end, at: now)))
+                .font(tight ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
+                .accessibilityHint("남은 휴식 시간")
+        } else if let startedAt {
+            Text(startedAt, style: .timer)
+                .font(tight ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
+                .accessibilityHint("운동 경과 시간")
+        }
+    }
+
+    @ViewBuilder
+    private var setCount: some View {
+        if startedAt != nil, totalSets > 0 {
+            Text("\(doneSets) / \(totalSets) 세트")
+                .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                .accessibilityHidden(true) // 진행도 막대가 같은 값을 읽어 준다.
+        }
     }
 
     private func actions(resting: Bool) -> some View {
@@ -426,5 +489,52 @@ struct WorkoutStatusBanner: View {
             Button(finishTitle, action: onFinish)
                 .buttonStyle(.bordered)
         }
+    }
+}
+
+/// 운동 마치기 후 표시: 운동 중 → 운동 완료 → 운동 일지에 저장됨.
+/// AppModel.savedWorkout(실제 저장 성공)이 있을 때만 보이며, 상태 배너와 같은 자리·모양이라 화면이 튀지 않는다.
+struct WorkoutCompletionBanner: View {
+    @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    let session: WorkoutSession
+    /// 0 운동 중, 1 운동 완료, 2 운동 일지에 저장됨
+    let phase: Int
+
+    private var tight: Bool { compact || verticalSizeClass == .compact }
+    private var title: String { ["운동 중", "운동 완료", "운동 일지에 저장됨"][min(max(phase, 0), 2)] }
+    private var icon: String {
+        ["figure.strengthtraining.traditional", "checkmark.circle.fill", "book.closed.fill"][min(max(phase, 0), 2)]
+    }
+    private var minutes: Int? {
+        session.endedAt.map { max(0, Int($0.timeIntervalSince(session.startedAt) / 60)) }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2).foregroundStyle(phase == 0 ? Color.orange : Color.green)
+                .contentTransition(.symbolEffect(.replace))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: tight ? 2 : 4) {
+                Text(title).font(.headline).contentTransition(.opacity)
+                Text("\(session.done) / \(session.total) 세트" + (minutes.map { " · \($0)분" } ?? ""))
+                    .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                ProgressView(value: Double(min(session.done, session.total)), total: Double(max(session.total, 1)))
+                    .tint(phase == 0 ? .orange : .green)
+                    .accessibilityHidden(true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(tight ? 10 : 16)
+        .frame(maxWidth: 720, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .strokeBorder((phase == 0 ? Color.orange : Color.green).opacity(0.4), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
+        .accessibilityElement(children: .combine)
     }
 }
