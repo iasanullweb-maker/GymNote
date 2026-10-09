@@ -482,3 +482,8 @@
 - A/B/C/D 기반 작업은 로컬 main 통합 완료. Mac/Xcode 사용 불가 조건에 따라 simulation/web/에 Windows 오프라인 행동 프로토타입을 추가했다.
 - C 사용자 4개·시나리오 5개, A 공통 검증기, D 미실행 세션 생성기를 연결한다. B의 실제 캡처는 pending 그대로다. 사용법: simulation/web/README.md; 상세 결과: docs/ux-simulation/results/web.md.
 - 상태 검사 18개·DOM 이벤트 5흐름·고정 스크립트 60세션(웹 app-state 실패 0). 실제 브라우저 렌더/Swift/iOS 빌드/live 모델은 미실행이며 웹 결과는 실제 iOS/사용성 성공을 의미하지 않는다.
+
+### 2026-10-09 웹 실제 렌더링 검증
+
+- 사용자 승인 HTTP 미리보기에서 실제 Chrome의 5개 시나리오 조작·390px 반응형·JSON 다운로드 검증 완료. onchange 입력 누락을 input 즉시 반영+연속 입력 단계 병합으로 수정했다. 회귀19개·DOM5흐름·재생60세션 통과.
+- 재사용 가능한 루프백 단일 페이지 서버: node simulation/web/serve.mjs <preview-run-id>. 수정 HTML 생성 후 서버 재시작 필요. 상세 근거 docs/ux-simulation/results/web.md. 실제 iOS/전체 빌드/live 모델은 미실행.

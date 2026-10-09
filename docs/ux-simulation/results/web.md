@@ -23,3 +23,14 @@ A/B/C/D의 기반 산출물은 모두 로컬 main 통합됨을 Git ancestry와 �
 README의 preview 명령으로 만든 simulation/runs/<새 ID>/index.html을 직접 연다. Node가 없어도 생성된 HTML은 열 수 있다. 결과는 ignored runs 경로에 남고 기존 출력은 덮어쓰지 않는다.
 
 현재 가상 사용자 역할은 사람이 직접 수행하고 batch는 고정 스크립트다. live 모델이 목표에 따라 행동하거나 기획 개선안을 자동 생성하는 어댑터는 아직 없다. 웹에서 얻은 개선안의 제품 적용과 실제 iOS 검증도 별도 작업이다. 운영 인증·데이터를 이 환경에 연결하지 않는다.
+
+## 실제 Chrome 렌더링 검증 후속 — 2026-10-09
+
+- file:// 직접 접근은 Browser Use의 HTTP/HTTPS 프로토콜 제한으로 차단됐다. 사용자가 HTTP 미리보기를 승인한 후 생성된 합성 HTML 한 개만 제공하는 루프백 서버에서 검증했다.
+- 실제 Chrome 조작으로 입력칸의 50은 표시됐지만 onchange에 의존한 draft/이벤트 갱신이 발생하지 않아 edit-was-attempted가 fail인 문제를 재현했다. input 이벤트로 즉시 반영하고 연속 입력은 한 논리적 단계로 합쳐 초기 before/최종 after를 보존하도록 수정했다. 테스트 1개 추가.
+- 미리보기 서버의 시작 시 HTML 사본이 갱신되지 않아 첫 재검사가 구버전이었던 것도 확인했다. 새 서버의 HTML에 input 핸들러와 병합 코드가 있는지 확인하고 재검사했다. serve.mjs도 시작 시 사본을 제공하며 재생성 후 재시작해야 한다고 문서화했다.
+- 수정된 HTML의 5개 시나리오를 실제 Chrome에서 직접 선택·입력·클릭·종료했다. 웹 app-state 10개 모두 pass, 관찰/manual과 iOS는 not-evaluated 유지.
+- Chrome 기본 화면과 폭 390px에서 전체 페이지 스크린샷으로 배치를 검토했다. 좁은 화면은 한 열로 바뀌며 document/body scrollWidth 375 ≤ innerWidth 390으로 가로 넘침 없음. 임시 viewport는 복원했다.
+- 콘솔 error/warn 로그 없음. 다운로드 이벤트 대기는 도구에서 시간 초과했지만 Downloads/gymnote-web-friend-request-and-private-records.json의 실제 생성·JSON 파싱·controller=human·5개 이벤트·웹 판정·iOS 미평가를 파일로 확인했다.
+- 최종 상태 회귀 19개, DOM 이벤트 5흐름, 고정 스크립트 60세션(실패 0) 통과. 서버 경로 격리 검사: / 200, /HANDOFF.md 404, 다른 Host 403.
+- 실제 Chrome 웹 렌더링·입력·다운로드 검증은 완료. 실제 iOS 렌더/Swift/XCTest/전체 iOS 빌드/live 모델/push/배포는 여전히 미실행이다.

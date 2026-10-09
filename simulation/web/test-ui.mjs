@@ -19,7 +19,7 @@ export function runUITests(){
  vm.runInContext(source,context);
  const get=id=>elements.get(id);
  const btn=(id,label)=>{const node=get(id).children.find(n=>n.tag==='button' && n.textContent===label);assert.ok(node,'button '+label);node.click();};
- const field=(value,index=0)=>{const n=get('screen').children.filter(n=>n.tag==='input')[index];assert.ok(n);n.value=value;n.onchange();};
+ const field=(value,index=0)=>{const n=get('screen').children.filter(n=>n.tag==='input')[index];assert.ok(n);n.value=value;n.oninput();};
  const read=expr=>JSON.parse(vm.runInContext('JSON.stringify('+expr+')',context));
  get('scenario').value='cancel-record-edit';get('begin').click();btn('screen','푸쉬업 기록 편집');
  const cancel=get('screen').children.find(n=>n.textContent==='취소');field('50');
