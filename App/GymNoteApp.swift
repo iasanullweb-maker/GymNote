@@ -74,7 +74,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab = 0
     @State private var editingNavigation = EditingNavigationGuard()
-    @State private var tabScreenVersions = [0, 0, 0, 0]
+    @State private var tabScreenVersions = [0, 0, 0, 0, 0]
     @State private var selectedDate = Date()
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
@@ -92,6 +92,7 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .environment(\.gymnoteCompactLayout, geometry.size.width < 600)
             .environment(\.editingNavigationGuard, editingNavigation)
+            .environment(\.openFriendsTab, { selectedTab = 3 })
         }
         .tint(.orange)
         .onChange(of: selectedTab) { previous, _ in
@@ -109,6 +110,7 @@ struct RootView: View {
                 model.reload()
                 account.scheduleSync()
                 Task { await model.social.publish(force: false) }
+                Task { await model.social.refresh(quiet: true) }
                 Task { await account.refreshRecordCatalog() }
             }
         }
@@ -120,6 +122,7 @@ struct RootView: View {
             await account.bootstrap()
             model.reload()
             await RestController.requestPermissions()
+            await model.social.refresh(quiet: true)
         }
         .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
             Button("확인", role: .cancel) { model.storageError = nil }
@@ -173,9 +176,14 @@ struct RootView: View {
                 }
                 .id("records-\(tabScreenVersions[2])")
                 .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
+                FriendsView()
+                    .id("friends-\(tabScreenVersions[3])")
+                    .tabItem { Label("친구", systemImage: "person.2") }
+                    .badge(model.social.pendingCount)
+                    .tag(3)
                 SettingsView()
-                    .id("settings-\(tabScreenVersions[3])")
-                    .tabItem { Label("설정", systemImage: "gearshape") }.tag(3)
+                    .id("settings-\(tabScreenVersions[4])")
+                    .tabItem { Label("설정", systemImage: "gearshape") }.tag(4)
             }
             .toolbar(editingNavigation.isEditing ? .hidden : .automatic, for: .tabBar)
         }
