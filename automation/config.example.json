@@ -1,0 +1,18 @@
+{
+  "port": 8765,
+  "defaultProject": "gymnote",
+  "telegramEnabled": false,
+  "executionEnabled": false,
+  "allowedUserIds": [],
+  "allowedChatIds": [],
+  "timeoutSeconds": 900,
+  "maxTasksPerSession": 10,
+  "codexExecutable": "C:/Users/Donghyun/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe",
+  "projects": {
+    "gymnote": {
+      "path": "C:/Users/Donghyun/Documents/2026_IASA/GymNote",
+      "branch": "main",
+      "autoIntegrate": true
+    }
+  }
+}

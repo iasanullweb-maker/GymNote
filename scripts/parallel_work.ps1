@@ -4,7 +4,8 @@ param(
     [ValidateSet('A', 'B', 'C', 'D')]
     [string]$Role = 'A',
     [ValidateSet('codex', 'claude')]
-    [string]$Client = 'codex'
+    [string]$Client = 'codex',
+    [switch]$Unified
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,6 +36,17 @@ foreach ($entry in $manifest.roles) {
     if ($entry.branch -notmatch '^codex/[a-z0-9-]+$' -or $entry.prompt -ne ('docs/parallel-work/prompts/' + $entry.id + '.md')) { throw 'Unexpected branch or prompt.' }
 }
 $assigned = @($manifest.roles | Where-Object { $_.id -eq $Role })[0]
+if ($Unified) {
+    if ($Mode -ne 'Integrate' -or -not $manifest.unified) { throw 'Unified mode is only supported for configured integration.' }
+    if ($manifest.unified.branch -notmatch '^codex/[a-z0-9-]+$') { throw 'Invalid unified branch.' }
+    $assigned = [pscustomobject]@{
+        id = 'Unified'; path = $manifest.unified.path; branch = $manifest.unified.branch;
+        prompt = 'docs/parallel-work/prompts/A.md'
+    }
+}
+if ($manifest.state -eq 'unified-implementation' -and $Mode -in @('Setup', 'Start')) {
+    throw 'A/B/C/D implementation is now consolidated in the unified chat. Existing worktrees are preserved.'
+}
 
 function Confirm-Worktree($Entry) {
     if (-not (Test-Path -LiteralPath $Entry.path)) { throw ('Missing worktree: ' + $Entry.path) }

@@ -1,6 +1,10 @@
 # 아이디어 자동화 공통 규격 초안 v1
 
-현재 상태: 병행 구현을 위한 규격 초안. 서버·API·DB 구현은 아직 없다. A가 변경을 관리하고 B/C/D는 모의 입력으로 독립 검증한다. 실제 구현 착수 시 언어·프레임워크와 인증 방법을 확정한다.
+현재 상태: 2026-10-09 단일 대화의 Python/SQLite 통합 구현으로 전환했다. 아래 필드명은 초기 설계 이력이며 실제 v1 로컬 API는 다음과 같다. 운영 Telegram 연결·유료 Codex 실행은 별도 로컬 설정이 필요하다.
+
+실제 엔드포인트: POST /api/tasks, GET /api/tasks, POST /api/tasks/:id/cancel, POST /api/tasks/:id/retry. localhost에만 바인딩하고 모든 API는 관리자 Bearer 토큰, Host/Origin 검사로 보호한다. POST 입력은 text, project(서버 허용 목록), intent(memo/execute). actor는 관리자 요청에서 서버가 admin으로 정하며 외부 입력을 무시한다. Telegram에서는 허용 발신자 ID와 채팅 ID를 먼저 검사하고 actor를 생성한다.
+
+실제 조회 필드: id, source, event, actor, project, text, status, created, updated, attempt, result, cancel. source+event가 고유 키다. result는 summary, checks, notRun, commit, worktree, integrated를 포함할 수 있다. 상태·시도 이력은 history 테이블에 기록한다. 실패·서비스 재시작은 waiting_user로 보존하며 재시도는 새 시도로 실행한다. 기존 세션 질문 답변 /answer와 Claude 실행 어댑터는 미구현이다. 상세 사용·검증 한계는 automation/README.md를 따른다.
 
 ## 작업 입력
 

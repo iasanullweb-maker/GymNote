@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GymNote 아이디어</title>
+<style>
+body{font:16px system-ui,sans-serif;background:#f4f5f7;color:#17202a;margin:0}main{max-width:980px;margin:40px auto;padding:0 20px}h1{font-size:30px}section,article{background:white;border:1px solid #dfe3e8;border-radius:14px;padding:22px;margin:16px 0}input,textarea,select,button{font:inherit;padding:11px;border:1px solid #cbd1d8;border-radius:8px}textarea{display:block;box-sizing:border-box;width:100%;min-height:110px;margin:12px 0}button{cursor:pointer;background:#233b54;color:white}button.secondary{background:white;color:#233b54}header,.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}small{color:#647080}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f5f7;padding:12px}#notice{color:#8b4100}#token{max-width:90%}.idea{white-space:pre-wrap}label{display:inline-block;margin-right:10px}
+</style>
+<main><header><h1>아이디어 작업함</h1><small>GymNote · 로컬 관리자</small></header>
+<section id="login"><p>로컬 서비스에 설정한 관리자 토큰을 입력하세요.</p><input id="token" type="password" autocomplete="off" placeholder="관리자 토큰"><button id="connect">연결</button></section>
+<div id="app" hidden><section><h2>떠오른 아이디어</h2><label>프로젝트 <select id="project"></select></label><textarea id="text" placeholder="어떤 기능이나 개선을 원하시나요?"></textarea><div class="actions"><button id="memo" class="secondary">아이디어 저장</button><button id="run">실행 요청</button><button id="refresh" class="secondary">새로고침</button><button id="logout" class="secondary">잠금</button></div><p id="mode"></p></section><div id="tasks"></div></div><p id="notice" role="status"></p></main>
+<script>
+let token='';const $=id=>document.getElementById(id);
+const labels={memo:'아이디어 저장',queued:'실행 대기',planning:'작업 준비',running:'구현 중',reviewing:'검토 중',validating:'통합 검사',completed:'완료',waiting_user:'확인 필요',cancelled:'중지됨',failed:'실패'};
+async function api(path,data){let r=await fetch('/api/'+path,{method:data?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});let v=await r.json();if(!r.ok)throw Error(v.error||'요청 실패');return v}
+function element(tag,text){let e=document.createElement(tag);e.textContent=text;return e}
+async function refresh(){try{let data=await api('tasks');$('app').hidden=false;$('login').hidden=true;$('notice').textContent='';if(!$('project').options.length){for(let p of data.projects)$('project').append(new Option(p,p));$('project').value=data.defaultProject}$('mode').textContent=data.executionPaused?'이번 실행의 작업 수 한도에 도달했습니다. 서비스 재시작 후 이어서 실행됩니다.':data.executionEnabled?'실행 요청은 순서대로 처리됩니다.':'현재 실행기는 꺼져 있습니다. 요청은 대기열에 보관됩니다.';$('tasks').replaceChildren();for(let t of data.tasks){let a=element('article','');a.append(element('strong',labels[t.status]||t.status),element('p',t.text),element('small',t.id+' · '+t.project+' · '+new Date(t.updated).toLocaleString()));if(t.result)a.append(element('pre',JSON.stringify(t.result,null,2)));let actions=element('div','');actions.className='actions';for(let [name,label] of [['cancel','중지 요청'],['retry','새 시도로 재시도']]){if(name==='retry'&&!['waiting_user','failed','cancelled'].includes(t.status))continue;if(name==='cancel'&&['completed','failed','cancelled'].includes(t.status))continue;let b=element('button',label);b.className='secondary';b.onclick=()=>act(()=>api('tasks/'+t.id+'/'+name,{}));actions.append(b)}a.append(actions);$('tasks').append(a)}}catch(e){$('notice').textContent=e.message}}
+async function act(fn){try{await fn();await refresh()}catch(e){$('notice').textContent=e.message}}
+$('connect').onclick=()=>{token=$('token').value;$('token').value='';refresh()};
+for(let intent of ['memo','run'])$(intent).onclick=()=>act(async()=>{await api('tasks',{text:$('text').value,project:$('project').value,intent:intent==='run'?'execute':'memo'});$('text').value=''});
+$('refresh').onclick=refresh;$('logout').onclick=()=>{token='';$('app').hidden=true;$('login').hidden=false;$('tasks').replaceChildren();$('project').replaceChildren()};
+</script></html>

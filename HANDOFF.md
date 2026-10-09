@@ -482,3 +482,12 @@
 - A/B/C/D 기반 작업은 로컬 main 통합 완료. Mac/Xcode 사용 불가 조건에 따라 simulation/web/에 Windows 오프라인 행동 프로토타입을 추가했다.
 - C 사용자 4개·시나리오 5개, A 공통 검증기, D 미실행 세션 생성기를 연결한다. B의 실제 캡처는 pending 그대로다. 사용법: simulation/web/README.md; 상세 결과: docs/ux-simulation/results/web.md.
 - 상태 검사 18개·DOM 이벤트 5흐름·고정 스크립트 60세션(웹 app-state 실패 0). 실제 브라우저 렌더/Swift/iOS 빌드/live 모델은 미실행이며 웹 결과는 실제 iOS/사용성 성공을 의미하지 않는다.
+
+### 2026-10-09 텔레그램 아이디어 자동화 단일 대화 통합
+
+- 사용자 요청으로 기존 A/B/C/D 아이디어 자동화 구현을 d919 워크트리의 codex/telegram-automation-unified 브랜치에 모았다. 기존 역할 폴더·준비 보고서는 보존한다. 새 담당 범위와 전환 상태는 docs/parallel-work/ASSIGNMENTS.md·workspaces.json에 기록했다.
+- automation/에 Python 표준 라이브러리 기반 Telegram 수신·아이디어 영속 저장·Codex 큐/별도 검토/로컬 통합·인증 관리자 화면을 구현했다. 일반 메시지는 메모로 저장하며 /run만 실행 큐에 넣는다. 허용 user ID와 chat ID를 모두 검사한다.
+- 자동 실행은 작업별 워크트리, 구현/검토 각각 900초, 동시 1개, 실행당 기본 10작업 한도다. 진행 중 중지는 프로세스 종료 확인 후 반영하고 비정상 재시작은 waiting_user로 보존한다. main 통합은 공통 UX 잠금·깨끗한 추적 파일·진행 중 Git 작업 없음·fast-forward 가능 여부를 검사한다.
+- 회귀 검사 19개·git diff --check·PowerShell 파서 검사 통과. 실제 로컬 관리자 브라우저에서 인증·메모 저장·실행 대기·중지 표시를 확인하고 검증용 서버를 종료했다. 다른 대화의 최신 웹 UX 커밋 41f85f6을 보존했다.
+- 실제 Telegram 토큰/허용 ID가 없어 봇 연결은 켜지 않았다. 유료 Codex 실행·Claude 어댑터·완료 알림 자동 발송·기존 세션 질문 답변 재개는 미검증 또는 미구현이다. 코드 통합과 실제 외부 운영을 구분한다. 설정·시작·한계는 automation/README.md 참조.
+- 원격 push·배포·운영 DB 변경·전체 iOS 빌드/XCTest는 미실행. 로컬 통합 결과와 커밋은 해당 작업 완료 응답에 기록한다.
