@@ -30,3 +30,7 @@ node simulation/contracts/audit.mjs --manifest simulation/runs/capture-run/manif
 ~~~
 
 기본 audit는 담당 입력이 없을 때 awaiting-inputs를 명확히 표시한다. 이미지가 pending인 패널은 실행 계획 준비와 화면 평가 준비를 구분한다. 모델 요청은 0이며 전체 iOS 빌드/실제 사용자 검증은 이번 A 작업에서 미실행이다.
+
+## 후속 갱신 — 2026-10-09
+
+B 2fe7110, C 2c7071b, D 7e1d2cb 모두 main에 통합된 것을 확인했다. 이제 기본 audit는 inputs-validated/dryRunReady=true이며 화면 10개 pending, screenReviewReady=false다. 위 B/D 미통합 기록은 당시 스냅샷이다. Mac/Xcode 사용 불가 조건과 웹 프로토타입 후속 결과는 docs/ux-simulation/results/web.md와 simulation/web/README.md를 따른다.

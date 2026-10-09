@@ -476,3 +476,9 @@
 - PGlite 격리 DB에서 기존 백업/관리자/친구 권한 검사와 새 정수 검사 통과. 소수·극소 소수·추가 횟수·범위·거부 요청 원자성·기존 부적합 기록 비노출·세션 폐기·마이그레이션 재적용 확인. CI에 새 마이그레이션·DB 검사 추가, Swift 모델/입력 회귀 검사 추가.
 - Swift 문법 파서는 변경 파일에 오류 없음으로 출력했으나 종료 시 Node 메모리 오류가 발생하여 정식 컴파일 성공으로 취급하지 않음. Windows에서 Swift/Xcode가 없어 Swift 회귀 검사·XCTest·전체 iOS 빌드 미실행. git diff --check 통과.
 - 통합 준비 중 main의 친구 탭 분리(71594a5)를 병합하여 보존. main의 미추적 simulation/ 폴더를 건드리지 않음.
+
+### 2026-10-09 UX 웹 가상 환경
+
+- A/B/C/D 기반 작업은 로컬 main 통합 완료. Mac/Xcode 사용 불가 조건에 따라 simulation/web/에 Windows 오프라인 행동 프로토타입을 추가했다.
+- C 사용자 4개·시나리오 5개, A 공통 검증기, D 미실행 세션 생성기를 연결한다. B의 실제 캡처는 pending 그대로다. 사용법: simulation/web/README.md; 상세 결과: docs/ux-simulation/results/web.md.
+- 상태 검사 18개·DOM 이벤트 5흐름·고정 스크립트 60세션(웹 app-state 실패 0). 실제 브라우저 렌더/Swift/iOS 빌드/live 모델은 미실행이며 웹 결과는 실제 iOS/사용성 성공을 의미하지 않는다.
