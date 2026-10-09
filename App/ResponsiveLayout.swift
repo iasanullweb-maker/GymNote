@@ -50,7 +50,7 @@ private struct ResponsiveLayoutPreview: View {
                         NavigationStack {
                             List {
                                 ForEach(model.data.recordTypes) { type in
-                                    RecordSection(type: type, onAdd: {})
+                                    RecordSection(type: type)
                                 }
                             }.navigationTitle("기록")
                         }
@@ -60,5 +60,6 @@ private struct ResponsiveLayoutPreview: View {
             .environment(\.gymnoteCompactLayout, geometry.size.width < 600)
         }
         .environment(model)
+        .environment(model.account)
     }
 }

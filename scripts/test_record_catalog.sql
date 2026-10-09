@@ -27,6 +27,15 @@ select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-00000000
 select pg_temp.catalog_check(public.is_record_catalog_admin(), 'Server assigned admin recognized');
 select pg_temp.catalog_check((select count(*) = 1 from public.save_record_catalog_type(
     '{"id":"common-test-v1","name":"테스트","unit":"초","style":"count","repsPerRound":30,"lowerIsBetter":true,"hint":"고정 조건","active":true,"position":3}',0)), 'Admin creates definition');
+-- Admin-created active definitions must be visible to another ordinary user and a guest.
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000002","session_id":"10000000-0000-0000-0000-000000000002"}',true);
+select pg_temp.catalog_check((select name = '테스트' and active from public.list_record_catalog() where id = 'common-test-v1'), 'Ordinary user sees newly created definition');
+reset role;
+set local role anon;
+select pg_temp.catalog_check((select name = '테스트' and active from public.list_record_catalog() where id = 'common-test-v1'), 'Guest sees newly created definition');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-0000-0000-000000000001","session_id":"10000000-0000-0000-0000-000000000001"}',true);
 select pg_temp.catalog_check((select count(*) = 0 from public.save_record_catalog_type(
     '{"id":"common-test-v1","name":"중복","unit":"초","style":"count","repsPerRound":30,"lowerIsBetter":true,"hint":"고정 조건","active":true,"position":3}',0)), 'Duplicate ID conflict');
 select pg_temp.catalog_check((select revision = 2 and not active from public.save_record_catalog_type(

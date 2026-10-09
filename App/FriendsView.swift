@@ -60,6 +60,7 @@ struct FriendsView: View {
     @State private var creatingGroup = false
     @State private var renaming = false
     @State private var removing: SocialOverview.Friend?
+    @State private var confirmingWithdrawal = false
 
     private var social: SocialModel { model.social }
 
@@ -75,22 +76,35 @@ struct FriendsView: View {
                             Label("순위는 기록 탭 → 친구에서 볼 수 있어요", systemImage: "trophy")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
+                        Section {
+                            Button("친구 기능 탈퇴", role: .destructive) { confirmingWithdrawal = true }
+                        } footer: {
+                            Text("앱 계정과 개인 운동 기록은 유지돼요.")
+                        }
                     } else {
                         onboarding
                     }
                 }
             }
             .navigationTitle("친구")
-            .toolbar {
-                if social.hasProfile {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { code = ""; addingFriend = true } label: { Label("친구 추가", systemImage: "person.badge.plus") }
-                    }
-                }
-            }
             .disabled(social.working)
             .task(id: account.user?.id) { await social.refresh() }
+            .onChange(of: account.user?.id) { _, _ in
+                nickname = ""; share = true; code = ""; groupName = ""
+                addingFriend = false; creatingGroup = false; renaming = false
+                removing = nil; confirmingWithdrawal = false
+            }
             .refreshable { await social.refresh() }
+            .confirmationDialog("친구 기능에서 탈퇴할까요?", isPresented: $confirmingWithdrawal, titleVisibility: .visible) {
+                Button("친구 기능 탈퇴", role: .destructive) {
+                    Task {
+                        if await social.withdraw() { nickname = ""; share = true }
+                    }
+                }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("닉네임·친구 코드·친구 관계·그룹 참여·공개 기록이 삭제돼요. 그룹장은 다른 참여자에게 넘겨요. 앱 계정과 개인 운동 일지는 유지되며, 다시 가입할 수 있어요.")
+            }
             .alert("친구 추가", isPresented: $addingFriend) {
                 TextField("친구 코드 8자리", text: $code)
                     .textInputAutocapitalization(.characters).autocorrectionDisabled()
@@ -124,18 +138,42 @@ struct FriendsView: View {
 
     private var onboarding: some View {
         Section {
-            TextField("닉네임 (1~20자)", text: $nickname)
-            Toggle("공통 종목 최고기록 자동 공개", isOn: $share)
-            Button("친구 기능 시작하기") {
-                let value = nickname, sharing = share
-                Task { await social.saveProfile(nickname: value, share: sharing) }
+            VStack(spacing: 24) {
+                VStack(spacing: 12) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 34, weight: .semibold)).foregroundStyle(.orange)
+                        .frame(width: 76, height: 76)
+                        .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 24))
+                        .accessibilityHidden(true)
+                    Text("친구와 기록 겨루기").font(.title.bold()).multilineTextAlignment(.center)
+                    Text("닉네임을 정하고 친구와\n운동 기록을 함께 확인하세요.")
+                        .foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("닉네임").font(.headline)
+                    TextField("1~20자", text: $nickname)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .padding(16).background(Color(uiColor: .secondarySystemGroupedBackground),
+                                                in: RoundedRectangle(cornerRadius: 16))
+                        .accessibilityLabel("친구 기능 닉네임")
+                    Toggle("최고 기록 자동 공개", isOn: $share)
+                    Text("친구·그룹원에게 닉네임과 공통 종목 최고 기록만 보여요. 이메일은 공개되지 않아요. 공개는 언제든 끌 수 있어요.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+                Button {
+                    let value = nickname, sharing = share
+                    Task { await social.saveProfile(nickname: value, share: sharing) }
+                } label: {
+                    Text("친구 기능 가입하기").font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity).padding(.vertical, 17)
+                }
+                .buttonStyle(.borderedProminent).buttonBorderShape(.roundedRectangle(radius: 16))
+                .disabled(!(1...20).contains(nickname.trimmingCharacters(in: .whitespacesAndNewlines).count))
             }
-            .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        } header: {
-            Text("친구와 기록 겨루기")
-        } footer: {
-            Text("닉네임을 정하면 친구 코드가 생겨요. 친구에게는 닉네임과 공통 종목(푸쉬업·풀업 등) 최고기록만 보여요. 이메일은 보이지 않아요. 공개를 켜 두면 최고 기록이 바뀔 때 자동으로 올라가고, 끄면 서버에서 지워져요.")
+            .frame(maxWidth: 440).frame(maxWidth: .infinity).padding(.vertical, 24)
         }
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     // MARK: 내 정보
@@ -185,6 +223,9 @@ struct FriendsView: View {
             }
         }
         Section {
+            Button { code = ""; addingFriend = true } label: {
+                Label("친구 추가", systemImage: "person.badge.plus")
+            }
             if overview.acceptedFriends.isEmpty {
                 Text("아직 친구가 없어요. 친구 코드를 주고받아 추가해 보세요.").font(.footnote).foregroundStyle(.secondary)
             }
@@ -201,7 +242,6 @@ struct FriendsView: View {
                     Button("취소") { Task { await social.remove(friend) } }.buttonStyle(.borderless)
                 }
             }
-            Button { code = ""; addingFriend = true } label: { Label("친구 코드로 추가", systemImage: "plus") }
         } header: {
             Text("친구 \(overview.acceptedFriends.count)명")
         }
@@ -264,8 +304,8 @@ struct FriendRankingView: View {
                 }
             }
         }
-        .task(id: account.user?.id) { await social.refresh() }
-        .refreshable { await social.refresh() }
+        .task(id: account.user?.id) { await account.refreshRecordCatalog(); await social.refresh() }
+        .refreshable { await account.refreshRecordCatalog(); await social.refresh() }
     }
 
     @ViewBuilder
@@ -279,11 +319,7 @@ struct FriendRankingView: View {
                 }
             }
             if overview.acceptedFriends.isEmpty && overview.joinedGroups.isEmpty {
-                HStack {
-                    Text("친구를 추가하면 함께 순위가 보여요.").font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    if let openFriendsTab { Button("친구 추가", action: openFriendsTab).font(.footnote) }
-                }
+                Text("친구 탭에서 친구를 추가하면 함께 순위가 보여요.").font(.footnote).foregroundStyle(.secondary)
             }
         }
         ForEach(types) { type in

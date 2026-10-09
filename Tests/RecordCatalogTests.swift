@@ -10,8 +10,65 @@ final class RecordCatalogTests: XCTestCase {
         SharedStore.testingDirectory = folder
     }
     override func tearDown() async throws {
+        AuthStub.reply = nil
         SharedStore.testingDirectory = nil
         try FileManager.default.removeItem(at: folder)
+    }
+
+    private func catalogClient() -> AuthClient {
+        let settings = URLSessionConfiguration.ephemeral
+        settings.protocolClasses = [AuthStub.self]
+        return AuthClient(config: AuthConfiguration(url: URL(string: "https://catalog-\(UUID().uuidString.lowercased()).supabase.co")!,
+                                                    publicKey: "sb_publishable_test"), configuration: settings)
+    }
+
+    func testGuestSeesNewAdministratorTypeAfterRefresh() async throws {
+        var remote = CatalogRecordType.defaults
+        let client = catalogClient()
+        AuthStub.reply = { request in
+            XCTAssertEqual(request.url?.path, "/rest/v1/rpc/list_record_catalog")
+            XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+            return (200, try JSONEncoder().encode(remote))
+        }
+        let model = AppModel(previewData: .empty)
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.refreshRecordCatalog()
+        var added = remote[0]
+        added.id = "common-new-v1"; added.name = "새 공통 운동"; added.position = 3
+        remote.append(added)
+        await account.refreshRecordCatalog()
+        XCTAssertEqual(account.catalogTypes.last, added)
+        XCTAssertEqual(SharedStore.recordCatalog()?.types.last, added)
+        XCTAssertNotNil(account.catalogFetchedAt)
+        XCTAssertNil(account.catalogMessage)
+    }
+
+    func testFreshCatalogStillDisplaysWhenCacheWriteFails() async throws {
+        // A directory in place of the cache file makes the real atomic write fail.
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("record-catalog.json"),
+                                                withIntermediateDirectories: false)
+        var added = CatalogRecordType.defaults[0]
+        added.id = "common-fresh-v1"; added.name = "최신 운동"
+        AuthStub.reply = { _ in (200, try JSONEncoder().encode([added])) }
+        let model = AppModel(previewData: .empty)
+        let account = AccountModel(model: model, client: catalogClient(),
+                                   initialConnection: .online, monitorConnectivity: false)
+        await account.refreshRecordCatalog()
+        XCTAssertEqual(account.catalogTypes, [added])
+        XCTAssertNotNil(account.catalogFetchedAt)
+        XCTAssertNotNil(account.catalogMessage)
+    }
+
+    func testCatalogNetworkFailurePreservesLastGoodList() async throws {
+        let model = AppModel(previewData: .empty)
+        let account = AccountModel(model: model, client: catalogClient(),
+                                   initialConnection: .online, monitorConnectivity: false)
+        AuthStub.reply = { _ in (200, try JSONEncoder().encode([] as [CatalogRecordType])) }
+        await account.refreshRecordCatalog()
+        AuthStub.reply = { _ in (500, Data()) }
+        await account.refreshRecordCatalog()
+        XCTAssertTrue(account.catalogTypes.isEmpty, "실패 때문에 서버가 비운 목록을 기본 목록으로 되돌리지 않음")
+        XCTAssertNotNil(account.catalogMessage)
     }
 
     func testLegacyRecordsNeverBecomeCommonRecords() {

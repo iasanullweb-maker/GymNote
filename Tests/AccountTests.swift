@@ -312,6 +312,88 @@ final class AccountTests: XCTestCase {
                                                     publicKey: "sb_publishable_test"), configuration: settings)
     }
 
+    func testSocialWithdrawalPreservesPrivateRecordsAndStopsPublishing() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let identity = AccountUser(id: UUID(), email: "test@example.com")
+        try vault.write(AccountSession(accessToken: "withdraw-token", refreshToken: "refresh",
+                                       expiresAt: Date().timeIntervalSince1970 + 3600, user: identity))
+        let model = AppModel()
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        model.data.records = [RecordEntry(typeID: "common-pushup-v1", date: Date(), value: 30)]
+        let before = model.data
+        let social = SocialModel(model: model, account: account)
+        var withdrawn = false
+        var publishCount = 0
+        AuthStub.reply = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer withdraw-token")
+            switch request.url!.path {
+            case "/rest/v1/rpc/social_overview":
+                return (200, Data((withdrawn
+                    ? #"{"profile":null,"friends":[],"groups":[]}"#
+                    : #"{"profile":{"nickname":"나","friend_code":"ABCD2345","share_records":true},"friends":[],"groups":[]}"#).utf8))
+            case "/rest/v1/rpc/social_publish_records": publishCount += 1; return (200, Data("1".utf8))
+            case "/rest/v1/rpc/social_leaderboard": return (200, Data("[]".utf8))
+            case "/rest/v1/rpc/social_withdraw":
+                let body = try JSONSerialization.jsonObject(with: AuthStub.body(of: request)) as? [String: Any]
+                XCTAssertEqual(body?.count, 0, "탈퇴 대상 ID는 서버가 토큰으로 결정")
+                withdrawn = true
+                return (200, Data("true".utf8))
+            default: throw URLError(.notConnectedToInternet)
+            }
+        }
+        await social.refresh()
+        XCTAssertTrue(social.hasProfile)
+        let initiallyPublished = publishCount
+        let succeeded = await social.withdraw()
+        XCTAssertTrue(succeeded)
+        XCTAssertFalse(social.hasProfile)
+        XCTAssertEqual(social.pendingCount, 0)
+        XCTAssertTrue(social.entries.isEmpty)
+        XCTAssertEqual(model.data, before)
+        XCTAssertEqual(try SharedStore.snapshot(userID: identity.id).data, before)
+        XCTAssertEqual(account.user?.id, identity.id)
+        await social.publish(force: true)
+        await social.refresh()
+        XCTAssertEqual(publishCount, initiallyPublished, "탈퇴 후에는 기록을 다시 공개하지 않음")
+    }
+
+    func testFailedSocialWithdrawalKeepsProfileAndPersonalData() async throws {
+        let client = stubClient()
+        let vault = SessionVault(project: client.config.url.host!)
+        defer { try? vault.clear() }
+        let identity = AccountUser(id: UUID(), email: "test@example.com")
+        try vault.write(AccountSession(accessToken: "token", refreshToken: "refresh",
+                                       expiresAt: Date().timeIntervalSince1970 + 3600, user: identity))
+        let model = AppModel()
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        await account.bootstrap()
+        let social = SocialModel(model: model, account: account)
+        var withdrawalStatus = 500
+        AuthStub.reply = { request in
+            if request.url!.path == "/rest/v1/rpc/social_overview" {
+                return (200, Data(#"{"profile":{"nickname":"나","friend_code":"ABCD2345","share_records":false},"friends":[],"groups":[]}"#.utf8))
+            }
+            if request.url!.path == "/rest/v1/rpc/social_leaderboard" { return (200, Data("[]".utf8)) }
+            return (withdrawalStatus, Data())
+        }
+        await social.refresh()
+        let before = model.data
+        let succeeded = await social.withdraw()
+        XCTAssertFalse(succeeded)
+        XCTAssertTrue(social.hasProfile)
+        XCTAssertEqual(model.data, before)
+        XCTAssertNotNil(social.message)
+        XCTAssertFalse(social.working)
+        withdrawalStatus = 404
+        let supported = await social.withdraw()
+        XCTAssertFalse(supported)
+        XCTAssertTrue(social.hasProfile)
+        XCTAssertFalse(social.unavailable, "탈퇴 RPC만 없을 때 기존 친구 기능까지 숨기지 않음")
+    }
+
     func testOfflineGuestStartsWithLocalRecordsAndOnlineShowsLogin() async throws {
         let model = AppModel()
         let record = RecordEntry(typeID: "pushup", date: Date(), value: 17)
