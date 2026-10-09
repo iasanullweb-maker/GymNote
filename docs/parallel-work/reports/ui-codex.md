@@ -22,6 +22,7 @@
 - 사용자 승인 범위의 검토 브랜치 push로 macOS CI 재실행. [Validate GymNote 37937581607](https://github.com/iasanullweb-maker/GymNote/actions/runs/37937581607) 전체 성공: swiftc 모델/계정/일상/기록/순위 검사, PostgreSQL 17 권한/탈퇴 검사, 계정 삭제 검사, iPad XCTest 74개 중 실패 0·기존 UX 캡처 5개 건너뜀. WorkoutFlowTests 10개(신규 testFailedSetDoesNotStartRest 포함), RecordCatalogTests 10개(취소 회귀 포함) 모두 통과했다. [Build IPA 37937581550](https://github.com/iasanullweb-maker/GymNote/actions/runs/37937581550) 앱·위젯 Release 빌드·IPA 생성도 성공했다. 원격 main push·릴리스 게시·운영 SQL 적용은 하지 않았다.
 - 이전 `iPad-test-results` 산출물을 다운로드하여 원본 로그와 manifest, 834/417pt 실행 목록, 360pt 운동·휴식 카드 캡처를 검토했다. 해당 화면은 정상 렌더링됐지만 RootView 탭 막대가 포함되지 않고 카드 테스트에는 세트 수를 전달하지 않으므로 하단 겹침·세트 배너 통합 검증 근거로 사용하지 않는다.
 - 편집 모드 없는 길게 끌기, 완료 경계에서 놓은 모습, iPhone SE 세로/가로·iPad·큰 글자·휴식 중 전체 하단 배치와 완료 애니메이션 실제 모습은 미실행이다. 운영 두 계정의 공통 종목 노출 제보 재현도 남아 있다.
-- 다른 채팅의 `326d030`, `ce39de8` 기기 검증 문서를 보존했다. `05ae172` 이후 Codex 변경은 `d107b79` 등으로 커밋되어 있으며 Claude 보고서와 공유 API 변경을 함께 검토했다. 로컬 main 통합은 UX 잠금을 얻고 대상 상태를 다시 확인한 후 수행한다.
+- 다른 채팅의 `326d030`, `ce39de8` 기기 검증 문서를 보존했다. `05ae172` 이후 Codex 변경은 `d107b79` 등으로 커밋되어 있으며 Claude 보고서와 공유 API 변경을 함께 검토했다.
+- 원본 main의 다른 대화 HANDOFF.md 편집 때문에 첫 통합을 멈췄다. 사용자가 해당 대화에서 커밋한 뒤 진행하도록 선택했고, `6a18b0c` 커밋과 추적 파일 미커밋 변경 없음을 확인했다. UX 잠금 아래 `5d62ecf`를 main에 병합한 앱 통합 커밋은 `50bad50`이다. 텔레그램 체크리스트·기존 미추적 `%SystemDrive%/` 폴더를 보존했고, 병합 앱 소스는 CI 대상 `9f218e7`와 동일함을 확인했다. 완료 기록 문서는 별도 경량 검토 후 같은 잠금으로 통합한다.
 
 친구 탈퇴 운영 사용에는 `202610090003_social_withdraw.sql` 적용이 필요하다. 서버 배포와 실기기 확인은 코드 구현·로컬 통합 완료와 구분한다.
