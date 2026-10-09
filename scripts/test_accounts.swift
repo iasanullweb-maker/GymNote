@@ -130,6 +130,33 @@ struct AccountChecks {
         let b = StoreSelection(userID: UUID())
         assert(a.scope != b.scope && a.generation != b.generation)
         assert(StoreSelection(userID: nil).scope == "guest")
-        print("Account checks passed: import, idempotency, type conflicts, widget edits, workout journals, revision roundtrip")
+        // 실행 탭 순서 변경과 위젯 세트 완료가 동시에 저장돼도 순서·진행이 함께 남는다.
+        let first = Exercise(name: "A", sets: 2, detail: "10회")
+        let second = Exercise(name: "B", sets: 2, detail: "10회")
+        let third = Exercise(name: "C", sets: 1, detail: "1분")
+        var ordered = AppData(week: [])
+        ordered.scheduledPlans[DayKey.key(date)] = DayPlan(title: "순서", exercises: [first, second, third])
+        assert(ordered.startWorkout(at: date))
+        ordered.changeSets(first.id, by: 1, on: date, actualReps: 9, at: date)
+        var reordered = ordered
+        assert(reordered.moveExecutionExercise(third.id, .top, on: date))
+        var widgetLatest = ordered
+        widgetLatest.changeSets(second.id, by: 1, on: date, actualReps: 7, at: date)
+        let mergedOrder = widgetLatest.applyingEdits(from: ordered, to: reordered)
+        assert(mergedOrder.activeWorkout?.plan.exercises.map(\.name) == ["C", "A", "B"], "앱의 순서 변경 반영")
+        assert(mergedOrder.activeWorkout?.doneSets(second) == 1, "위젯의 세트 완료 유지")
+        assert(mergedOrder.activeWorkout?.repetitions(second, set: 0) == 7)
+        assert(mergedOrder.activeWorkout?.repetitions(first, set: 0) == 9)
+        // 다른 곳에서 운동을 끝냈다면 오래된 화면의 순서 변경이 저장된 일지를 되살리거나 덮어쓰지 않는다.
+        var finishedElsewhere = ordered
+        assert(finishedElsewhere.finishWorkout(at: date))
+        let journalOnly = finishedElsewhere.applyingEdits(from: ordered, to: reordered)
+        let keptJournal = finishedElsewhere.workouts[0]
+        assert(journalOnly.activeWorkout == nil && journalOnly.workouts.map(\.id) == [keptJournal.id], "저장된 일지 보존")
+        assert(journalOnly.workouts[0].plan == keptJournal.plan, "일지의 운동 순서는 끝낸 시점 그대로")
+        assert(journalOnly.workouts[0].completedSets == keptJournal.completedSets)
+        assert(journalOnly.workouts[0].repetitions(first, set: 0) == 9)
+
+        print("Account checks passed: import, idempotency, type conflicts, widget edits, workout journals, revision roundtrip, execution order merge")
     }
 }

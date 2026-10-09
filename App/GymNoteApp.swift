@@ -1,3 +1,4 @@
+import Accessibility
 import Combine
 import SwiftUI
 import UserNotifications
@@ -72,10 +73,14 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = 0
     @State private var editingNavigation = EditingNavigationGuard()
     @State private var tabScreenVersions = [0, 0, 0, 0, 0]
     @State private var selectedDate = Date()
+    /// 종료 애니메이션 단계. 운동 ID별로 두어 새 저장이 오면 항상 '운동 중'부터 시작한다.
+    @State private var completion: (id: UUID, phase: Int)?
+    @State private var lastCatalogRefresh: Date?
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
     var body: some View {
@@ -105,13 +110,33 @@ struct RootView: View {
                 tabScreenVersions[index] += 1
             }
         }
+        .onChange(of: model.data.activeWorkout?.id) { _, current in
+            // 빠르게 새 운동을 시작하면 이전 종료 표시를 바로 거둔다.
+            if current != nil { model.dismissSavedWorkout() }
+        }
+        .onChange(of: model.selection.generation) { _, _ in model.dismissSavedWorkout() }
+        // AppModel.savedWorkout은 일지 저장이 실제로 성공했을 때만 생긴다.
+        // 단계: 운동 중 → 운동 완료 → 운동 일지에 저장됨 → 사라짐. 새 운동·계정 전환이면 취소된다.
+        .task(id: model.savedWorkout?.id) {
+            guard let id = model.savedWorkout?.id else { completion = nil; return }
+            completion = (id, 0)
+            let animation: Animation? = reduceMotion ? nil : .easeInOut(duration: 0.3)
+            do {
+                try await Task.sleep(for: .milliseconds(reduceMotion ? 150 : 350))
+                withAnimation(animation) { completion = (id, 1) }
+                try await Task.sleep(for: .milliseconds(900))
+                withAnimation(animation) { completion = (id, 2) }
+                AccessibilityNotification.Announcement("운동 일지에 저장됨").post()
+                try await Task.sleep(for: .seconds(2))
+                withAnimation(animation) { model.dismissSavedWorkout(id) }
+            } catch { /* A new session/account cancels the previous completion animation. */ }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 model.reload()
                 account.scheduleSync()
                 Task { await model.social.publish(force: false) }
                 Task { await model.social.refresh(quiet: true) }
-                Task { await account.refreshRecordCatalog() }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gymnoteStoreChanged).receive(on: RunLoop.main)) { _ in
@@ -123,6 +148,22 @@ struct RootView: View {
             model.reload()
             await RestController.requestPermissions()
             await model.social.refresh(quiet: true)
+        }
+        .task(id: scenePhase) {
+            // 앱이 화면에 있는 동안만 60초마다 공통 종목을 갱신한다. 백그라운드·비활성으로 바뀌면 반복을 멈춘다.
+            // 진행 중인 요청은 끊지 않고 끝까지 받는다(취소 오류를 '갱신 실패'로 보이지 않게).
+            // 동시에 들어온 요청은 AccountModel.catalogLoading이 걸러 낸다.
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                // 잠깐 비활성(제어 센터·알림 등)됐다 돌아올 때 곧바로 다시 요청하지 않는다.
+                if lastCatalogRefresh.map({ Date().timeIntervalSince($0) >= 30 }) ?? true {
+                    lastCatalogRefresh = Date()
+                    let refresh = Task { await account.refreshRecordCatalog() }
+                    await refresh.value
+                }
+                do { try await Task.sleep(for: .seconds(60)) }
+                catch { return }
+            }
         }
         .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
             Button("확인", role: .cancel) { model.storageError = nil }
@@ -140,18 +181,6 @@ struct RootView: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .padding(.horizontal, 16).padding(.bottom, 6)
             }
-            if model.data.activeWorkout != nil || model.restEnd != nil {
-                WorkoutStatusBanner(
-                    startedAt: model.data.activeWorkout?.startedAt,
-                    restStart: model.restStart, restEnd: model.restEnd,
-                    finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
-                    onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() }
-                )
-                .disabled(editingNavigation.isEditing)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
-                .padding(.bottom, compact ? 6 : 12)
-            }
             if workspace == "일상", model.data.activeWorkout != nil {
                 Button("진행 중인 운동으로 돌아가기") { workspace = "운동"; selectedTab = 0 }
                     .disabled(editingNavigation.isEditing)
@@ -162,26 +191,31 @@ struct RootView: View {
                     if workspace == "일상" { DailyTodayView() }
                     else { TodayView() }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                 .id("today-\(tabScreenVersions[0])")
                 .tabItem { Label("실행", systemImage: "checkmark.circle") }.tag(0)
                 Group {
                     if workspace == "일상" { DailyPlansView(selectedDate: $selectedDate) }
                     else { RoutineView(selectedDate: $selectedDate) }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                 .id("plans-\(tabScreenVersions[1])")
                 .tabItem { Label("계획", systemImage: "calendar") }.tag(1)
                 Group {
                     if workspace == "일상" { DailyHistoryView() }
                     else { RecordsView() }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                 .id("records-\(tabScreenVersions[2])")
                 .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
                 FriendsView()
+                    .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                     .id("friends-\(tabScreenVersions[3])")
                     .tabItem { Label("친구", systemImage: "person.2") }
                     .badge(model.social.pendingCount)
                     .tag(3)
                 SettingsView()
+                    .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                     .id("settings-\(tabScreenVersions[4])")
                     .tabItem { Label("설정", systemImage: "gearshape") }.tag(4)
             }
@@ -196,6 +230,32 @@ struct RootView: View {
                     .padding(.vertical, 6)
                     .background(.thinMaterial)
             }
+        }
+    }
+
+    /// 각 탭 콘텐츠의 하단 safeAreaInset에 놓여 탭 막대 위에 붙는다. 목록은 이 높이만큼 아래 여백을 받아
+    /// 마지막 버튼까지 스크롤해 누를 수 있다. 큰 글자에서도 화면을 덮지 않도록 글자 크기 상한을 둔다.
+    @ViewBuilder
+    private func workoutStatus(compact: Bool) -> some View {
+        if let saved = model.savedWorkout {
+            WorkoutCompletionBanner(session: saved,
+                                    phase: completion?.id == saved.id ? completion?.phase ?? 0 : 0)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 10)
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                .transition(.opacity)
+        } else if model.data.activeWorkout != nil || model.restEnd != nil {
+            WorkoutStatusBanner(
+                startedAt: model.data.activeWorkout?.startedAt,
+                restStart: model.restStart, restEnd: model.restEnd,
+                finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
+                onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() },
+                doneSets: model.workoutProgress.done, totalSets: model.workoutProgress.total
+            )
+            .disabled(editingNavigation.isEditing)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 10)
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         }
     }
 

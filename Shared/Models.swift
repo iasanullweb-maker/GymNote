@@ -61,6 +61,127 @@ struct DayPlan: Codable, Hashable {
     var totalSets: Int { exercises.reduce(0) { $0 + max($1.sets, 0) } }
 }
 
+// MARK: - 실행 탭 순서
+
+/// 실행 탭 목록에서 한 운동을 옮길 위치 (접근성 동작용)
+enum ExecutionMove: CaseIterable, Equatable {
+    case up, down, top, bottom
+}
+
+extension AppData {
+    /// 실행 탭에 보이는 계획. 진행 중 운동이 있으면 시작한 날짜와 관계없이 그 운동의 계획.
+    private func executionPlan(on date: Date) -> DayPlan {
+        activeWorkout?.plan ?? plan(for: date)
+    }
+
+    /// 진행 중 운동은 세션 기록으로, 아니면 그날 기록으로 판단한다(자정 이후에도 시작한 운동 기준).
+    func isExecutionFinished(_ exercise: Exercise, on date: Date = Date()) -> Bool {
+        let done = activeWorkout.map { $0.doneSets(exercise) } ?? doneSets(exercise, on: date)
+        return done >= max(exercise.sets, 0)
+    }
+
+    /// 완료한 운동은 아래에 모아 보여 준다. 저장된 순서는 바꾸지 않으므로
+    /// 완료를 취소하면 사용자가 정한 원래 위치로 돌아간다.
+    func executionExercises(on date: Date = Date()) -> [Exercise] {
+        let exercises = executionPlan(on: date).exercises
+        let unfinished = exercises.filter { !isExecutionFinished($0, on: date) }
+        let finished = exercises.filter { isExecutionFinished($0, on: date) }
+        return unfinished + finished
+    }
+
+    /// 화면 목록(`executionExercises`) 기준으로 운동을 옮긴다. `List.onMove`와 같은 규칙으로
+    /// `destination`은 옮기기 전 목록 기준 삽입 위치(0...count)라 아래로·맨 끝으로도 옮길 수 있다.
+    ///
+    /// - 미완료/완료 묶음 안에서만 순서가 바뀐다. 경계를 넘겨 놓으면 같은 묶음의 끝(또는 앞)에 놓인다.
+    /// - 다른 묶음의 저장 위치는 그대로라 완료를 취소하면 원래 자리로 돌아간다.
+    /// - 운동 ID·세트 수·실제 횟수·무게·저장된 일지는 바꾸지 않는다. 순서만 바뀐다.
+    @discardableResult
+    mutating func moveExecutionExercises(fromOffsets source: IndexSet, toOffset destination: Int,
+                                         on date: Date = Date()) -> Bool {
+        let display = executionExercises(on: date)
+        guard !source.isEmpty, source.allSatisfy({ display.indices.contains($0) }),
+              (0...display.count).contains(destination) else { return false }
+        // Array.move(fromOffsets:toOffset:)와 같은 동작. 위젯·검사 스크립트는 SwiftUI 없이 컴파일하므로 직접 구현.
+        let moving = source.map { display[$0] }
+        var reordered = display.enumerated().filter { !source.contains($0.offset) }.map(\.element)
+        let insertAt = destination - source.filter { $0 < destination }.count
+        reordered.insert(contentsOf: moving, at: min(max(insertAt, 0), reordered.count))
+        return applyExecutionOrder(reordered.map(\.id), on: date)
+    }
+
+    /// 접근성 동작(위로/아래로/맨 위로/맨 아래로). 같은 완료 묶음 안에서 움직인다.
+    @discardableResult
+    mutating func moveExecutionExercise(_ id: UUID, _ move: ExecutionMove, on date: Date = Date()) -> Bool {
+        guard let target = executionMoveTarget(id, move, on: date) else { return false }
+        return moveExecutionExercises(fromOffsets: IndexSet(integer: target.index), toOffset: target.destination, on: date)
+    }
+
+    /// 옮길 수 있는 방향만 접근성 동작으로 보여 주기 위한 확인.
+    func canMoveExecutionExercise(_ id: UUID, _ move: ExecutionMove, on date: Date = Date()) -> Bool {
+        executionMoveTarget(id, move, on: date) != nil
+    }
+
+    private func executionMoveTarget(_ id: UUID, _ move: ExecutionMove, on date: Date) -> (index: Int, destination: Int)? {
+        let display = executionExercises(on: date)
+        guard let index = display.firstIndex(where: { $0.id == id }) else { return nil }
+        let finished = isExecutionFinished(display[index], on: date)
+        let group = display.indices.filter { isExecutionFinished(display[$0], on: date) == finished }
+        guard let first = group.first, let last = group.last else { return nil }
+        let destination: Int
+        switch move {
+        case .up: destination = index - 1
+        case .down: destination = index + 2
+        case .top: destination = first
+        case .bottom: destination = last + 1
+        }
+        guard destination >= first, destination <= last + 1, destination != index, destination != index + 1
+        else { return nil }
+        return (index, destination)
+    }
+
+    /// 화면 순서를 저장 순서에 반영한다. 각 묶음은 자기 묶음이 차지하던 자리 안에서만 재배치한다.
+    private mutating func applyExecutionOrder(_ displayOrder: [UUID], on date: Date) -> Bool {
+        let current = executionPlan(on: date)
+        let currentIDs = current.exercises.map(\.id)
+        // 같은 ID가 두 번 들어간 예전 계획은 어느 쪽을 옮길지 알 수 없으므로 건드리지 않는다.
+        guard Set(currentIDs).count == currentIDs.count, displayOrder.count == currentIDs.count,
+              Set(displayOrder) == Set(currentIDs) else { return false }
+        let finishedIDs = Set(current.exercises.filter { isExecutionFinished($0, on: date) }.map(\.id))
+        var unfinishedQueue = displayOrder.filter { !finishedIDs.contains($0) }[...]
+        var finishedQueue = displayOrder.filter { finishedIDs.contains($0) }[...]
+        let byID = Dictionary(current.exercises.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var exercises: [Exercise] = []
+        for slot in current.exercises {
+            let next = finishedIDs.contains(slot.id) ? finishedQueue.popFirst() : unfinishedQueue.popFirst()
+            guard let id = next, let exercise = byID[id] else { return false }
+            exercises.append(exercise)
+        }
+        guard exercises.map(\.id) != currentIDs else { return false }
+
+        if var session = activeWorkout {
+            session.plan.exercises = exercises
+            activeWorkout = session
+            // 같은 날 일정이 같은 운동들로 이뤄져 있으면 순서를 맞춰 '새 운동 시작'에도 유지한다.
+            // 일정 쪽 운동 내용(세트·횟수)은 그대로 둔다.
+            if var scheduled = scheduledPlans[session.day] {
+                let scheduledIDs = scheduled.exercises.map(\.id)
+                if scheduledIDs.count == exercises.count, Set(scheduledIDs) == Set(exercises.map(\.id)),
+                   Set(scheduledIDs).count == scheduledIDs.count {
+                    let scheduledByID = Dictionary(scheduled.exercises.map { ($0.id, $0) },
+                                                   uniquingKeysWith: { first, _ in first })
+                    scheduled.exercises = exercises.compactMap { scheduledByID[$0.id] }
+                    scheduledPlans[session.day] = scheduled
+                }
+            }
+        } else {
+            var updated = current
+            updated.exercises = exercises
+            scheduledPlans[DayKey.key(date)] = updated
+        }
+        return true
+    }
+}
+
 // MARK: - 최고 기록
 
 /// 기록 종목 (앱에서 추가/삭제/순서 변경 가능. 위에 있는 3개가 위젯에 표시됨)
