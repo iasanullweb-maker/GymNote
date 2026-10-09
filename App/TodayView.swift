@@ -1,8 +1,13 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TodayView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var draggingExercise: UUID?
+    @State private var recordingType: RecordType?
 
     var body: some View {
         let plan = model.todayPlan
@@ -37,17 +42,43 @@ struct TodayView: View {
                 }
                 if !plan.isRestDay {
                     Section("운동") {
-                        ForEach(plan.exercises) { exercise in
+                        ForEach(model.data.executionExercises(on: model.workoutDate)) { exercise in
                             ExerciseRow(
                                 exercise: exercise,
                                 done: model.data.doneSets(exercise, on: model.workoutDate),
                                 session: model.data.activeWorkout,
                                 onComplete: { model.completeSet(exercise, actualReps: $0) },
                                 onUndo: { model.undoSet(exercise) }
-                            ).disabled(model.data.activeWorkout == nil)
+                            )
                                 .id("\(model.data.activeWorkout?.id.uuidString ?? "idle")-\(exercise.id)")
+                                .onDrag {
+                                    draggingExercise = exercise.id
+                                    return NSItemProvider(object: exercise.id.uuidString as NSString)
+                                }
+                                .onDrop(of: [UTType.text], delegate: ExerciseOrderDrop(
+                                    target: exercise.id, dragging: $draggingExercise,
+                                    move: { source, target in
+                                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                                            model.moveExecutionExercise(source, before: target)
+                                        }
+                                    }))
+                                .accessibilityAction(named: "맨 위로 이동") {
+                                    if let first = plan.exercises.first { model.moveExecutionExercise(exercise.id, before: first.id) }
+                                }
                         }
+                    } footer: {
+                        Text("운동을 길게 눌러 끌면 순서를 바꿀 수 있어요. 완료한 운동은 아래에 표시돼요.")
                     }
+                }
+                Section("종목 기록") {
+                    Menu {
+                        ForEach(account.catalogTypes.filter(\.active)) { type in
+                            Button(type.name) { recordingType = type.recordType }
+                        }
+                    } label: { Label("종목 기록 남기기", systemImage: "square.and.pencil") }
+                    .disabled(account.catalogTypes.filter(\.active).isEmpty)
+                    Text("횟수·라운드·무게 등의 기록을 남기면 최고 기록에 반영돼요.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 Section {
                     (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
@@ -80,6 +111,14 @@ struct TodayView: View {
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
             .navigationBarTitleDisplayMode(compact ? .inline : .large)
+            .task { await account.refreshRecordCatalog() }
+            .sheet(item: $recordingType) { type in
+                AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
+                    if model.addRecord(entry) {
+                        model.recordMessage = "\(type.name) \(type.display(entry))"
+                    }
+                }
+            }
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { model.recordMessage != nil },
                 set: { if !$0 { model.recordMessage = nil } }
@@ -90,6 +129,19 @@ struct TodayView: View {
             }
         }
     }
+}
+
+private struct ExerciseOrderDrop: DropDelegate {
+    let target: UUID
+    @Binding var dragging: UUID?
+    let move: (UUID, UUID) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging != target else { return }
+        move(dragging, target)
+    }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+    func performDrop(info: DropInfo) -> Bool { dragging = nil; return true }
 }
 
 struct ExerciseRow: View {
@@ -136,18 +188,19 @@ struct ExerciseRow: View {
                         Button { draftReps = max(0, value - 1) } label: {
                             Image(systemName: "minus").frame(width: 32, height: 36)
                         }
-                        .buttonStyle(.bordered).disabled(value == 0)
+                        .buttonStyle(.bordered).disabled(session == nil || value == 0)
                         .accessibilityLabel("실제 횟수 1회 줄이기")
                         Button { editingReps = true } label: {
                             Text("\(value)회").font(.title2.bold().monospacedDigit())
                                 .frame(minWidth: 64, minHeight: 44)
                         }
                         .buttonStyle(.borderless)
+                        .disabled(session == nil)
                         .accessibilityLabel("실제 횟수 \(value)회, 직접 입력")
                         Button { draftReps = min(9999, value + 1) } label: {
                             Image(systemName: "plus").frame(width: 32, height: 36)
                         }
-                        .buttonStyle(.bordered).disabled(value == 9999)
+                        .buttonStyle(.bordered).disabled(session == nil || value == 9999)
                         .accessibilityLabel("실제 횟수 1회 늘리기")
                     }
                 }
@@ -163,7 +216,7 @@ struct ExerciseRow: View {
                         .frame(minWidth: 28, minHeight: 40)
                 }
                 .buttonStyle(.bordered)
-                .disabled(done == 0)
+                .disabled(session == nil || done == 0)
                 .accessibilityLabel("세트 완료 되돌리기")
 
                 Button { onComplete(actualReps) } label: {
@@ -172,7 +225,7 @@ struct ExerciseRow: View {
                         .frame(maxWidth: .infinity, minHeight: 40)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(finished)
+                .disabled(session == nil || finished)
             }
         }
         .padding(.vertical, 10)
@@ -292,6 +345,8 @@ struct WorkoutStatusBanner: View {
     let finishTitle: String
     let onSkip: () -> Void
     let onFinish: () -> Void
+    var doneSets = 0
+    var totalSets = 0
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -338,9 +393,18 @@ struct WorkoutStatusBanner: View {
                         .font(compact ? .headline.monospacedDigit() : .title2.monospacedDigit()).bold()
                         .accessibilityHint("운동 경과 시간")
                 }
+                if startedAt != nil, totalSets > 0 {
+                    Text("\(doneSets) / \(totalSets) 세트")
+                        .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                    ProgressView(value: Double(doneSets), total: Double(max(totalSets, 1)))
+                        .tint(.orange)
+                        .accessibilityLabel("세트 진행도")
+                        .accessibilityValue("\(totalSets)세트 중 \(doneSets)세트 완료")
+                }
             }
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .frame(minWidth: 100, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func actions(resting: Bool) -> some View {

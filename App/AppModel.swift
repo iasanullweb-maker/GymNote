@@ -66,12 +66,22 @@ final class AppModel {
     /// 운동을 마쳐 새 최고기록이 생기면 보여 줄 문구 (운동 화면의 알림)
     var recordMessage: String?
 
-    func finishWorkout() {
+    @discardableResult
+    func finishWorkout() -> Bool {
+        guard let session = data.activeWorkout else { return false }
         let before = data.exerciseRecords()
         if data.activeWorkout?.done == 0 { data.activeWorkout = nil }
         else { data.finishWorkout() }
+        // Persistence can roll back the edit. Keep the active session/timer on failure.
+        guard data.activeWorkout?.id != session.id else { return false }
         stopRest()
         announceRecords(since: before)
+        return data.workouts.contains { $0.id == session.id }
+    }
+
+    func moveExecutionExercise(_ source: UUID, before target: UUID) {
+        data.moveExecutionExercise(source, before: target, on: workoutDate)
+        refreshWorkoutActivity()
     }
 
     /// 운동 일지에서 다시 계산한 최고기록이 이전보다 좋아졌으면 알림 문구를 남긴다.

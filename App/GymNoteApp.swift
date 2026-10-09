@@ -72,10 +72,13 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab = 0
     @State private var editingNavigation = EditingNavigationGuard()
     @State private var tabScreenVersions = [0, 0, 0, 0, 0]
     @State private var selectedDate = Date()
+    @State private var completedWorkout: WorkoutSession?
+    @State private var completionPhase = 0
     @AppStorage("selectedWorkspace") private var workspace = "운동"
 
     var body: some View {
@@ -105,13 +108,31 @@ struct RootView: View {
                 tabScreenVersions[index] += 1
             }
         }
+        .onChange(of: model.data.activeWorkout) { previous, current in
+            if current != nil { completedWorkout = nil }
+            else if let previous, let saved = model.data.workouts.first(where: { $0.id == previous.id }) {
+                completionPhase = 0
+                completedWorkout = saved
+            }
+        }
+        .onChange(of: model.selection.generation) { _, _ in completedWorkout = nil }
+        .task(id: completedWorkout?.id) {
+            guard completedWorkout != nil else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(250))
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { completionPhase = 1 }
+                try await Task.sleep(for: .milliseconds(900))
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { completionPhase = 2 }
+                try await Task.sleep(for: .seconds(2))
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) { completedWorkout = nil }
+            } catch { /* A new session/account cancels the previous completion animation. */ }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 model.reload()
                 account.scheduleSync()
                 Task { await model.social.publish(force: false) }
                 Task { await model.social.refresh(quiet: true) }
-                Task { await account.refreshRecordCatalog() }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gymnoteStoreChanged).receive(on: RunLoop.main)) { _ in
@@ -123,6 +144,14 @@ struct RootView: View {
             model.reload()
             await RestController.requestPermissions()
             await model.social.refresh(quiet: true)
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                await account.refreshRecordCatalog()
+                do { try await Task.sleep(for: .seconds(60)) }
+                catch { return }
+            }
         }
         .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {
             Button("확인", role: .cancel) { model.storageError = nil }
@@ -140,18 +169,6 @@ struct RootView: View {
                     .font(.footnote).foregroundStyle(.secondary)
                     .padding(.horizontal, 16).padding(.bottom, 6)
             }
-            if model.data.activeWorkout != nil || model.restEnd != nil {
-                WorkoutStatusBanner(
-                    startedAt: model.data.activeWorkout?.startedAt,
-                    restStart: model.restStart, restEnd: model.restEnd,
-                    finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
-                    onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() }
-                )
-                .disabled(editingNavigation.isEditing)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
-                .padding(.bottom, compact ? 6 : 12)
-            }
             if workspace == "일상", model.data.activeWorkout != nil {
                 Button("진행 중인 운동으로 돌아가기") { workspace = "운동"; selectedTab = 0 }
                     .disabled(editingNavigation.isEditing)
@@ -162,26 +179,31 @@ struct RootView: View {
                     if workspace == "일상" { DailyTodayView() }
                     else { TodayView() }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                 .id("today-\(tabScreenVersions[0])")
                 .tabItem { Label("실행", systemImage: "checkmark.circle") }.tag(0)
                 Group {
                     if workspace == "일상" { DailyPlansView(selectedDate: $selectedDate) }
                     else { RoutineView(selectedDate: $selectedDate) }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                 .id("plans-\(tabScreenVersions[1])")
                 .tabItem { Label("계획", systemImage: "calendar") }.tag(1)
                 Group {
                     if workspace == "일상" { DailyHistoryView() }
                     else { RecordsView() }
                 }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                 .id("records-\(tabScreenVersions[2])")
                 .tabItem { Label("기록", systemImage: "chart.bar") }.tag(2)
                 FriendsView()
+                    .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                     .id("friends-\(tabScreenVersions[3])")
                     .tabItem { Label("친구", systemImage: "person.2") }
                     .badge(model.social.pendingCount)
                     .tag(3)
                 SettingsView()
+                    .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
                     .id("settings-\(tabScreenVersions[4])")
                     .tabItem { Label("설정", systemImage: "gearshape") }.tag(4)
             }
@@ -196,6 +218,37 @@ struct RootView: View {
                     .padding(.vertical, 6)
                     .background(.thinMaterial)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func workoutStatus(compact: Bool) -> some View {
+        if let completedWorkout {
+            VStack(spacing: 8) {
+                Image(systemName: completionPhase == 0 ? "figure.strengthtraining.traditional"
+                      : completionPhase == 1 ? "checkmark.circle.fill" : "book.closed.fill")
+                    .font(.title2).foregroundStyle(completionPhase == 0 ? .orange : .green)
+                Text(completionPhase == 0 ? "운동 중" : completionPhase == 1 ? "운동 완료" : "운동 일지에 저장됨")
+                    .font(.headline).contentTransition(.opacity)
+                    .accessibilityAddTraits(.updatesFrequently)
+                Text("\(completedWorkout.done) / \(completedWorkout.total) 세트")
+                    .font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity).padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24))
+            .padding(.horizontal, 16).padding(.vertical, 6)
+            .accessibilityElement(children: .combine)
+        } else if model.data.activeWorkout != nil || model.restEnd != nil {
+            WorkoutStatusBanner(
+                startedAt: model.data.activeWorkout?.startedAt,
+                restStart: model.restStart, restEnd: model.restEnd,
+                finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
+                onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() },
+                doneSets: model.workoutProgress.done, totalSets: model.workoutProgress.total
+            )
+            .disabled(editingNavigation.isEditing)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 10)
         }
     }
 

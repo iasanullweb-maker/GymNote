@@ -61,6 +61,29 @@ struct DayPlan: Codable, Hashable {
     var totalSets: Int { exercises.reduce(0) { $0 + max($1.sets, 0) } }
 }
 
+extension AppData {
+    /// Display completed exercises last without rewriting the user's chosen order.
+    func executionExercises(on date: Date = Date()) -> [Exercise] {
+        let exercises = activeWorkout?.plan.exercises ?? plan(for: date).exercises
+        let unfinished = exercises.filter { doneSets($0, on: date) < $0.sets }
+        let finished = exercises.filter { doneSets($0, on: date) >= $0.sets }
+        return unfinished + finished
+    }
+
+    /// Reorder only this day's plan/session. IDs and recorded sets remain intact.
+    mutating func moveExecutionExercise(_ source: UUID, before target: UUID, on date: Date = Date()) {
+        var current = activeWorkout?.plan ?? plan(for: date)
+        guard source != target,
+              let from = current.exercises.firstIndex(where: { $0.id == source }),
+              current.exercises.contains(where: { $0.id == target }) else { return }
+        let exercise = current.exercises.remove(at: from)
+        guard let to = current.exercises.firstIndex(where: { $0.id == target }) else { return }
+        current.exercises.insert(exercise, at: to)
+        if activeWorkout != nil { activeWorkout?.plan = current }
+        else { scheduledPlans[DayKey.key(date)] = current }
+    }
+}
+
 // MARK: - 최고 기록
 
 /// 기록 종목 (앱에서 추가/삭제/순서 변경 가능. 위에 있는 3개가 위젯에 표시됨)
