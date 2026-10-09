@@ -12,3 +12,15 @@
 - 최신 main의 웹 UX 시뮬레이션 커밋 41f85f6을 fast-forward로 가져와 보존했다.
 - 미실행: 실제 Telegram API 연결, 유료 Codex 구현/검토, Claude 어댑터, 완료 알림 자동 발송, 기존 세션 질문 답변 재개, 원격 push·배포·운영 DB 변경·전체 iOS 빌드/XCTest.
 - 통합: scripts/parallel_work.ps1 -Mode Integrate -Unified를 사용해 UX와 같은 잠금으로 기존 main 상태를 확인하고 로컬 통합한다. 기존 미추적 파일과 다른 대화의 작업을 보존한다.
+
+## 텔레그램 상태 알림·사전 점검 후속 (2026-10-09)
+
+- 최신 main 25cd691을 지정 unified 워크트리에 fast-forward로 보존한 뒤 진행했다. 다른 대화에 작업 지시나 메시지를 보내지 않았다.
+- 신규 텔레그램 실행 요청의 완료·실패·사용자 판단 필요·실제 중지 상태 알림을 구현했다. task/history와 같은 SQLite 트랜잭션에 원래 chat ID·시도별 안전한 알림 payload를 기록한다. 재시작 보존, 전송 실패 backoff, 현재 사용자/채팅 허용 목록 재검사, 권한 철회 시 suppressed 보존을 포함한다. 모델 요약·코드·로그·아이디어·토큰은 알림에 넣지 않는다.
+- telegramNotificationsEnabled 설정으로 발송만 끌 수 있다. 외부 API와 DB 사이의 응답 유실/프로세스 종료에는 중복 발송 가능성이 있으며 알림 ID로 구분한다. 기존/관리자 요청의 알림 대상을 임의로 복원하지 않는다.
+- automation.check: Python·Git 브랜치·필수 환경 변수·허용 ID·CLI 경로의 읽기 전용 사전 점검. 네트워크/실제 에이전트/비밀값 출력 없음. 실제 봇 인증·Codex 로그인·한도·포트·런타임 권한은 별도 확인이다. 실서비스도 JSON boolean 기능 플래그와 숫자 allowlist를 검사한다.
+- 오래된 하위 README의 구현 준비 문구를 실제 실행 가능한 구성요소 안내로 교체했다. README/TASKS/config 예시도 새 기능·시작 전 점검을 반영했다.
+- 검증: 설치된 Python 3.14 절대 경로로 unittest discover 전체 46개 통과(기존 25 + 신규 21). 실제 격리 SQLite/Git·가짜 에이전트·합성 Telegram 발송·localhost HTTP를 사용했다. Python py_compile, git diff --check 통과. 기존 HTTPError 자원 정리 ResourceWarning은 있으나 실패/건너뜀은 없다.
+- 실제 config.example.json 사전 점검: Python/프로젝트 브랜치/기능 플래그 정상, 관리자 토큰 미설정으로 ok=false. telegramEnabled/executionEnabled=false를 확인했다. 실서비스를 켜지 않았고 실제 Telegram API·봇 발송·유료 Codex/Claude 호출·push/Actions/배포/운영 DB·전체 iOS 빌드/XCTest는 미실행.
+- 커밋은 이 문서의 Git 이력으로 식별한다. 담당 변경만 [skip ci] 커밋하고 지정 scripts/parallel_work.ps1 -Mode Integrate -Unified로 기존 main에 로컬 통합한다. 실제 통합 결과·SHA는 완료 응답에 보고한다.
+- 남은 입력: 로컬 BotFather 토큰(채팅/저장소에 넣지 않음), 허용 user/chat ID, 실제 CLI 인증·봇 단일 수신기 확인. Claude 어댑터와 기존 세션 질문 답변 재개는 여전히 별도 후속 작업이다.

@@ -38,4 +38,14 @@ SQLite BEGIN IMMEDIATE 트랜잭션으로 등록·중복 처리·claim·상태 �
 - 실행기는 Store.claim으로 한 작업을 받아 상태와 시도 ID를 갱신한다. 구현·별도 검토·검증 후 승인된 프로젝트에서만 로컬 통합한다.
 - 관리자 화면은 위 API를 호출하며 requestId를 사용한 재전송과 상세 이력을 이용할 수 있다. 조회 응답을 받은 것만으로 실행 성공을 표시하지 않는다.
 
-현재 실행 어댑터는 Codex만 구현됐다. Claude 어댑터·/answer로 기존 세션 재개·완료 자동 알림은 미구현이다. 공통 코드 테스트는 합성 텔레그램·가짜 에이전트·실제 SQLite/localhost HTTP·격리 Git 저장소를 사용한다. 실제 봇 연결이나 유료 모델 실행 성공을 의미하지 않는다. 운영 토큰이나 실사용 DB 없이 검증한다. 원격 push·배포·운영 SQL은 사용자 요청별 승인 범위를 따른다.
+현재 실행 어댑터는 Codex만 구현됐다. Claude 어댑터·/answer로 기존 세션 재개는 미구현이다. 신규 텔레그램 execute 요청의 종료/판단 필요 상태 알림은 영속 큐에서 원래 채팅으로 발송한다. 공통 코드 테스트는 합성 텔레그램·가짜 에이전트·실제 SQLite/localhost HTTP·격리 Git 저장소를 사용한다. 실제 봇 연결이나 유료 모델 실행 성공을 의미하지 않는다. 운영 토큰이나 실사용 DB 없이 검증한다. 원격 push·배포·운영 SQL은 사용자 요청별 승인 범위를 따른다.
+
+## 텔레그램 상태 알림
+
+telegram_targets는 새 텔레그램 요청의 원래 chat ID를 저장한다. tasks의 completed/failed/waiting_user/cancelled 이력과 telegram_notifications 큐를 같은 트랜잭션으로 기록한다. 실행 중 cancel 요청만으로 중지 알림을 보내지 않고 실행기가 cancelled를 확정해야 한다. 메모·관리자/구형 작업은 자동 알림 대상이 아니다. 재시도별 attempt와 알림 ID를 보존하며 과거 상태 알림을 현재 시도의 결과로 덮어쓰지 않는다.
+
+알림 payload는 integrated boolean·40자리 소문자 hex commit·checks/notRun 개수만 보존한다. 모델 요약/로그/아이디어/토큰을 알림에 넣지 않는다. 배달 직전에 현재 사용자·채팅 허용 목록을 검사한다. 권한 제거는 suppressed로 보존, 성공 응답은 sent, 실패는 pending과 지수 backoff(10초~300초)를 유지한다. polling 스레드가 한 번에 최대 10개를 처리하며 대기 중인 getUpdates 때문에 발송이 지연될 수 있다. 서비스 단일 인스턴스 잠금을 그대로 사용한다.
+
+Telegram sendMessage와 SQLite를 하나의 외부 트랜잭션으로 묶을 수 없으므로 응답 유실/발송 직후 재시작에는 중복 가능성이 있다. 알림 ID로 식별하며 exactly-once를 주장하지 않는다. telegramNotificationsEnabled=false는 큐를 삭제하지 않고 발송만 멈춘다. 다시 켜면 권한을 재검사한 뒤 남은 알림을 처리한다.
+
+python -m automation.check --config <local-config.json>은 네트워크/에이전트 실행/비밀값 출력 없는 사전 점검이다. 실제 봇 인증·모델 로그인·서비스 운영 검증과 구분한다.

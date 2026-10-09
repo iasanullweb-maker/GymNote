@@ -4,7 +4,10 @@ import urllib.request
 
 class Telegram:
     def __init__(self, token, users, chats, project, store):
-        if not token or not users or not chats:
+        if (not isinstance(token, str) or not token.strip() or not isinstance(users, list) or not users
+                or not isinstance(chats, list) or not chats
+                or not all(type(user) is int and 0 < user < 2**63 for user in users)
+                or not all(type(chat) is int and chat != 0 and -(2**63) <= chat < 2**63 for chat in chats)):
             raise ValueError('Bot token, allowed users and allowed chats are required')
         self.token, self.users, self.chats = token, set(users), set(chats)
         self.project, self.store = project, store
@@ -55,7 +58,7 @@ class Telegram:
             return '지원하지 않는 명령입니다. /help를 확인하세요.'
         if not text or len(text) > 8000:
             return '아이디어 내용을 1~8000자로 입력하세요.'
-        task = self.store.create('telegram', update['update_id'], actor, self.project, text, intent)
+        task = self.store.create('telegram', update['update_id'], actor, self.project, text, intent, telegram_chat=chat['id'])
         return f"{'실행 요청 접수' if intent == 'execute' else '아이디어 저장'}\n{task['id']}\n상태: {task['status']}"
 
     def poll(self):
@@ -67,3 +70,37 @@ class Telegram:
             self.store.offset(update['update_id'] + 1)
             if reply:
                 self.call('sendMessage', {'chat_id': update['message']['chat']['id'], 'text': reply})
+
+    @staticmethod
+    def notification_text(event):
+        labels = {'completed': '작업 완료', 'failed': '작업 실패',
+                  'waiting_user': '사용자 확인 필요', 'cancelled': '작업 중지'}
+        payload = event['payload']
+        lines = [labels[event['status']], event['task'], f"알림 #{event['id']}"]
+        if payload['integrated']:
+            lines.append('로컬 main 통합 완료')
+        elif event['status'] == 'completed':
+            lines.append('로컬 통합 여부를 확인해 주세요.')
+        if payload['commit']:
+            lines.append('커밋: ' + payload['commit'][:12])
+        lines.append(f"검사 기록 {payload['checks']}개 · 미실행 {payload['notRun']}개")
+        lines.append('/status ' + event['task'])
+        return '\n'.join(lines)
+
+    def deliver_notifications(self):
+        sent = 0
+        for event in self.store.notification_due():
+            task = self.store.get(event['task'])
+            # Recheck CURRENT allowlists before sending a stored notification.
+            allowed_actors = {f'telegram:{user}' for user in self.users}
+            if not task or task['source'] != 'telegram' or task['actor'] not in allowed_actors or event['chat'] not in self.chats:
+                self.store.notification_delivered(event['id'], suppressed=True)
+                continue
+            try:
+                self.call('sendMessage', {'chat_id': event['chat'], 'text': self.notification_text(event)})
+            except RuntimeError:
+                self.store.notification_failed(event['id'])
+                continue
+            self.store.notification_delivered(event['id'])
+            sent += 1
+        return sent

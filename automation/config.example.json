@@ -14,5 +14,6 @@
       "branch": "main",
       "autoIntegrate": true
     }
-  }
+  },
+  "telegramNotificationsEnabled": true
 }

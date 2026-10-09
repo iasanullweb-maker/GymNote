@@ -39,6 +39,9 @@ class InstanceLock:
 
 def load_config(path):
     config = json.loads(Path(path).read_text(encoding='utf-8-sig'))
+    for key in ('telegramEnabled', 'executionEnabled', 'telegramNotificationsEnabled'):
+        if key in config and not isinstance(config[key], bool):
+            raise ValueError('Feature flags must be JSON booleans')
     if not config.get('projects') or config.get('defaultProject') not in config['projects']:
         raise ValueError('Configure projects and defaultProject')
     for project in config['projects'].values():
@@ -186,6 +189,8 @@ def run(config):
     def receive():
         while not stop.is_set():
             try:
+                if config.get('telegramNotificationsEnabled', True):
+                    telegram.deliver_notifications()
                 telegram.poll()
             except Exception:
                 print('Telegram polling failed; retrying in 10 seconds. No credentials logged.', flush=True)
