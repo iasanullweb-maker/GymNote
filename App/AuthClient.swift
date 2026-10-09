@@ -332,6 +332,9 @@ final class AuthClient {
     func socialOverview(token: String) async throws -> SocialOverview {
         try JSONDecoder().decode(SocialOverview.self, from: await socialCall("social_overview", token: token))
     }
+    func withdrawSocial(token: String) async throws -> Bool {
+        try JSONDecoder().decode(Bool.self, from: await socialCall("social_withdraw", token: token))
+    }
     func saveSocialProfile(nickname: String, share: Bool, token: String) async throws -> SocialOverview.Profile {
         let data = try await socialCall("social_save_profile", token: token,
                                         body: json(["p_nickname": nickname, "p_share": share]))

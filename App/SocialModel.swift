@@ -19,6 +19,7 @@ final class SocialModel {
     @ObservationIgnored private unowned let model: AppModel
     @ObservationIgnored private var publishTask: Task<Void, Never>?
     @ObservationIgnored private var loadedFor: UUID?
+    @ObservationIgnored private var revision = 0
 
     init(model: AppModel) { self.model = model }
 
@@ -56,8 +57,9 @@ final class SocialModel {
         do {
             let access = try await account.socialAccess()
             resetIfAccountChanged(access.userID)
+            let requestRevision = revision
             let latest = try await access.client.socialOverview(token: access.token)
-            guard account.user?.id == access.userID else { return }
+            guard account.user?.id == access.userID, requestRevision == revision else { return }
             overview = latest
             unavailable = false
             rememberSharing(latest, for: access.userID)
@@ -81,10 +83,11 @@ final class SocialModel {
 
     private func loadLeaderboard(_ target: Scope, access: (client: AuthClient, token: String, userID: UUID)) async throws {
         guard overview?.profile != nil else { return }
+        let requestRevision = revision
         var group: UUID?
         if case .group(let id) = target { group = id }
         let rows = try await access.client.leaderboard(group: group, token: access.token)
-        guard account.user?.id == access.userID else { return }
+        guard account.user?.id == access.userID, requestRevision == revision else { return }
         entries[target] = rows
     }
 
@@ -93,6 +96,34 @@ final class SocialModel {
     }
 
     // MARK: 동작
+
+    /// Remove only social membership. Private account records are untouched.
+    @discardableResult
+    func withdraw() async -> Bool {
+        guard !working else { return false }
+        working = true
+        revision += 1
+        publishTask?.cancel()
+        message = nil
+        defer { working = false }
+        do {
+            let access = try await account.socialAccess()
+            guard try await access.client.withdrawSocial(token: access.token) else { throw AccountError.server }
+            guard account.user?.id == access.userID else { return false }
+            revision += 1
+            overview = SocialOverview(profile: nil, friends: [], groups: [])
+            entries = [:]
+            scope = .friends
+            loadedFor = access.userID
+            UserDefaults.standard.removeObject(forKey: publishedKey(access.userID))
+            UserDefaults.standard.set(false, forKey: sharingKey(access.userID))
+            message = "친구 기능에서 탈퇴했어요. 개인 운동 기록은 그대로예요."
+            return true
+        } catch {
+            show(error)
+            return false
+        }
+    }
 
     /// 공통 실행 틀: 진행 중 표시, 오류 메시지, 끝나면 목록 새로고침.
     private func perform(_ success: String?, _ action: (AuthClient, String) async throws -> Void) async {

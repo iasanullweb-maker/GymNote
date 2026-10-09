@@ -5,6 +5,10 @@
 | 작업 ID | 담당 파일 | 완료 기준 |
 |---|---|---|
 | IDEA-UNIFIED-1 | automation/**, docs/parallel-work/ASSIGNMENTS.md·GUIDE.md·workspaces.json·reports/unified.md, scripts/parallel_work.ps1, HANDOFF.md | 텔레그램 허용 발신자 수신·메모/실행 분리·영속 중복 방지, Codex 작업 큐·검토·검증·직렬 통합, 인증된 로컬 관리자, 회귀 검사·로컬 main 통합 |
+| UI-CODEX-1 | `346d/GymNote`, `codex/friends-records-ui`; 구체 파일은 [UI_HANDOFF.md](UI_HANDOFF.md)의 Codex 범위 | 친구·기록 화면, 친구 기능 탈퇴, 공통 종목 조회·갱신 검증, 최종 교차 검토·로컬 통합 |
+| UI-CLAUDE-1 | 원본 저장소 `.worktrees/claude-workout-flow`, `codex/claude-workout-flow`; 구체 파일은 [UI_HANDOFF.md](UI_HANDOFF.md)의 Claude 범위 | 실행 탭 표시·세트 진행도·완료 정렬·길게 눌러 순서 변경·저장 완료 애니메이션, 기록 보존 회귀 |
+
+UI 분담은 2026-10-09 사용자의 추가 지시에 따른 별도 작업이다. 최초 가입 안내·튜토리얼·사용자 조사는 제외한다. 아이디어 자동화 및 UX 시뮬레이션의 기존 소유 범위는 유지한다. 공통 배정표·HANDOFF의 UI 변경은 Codex가 관리하며 다른 작업의 동시 변경을 보존한다.
 
 아래는 통합 전 준비 상태다.
 

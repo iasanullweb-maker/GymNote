@@ -162,10 +162,11 @@ final class AccountModel {
         do {
             let types = try await client.recordCatalog()
             let cache = RecordCatalogCache(project: client.config.url.host!, types: types, fetchedAt: Date())
-            try SharedStore.saveRecordCatalog(cache)
             catalogTypes = CatalogRecordType.sorted(types)
             catalogFetchedAt = cache.fetchedAt
             catalogMessage = nil
+            do { try SharedStore.saveRecordCatalog(cache) }
+            catch { catalogMessage = "최신 공통 종목을 불러왔지만 기기에 보관하지 못했어요." }
             await refreshCatalogAdmin()
         } catch {
             catalogMessage = "공통 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."
@@ -197,10 +198,11 @@ final class AccountModel {
             var next = catalogTypes.filter { $0.id != saved.id }
             next.append(saved)
             next = CatalogRecordType.sorted(next)
-            try SharedStore.saveRecordCatalog(RecordCatalogCache(project: client.config.url.host!, types: next, fetchedAt: Date()))
             catalogTypes = next
             catalogFetchedAt = Date()
             catalogMessage = nil
+            do { try SharedStore.saveRecordCatalog(RecordCatalogCache(project: client.config.url.host!, types: next, fetchedAt: Date())) }
+            catch { catalogMessage = "서버에 종목을 저장했지만 기기에 보관하지 못했어요." }
             return true
         } catch AccountError.conflict {
             catalogMessage = "다른 관리자가 수정했어요. 목록을 새로고침한 뒤 다시 열어 주세요."

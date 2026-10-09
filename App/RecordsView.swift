@@ -4,19 +4,17 @@ import SwiftUI
 struct RecordsView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
-    @State private var addingFor: RecordType?
     @State private var showingTypes = false
-    @State private var prMessage: String?
-    @State private var tab = RecordsTab.records
+    @State private var tab = RecordsTab.journal
     private enum RecordsTab: Hashable { case records, journal, friends }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 Picker("기록 종류", selection: $tab) {
-                    Text("최고 기록").tag(RecordsTab.records)
                     Text("운동 일지").tag(RecordsTab.journal)
                     Text("친구").tag(RecordsTab.friends)
+                    Text("최고 기록").tag(RecordsTab.records)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -36,13 +34,11 @@ struct RecordsView: View {
                         }
                         ForEach(account.catalogTypes.filter(\.active)) { definition in
                             RecordSection(type: definition.recordType,
-                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords)) {
-                                addingFor = definition.recordType
-                            }
+                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords))
                         }
                         ForEach(account.catalogTypes.filter { !$0.active && !model.data.entries($0.recordType).isEmpty }) { definition in
-                            RecordSection(type: definition.recordType, allowsAdding: false,
-                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords)) {}
+                            RecordSection(type: definition.recordType,
+                                          auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords))
                         }
                         if !legacyTypes.isEmpty {
                             Section {
@@ -50,7 +46,7 @@ struct RecordsView: View {
                                     NavigationLink(type.name) { RecordHistoryView(typeID: type.id) }
                                 }
                             } header: { Text("이전 개인 기록") } footer: {
-                                Text("기존 기록은 보존됩니다. 새 기록은 공통 종목에 입력해 주세요.")
+                                Text("기존 기록은 보존됩니다. 새 기록은 실행 탭 또는 지난 운동 기록에서 남겨 주세요.")
                             }
                         }
                         let unlinked = unlinkedAutoRecords(autoRecords)
@@ -76,27 +72,11 @@ struct RecordsView: View {
             .navigationTitle("기록")
             .task(id: account.user?.id) { await account.refreshRecordCatalog() }
             .onChange(of: account.user?.id) { _, _ in
-                addingFor = nil
                 showingTypes = false
             }
             .refreshable { await account.refreshRecordCatalog() }
-            .sheet(item: $addingFor) { type in
-                AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
-                    if model.addRecord(entry), let type = account.catalogTypes.first(where: { $0.id == entry.typeID })?.recordType {
-                        prMessage = "\(type.name) \(type.display(entry))"
-                    }
-                }
-            }
             .sheet(isPresented: $showingTypes) {
                 RecordTypesView()
-            }
-            .alert("🎉 신기록!", isPresented: Binding(
-                get: { prMessage != nil },
-                set: { if !$0 { prMessage = nil } }
-            )) {
-                Button("확인") { prMessage = nil }
-            } message: {
-                Text(prMessage ?? "")
             }
         }
     }
@@ -117,9 +97,7 @@ struct RecordSection: View {
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(AppModel.self) private var model
     let type: RecordType
-    var allowsAdding = true
     var auto: ExerciseRecords? = nil
-    let onAdd: () -> Void
 
     var body: some View {
         let entries = model.data.entries(type)
@@ -155,7 +133,7 @@ struct RecordSection: View {
             }
 
             if entries.isEmpty, auto != nil {
-                Text("그래프는 직접 추가한 기록으로 그려요. 운동 일지 기록은 위 최고 기록에 자동으로 반영돼요.")
+                Text("운동 일지 기록은 위 최고 기록에 자동으로 반영돼요. 종목별 기록은 실행 탭에서 남길 수 있어요.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if !entries.isEmpty {
@@ -183,7 +161,7 @@ struct RecordSection: View {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.xyaxis.line")
                         .font(.title2)
-                    Text("기록을 추가하면 변화가 그래프로 보여요")
+                    Text("실행 탭에서 종목 기록을 남기면 변화가 그래프로 보여요")
                         .font(.callout)
                         .multilineTextAlignment(.center)
                 }
@@ -203,32 +181,19 @@ struct RecordSection: View {
                 Text(type.name)
                     .font(.title3.bold())
                 Spacer()
-                if allowsAdding {
-                    Button(action: onAdd) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 26, weight: .semibold))
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.borderless)
-                    .tint(.orange)
-                    .accessibilityLabel("\(type.name) 기록 추가")
-                }
             }
             .textCase(nil)
         }
     }
 }
 
-/// 기록 한 줄: 탭하면 수정, 왼쪽으로 밀면 삭제
+/// 최고 기록 화면에서는 기존 기록을 조회한다. 갱신은 실행/지난 운동 기록에서만 한다.
 struct RecordRow: View {
-    @Environment(AppModel.self) private var model
     let type: RecordType
     let entry: RecordEntry
     var isBest: Bool = false
-    let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
             HStack {
                 Text(entry.date, format: .dateTime.year().month().day())
                     .foregroundStyle(.primary)
@@ -239,14 +204,7 @@ struct RecordRow: View {
                 }
                 Text(type.display(entry))
                     .foregroundStyle(.primary)
-                Image(systemName: "pencil")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-        }
-        .shortSwipeAction {
-            model.data.records.removeAll { $0.id == entry.id }
-        }
     }
 }
 
@@ -256,7 +214,6 @@ struct RecordHistoryView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     let typeID: String
-    @State private var editing: RecordEntry?
 
     var body: some View {
         let type = model.data.recordDisplayTypes(catalog: account.catalogTypes).first { $0.id == typeID }
@@ -267,23 +224,17 @@ struct RecordHistoryView: View {
             if let type = type {
                 Section {
                     ForEach(entries) { entry in
-                        RecordRow(type: type, entry: entry, isBest: entry.id == best?.id) { editing = entry }
+                        RecordRow(type: type, entry: entry, isBest: entry.id == best?.id)
                     }
                 } footer: {
-                    Text("탭하면 수정, 왼쪽으로 밀면 삭제")
+                    Text("기록 갱신은 실행 탭 또는 지난 운동 기록에서 할 수 있어요.")
                 }
             }
         }
         .navigationTitle(type?.name ?? "기록")
-        .onChange(of: account.user?.id) { _, _ in editing = nil }
         .overlay {
             if entries.isEmpty {
                 Text("기록이 없어").foregroundStyle(.secondary)
-            }
-        }
-        .sheet(item: $editing) { entry in
-            AddRecordView(types: type.map { [$0] } ?? [], existing: entry, fixedTypeID: entry.typeID) { updated in
-                model.data.updateRecord(updated)
             }
         }
     }
