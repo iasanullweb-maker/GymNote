@@ -24,3 +24,13 @@
 - 실제 config.example.json 사전 점검: Python/프로젝트 브랜치/기능 플래그 정상, 관리자 토큰 미설정으로 ok=false. telegramEnabled/executionEnabled=false를 확인했다. 실서비스를 켜지 않았고 실제 Telegram API·봇 발송·유료 Codex/Claude 호출·push/Actions/배포/운영 DB·전체 iOS 빌드/XCTest는 미실행.
 - 커밋은 이 문서의 Git 이력으로 식별한다. 담당 변경만 [skip ci] 커밋하고 지정 scripts/parallel_work.ps1 -Mode Integrate -Unified로 기존 main에 로컬 통합한다. 실제 통합 결과·SHA는 완료 응답에 보고한다.
 - 남은 입력: 로컬 BotFather 토큰(채팅/저장소에 넣지 않음), 허용 user/chat ID, 실제 CLI 인증·봇 단일 수신기 확인. Claude 어댑터와 기존 세션 질문 답변 재개는 여전히 별도 후속 작업이다.
+
+## 새 세션 재개·연결 준비 재확인 (2026-10-09)
+
+- 지정 d919 워크트리·codex/telegram-automation-unified의 깨끗한 상태를 확인하고 최신 로컬 main 4e611cc를 fast-forward로 반영했다. 이전 B/C/D 작업을 재개하지 않았다.
+- Python 3.14로 `python -m unittest discover -s automation/tests -v` 실행: 46개 통과, 실패/건너뜀 없음. 기존 HTTPError 자원 정리 ResourceWarning은 유지된다. 합성 Telegram/가짜 에이전트·격리 Git/SQLite·localhost HTTP 검사이며 실제 연결 성공 근거는 아니다.
+- `python -m automation.check --config automation/config.example.json`: 관리자 토큰 미설정으로 ok=false. Python·main 브랜치·기능 플래그 검사 정상, Telegram/에이전트 실행은 꺼져 있다. 현재 도구 프로세스의 봇·관리자 토큰은 모두 미설정이며 비밀값은 출력하지 않았다.
+- 안내된 %LOCALAPPDATA%/GymNoteAutomation/config.json은 존재하지 않는다. 예시 Codex 실행 파일은 존재하지만 로그인 여부는 이번에 확인하지 않았다. 사용자 별도 PowerShell 창의 환경변수나 다른 설정 경로 상태는 추정하지 않는다.
+- 사용자에게 연결 절차 1~6번 진행 상태와 로컬 설정 경로를 요청했다. 실제 봇 연결·발송은 지정 봇/개인 대화 연결 확인 지시 후, 실제 Codex 작업은 로그인 및 /run 테스트 요청 후 진행한다. 새 수신기를 시작하지 않았으며 체크리스트를 완료로 바꾸지 않았다.
+- 이번 변경은 재확인 보고서뿐이다. git diff --check와 내용 검토 후 이 파일만 커밋하고 지정 Integrate -Unified 스크립트로 공통 잠금 아래 로컬 main에 통합한다. 다른 대화의 기존 미추적 %SystemDrive%/는 보존한다.
+- 실제 외부 연결·유료 모델 실행·원격 push·배포·운영 DB 변경·전체 iOS 빌드/XCTest는 미실행. 앱 코드 변경이 없어 전체 iOS 빌드는 실행하지 않았다. 다음 단계는 사용자 설정 상태 확인 → 로컬 설정 사전 점검 → 메모 연결 확인 → 인증 및 작은 /run 검증이다.
