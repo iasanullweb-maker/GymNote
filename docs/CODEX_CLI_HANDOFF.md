@@ -21,7 +21,7 @@
 | AltStore 소스 (README의 기존 주소) | https://raw.githubusercontent.com/iasanullweb-maker/GymNote/altstore/source.json |
 | Supabase 프로젝트 | https://supabase.com/dashboard/project/wthfekhyrsbslnkyvtax |
 
-GitHub·Supabase 링크는 저장소 설정과 문서에서 확인했다. 원격 접속 권한, 최신 배포 버전, 원격과 로컬의 일치 여부는 이번 작업에서 확인하지 않았다. 새 ChatGPT 계정 로그인과 GitHub 저장소 접근 인증은 별개다.
+GitHub·Supabase 링크는 저장소 설정과 문서에서 확인했다. 후속 대조에서 최신 릴리스·AltStore 소스가 **0.1.83**이고 대상 앱 코드가 `4497785`임을 직접 확인했다. 원격 `33f5569`에는 친구 서버 SQL 적용 완료 기록이 있다. 운영 DB 상태와 새 계정 인증 권한은 이번 대조에서 직접 확인하지 않았다. 새 ChatGPT 계정 로그인과 GitHub 저장소 접근 인증은 별개다.
 
 ## 2. 먼저 읽을 자료
 
@@ -103,6 +103,24 @@ Codex <codex@users.noreply.github.com>을 git -c user.name=Codex
 다른 작업 변경을 보존하면서 검증과 기존 브랜치 로컬 통합을 이어가줘.
 ```
 
+### CLI의 '나 대신 승인' 설정
+
+PowerShell에서 아래 명령으로 시작하면 승인 요청을 Auto-review 에이전트가 검토한다. 기존 CLI가 실행 중이면 종료 후 다시 시작한다. 계정 분리를 사용한다면 위의 `CODEX_HOME`을 먼저 설정한다.
+
+```powershell
+codex --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review -c cli_auth_credentials_store=file
+```
+
+매번 적용하려면 사용하는 사용자 상태 폴더의 `config.toml`에 아래 항목을 추가하거나 기존 값을 수정한다. 같은 항목을 중복 추가하지 않는다.
+
+```toml
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+approvals_reviewer = "auto_review"
+```
+
+자동 검토는 승인이 필요한 요청을 판단하며 기존 샌드박스 범위를 유지한다. [공식 Auto-review 안내](https://learn.chatgpt.com/docs/sandboxing/auto-review).
+
 ## 4. 병행 작업은 별도 워크트리에서
 
 새 계정도 같은 파일을 수정하면 충돌할 수 있으므로 작업 폴더와 브랜치를 분리한다. 원격만 clone하면 아직 push하지 않은 로컬 변경이 빠질 수 있어, 같은 PC에서는 기존 **로컬 main**에서 워크트리를 만드는 방법을 권장한다.
@@ -115,7 +133,12 @@ git status --short
 git branch --show-current
 git worktree list
 git log -5 --oneline
+git fetch origin main
+git log --oneline main...FETCH_HEAD
+git diff main FETCH_HEAD -- HANDOFF.md
 ```
+
+로컬과 원격에 각각 미통합 커밋이 있으면 양쪽 변경을 보존해 먼저 로컬에 병합한다. 이번 대조에서도 원격의 배포 완료 기록과 로컬의 CLI 안내·새 할 일이 따로 있어 잘못된 상태 안내가 발생했다. 단순히 원격 문서를 덮어쓰거나 로컬 main만 최신이라고 가정하지 않는다. fetch는 원격에 변경을 쓰지 않는다.
 
 기존 폴더가 `main`이고 미커밋 변경이 없으며, 아래 브랜치·폴더가 아직 없을 때 **한 번만** 실행한다. 미커밋 변경이 있으면 보존하고 해당 작업과 통합 시점을 조율한다. 커밋되지 않은 변경은 새 워크트리에 따라오지 않는다.
 
@@ -146,7 +169,9 @@ GymNote는 SwiftUI 기반 iPhone/iPad 운동·일상 앱이다. Swift 5, 최소 
 | `supabase/functions/` | 서버 함수 |
 | `project.yml` | Xcode 프로젝트 생성 원본. 생성된 프로젝트만 고치지 않는다. |
 
-`HANDOFF.md`에 따르면 친구·그룹 경쟁은 로컬 main에 통합됐지만 실제 서버 SQL 적용과 배포는 남아 있다. 공통 종목 서버 설정은 문서 마지막의 적용 완료 기록을 확인한다. 편집 중 화면 이동 차단, 탭 복귀 등 UI 변경에는 전체 iOS 검증 대기 기록이 있으므로 모든 현재 변경을 검증 완료로 취급하지 않는다. 이 상태는 문서 기반이며 실제 서버·Actions 현황은 실행 시 재확인한다.
+2026-10-09 후속 대조 시 **친구·그룹 경쟁의 서버 SQL 적용·0.1.83 배포는 완료 기록이 있다**. 앱 코드 `4497785`의 Validate GymNote #54·Build IPA #82·main 배포 #83은 직접 조회해 성공을 확인했다. 편집 중 이동 차단·탭 복귀·관리자 표시·주간 계획 요약·좁은 화면 대응도 이 앱 코드에 포함되며 이후 변경은 문서뿐이었다. 예전 #50·#78은 대기 중이 아니라 관련 iOS/build job이 취소로 끝난 실행이다.
+
+남은 일은 두 계정 친구/그룹 흐름, 편집 저장·취소 후 이동 잠금 해제, 관리자 표시, 알림·위젯·Live Activity·로그인 복귀·기록 보존의 **실제 iPad 확인**이다. Mac 환경·iPhone 실화면 검증은 보류한다. 앱 내 에이전트·맞춤형 알림과 가상 시뮬레이션 시스템은 신규 할 일로 미착수 상태다. 공통 종목 서버·관리자 지정은 HANDOFF의 완료 기록을 확인한다. 서버 적용은 기존 실행 기록에 근거하며 이번 문서 대조에서 운영 DB를 재검증하지 않았다.
 
 계정 기록은 사용자 UUID로 분리하며 토큰은 Keychain에 보관한다. 로그인·동기화·저장·DB 정책을 수정할 때는 계정 격리, 오프라인 변경 보존, 버전 충돌, 권한 검사를 바로 실행한다. Supabase 관리자 키·SMTP 비밀번호·OAuth Secret은 앱과 저장소에 넣지 않는다. `scripts/auth_test_schema.sql`은 테스트 DB 전용이며 운영 Supabase에서 실행하지 않는다.
 
@@ -191,4 +216,4 @@ Git 작성자 설정이 없으면 이 자료의 'Git 커밋 작성자 설정' �
 
 ## 8. 이 자료 작성 시 확인한 범위
 
-로컬 Git remote·워크트리·기준 브랜치·기존 폴더 상태, 프로젝트 문서와 워크플로, 설치된 CLI 버전/로그인 도움말을 확인했다. 새 계정 인증·CLI 설치·새 실행 폴더 생성·원격 push·배포는 실행하지 않았다. 문서 변경이라 전체 iOS 빌드·테스트는 실행하지 않는다.
+최초 작성에서는 로컬 Git·문서·CLI 버전/도움말을 확인했다. 후속 대조에서는 원격 main을 fetch하고 공개 Actions·릴리스·AltStore 소스로 위 검증·배포 상태를 직접 확인했다. 최근 CLI 채팅의 cwd는 기존 main 폴더였고, 권장 별도 폴더/사용자 상태 폴더는 존재하지 않았다. 새 계정 인증·CLI 설치·새 실행 폴더 생성·원격 push·새 배포·운영 DB 변경은 이 문서 작업에서 실행하지 않았다. 문서 변경이라 전체 iOS 빌드·테스트를 새로 실행하지 않았으며 기존 대상 앱 코드의 성공 결과를 확인했다.
