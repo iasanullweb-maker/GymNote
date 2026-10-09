@@ -1,0 +1,4 @@
+interface:
+  display_name: "GymNote 작업 진행"
+  short_description: "GymNote 작업 범위 확인부터 검토·커밋·로컬 통합까지 진행"
+  default_prompt: "$gymnote-task로 요청한 GymNote 변경을 구현하고 검증·커밋·로컬 통합까지 진행해줘."

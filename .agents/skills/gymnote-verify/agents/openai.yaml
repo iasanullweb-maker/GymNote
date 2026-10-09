@@ -1,0 +1,4 @@
+interface:
+  display_name: "GymNote 변경 검증"
+  short_description: "변경에 필요한 검사 선택·실행과 실패·미실행 근거 보고"
+  default_prompt: "$gymnote-verify로 이번 GymNote 변경에 필요한 검사를 실행하고 결과와 미실행 범위를 알려줘."
