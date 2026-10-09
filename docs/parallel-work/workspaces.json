@@ -1,6 +1,8 @@
 {
   "version": 1,
   "createdOn": "2026-10-09",
+  "state": "configured",
+  "setupSeedCommit": "b359515ce9b8902ac6491c103ded13150999d086",
   "integrationWorkspace": "C:/Users/Donghyun/Documents/2026_IASA/GymNote",
   "integrationBranch": "main",
   "lockRelativePath": ".validation-tools/ux-integration.lock",
