@@ -46,7 +46,44 @@
 - **기기별 일상 알림:** 설정 > 일상 알림에 '이 기기에서 알림 받기'(UserDefaults, 서버 미동기화). 새로 설치한 기기는 꺼짐, 업데이트 전 저장 파일이 있던 기기는 켜짐으로 시작한다. 끄면 예약된 일상 알림·10분 뒤 알림을 지운다(휴식 타이머 알림은 유지). 알림 거부 안내 문구를 '기기 설정'으로 바꿨다.
 - 검증: 새 `scripts/test_cloud_merge.swift`(14개 시나리오)와 기존 models/manual/daily/accounts 스크립트를 Linux Swift 5.10(FormatStyle만 테스트용 대체)으로 통과. 병합 검사를 끄는 변이에서 실패 확인. `SharedStore` 병합·기준본·백업 삭제를 WidgetKit 대체 구현으로 별도 실행해 통과. XCTest `testCloudMergeKeepsEditsFromBothDevices` 추가(미실행). **전체 iOS 빌드·XCTest·실기기 두 대 확인·push·배포는 미실행.** `.github/workflows/build.yml`/`check.yml`에 새 스크립트 실행 줄은 원격 도구가 워크플로 파일 쓰기를 막아 추가하지 못했다(추가 필요).
 - 후속(같은 날): 사용자 승인으로 모바일 데이터도 온라인으로 판단하도록 바꿨다(`AccountModel` 연결 감시, 로그인·계정 화면의 Wi-Fi 안내 문구를 '인터넷'으로). 셀룰러에서도 30초 버전 확인과 동기화가 동작한다.
-- 남은 확인: 아이패드·아이폰 같은 계정으로 서로 다른 항목/같은 항목 동시 수정, 운동 중 다른 기기 열기, 알림 스위치 기본값(업데이트 기기 켜짐·새 기기 꺼짐).
+- 테스트 빌드(사용자 선택: 정식 배포 대신 이 변경만 확인): 원격 `codex/multi-device-sync`(원격 main `2c32f47` + 동기화·셀룰러·요일 테스트 수정 3커밋, 끝 `b9c6fa1`). [Build IPA 38037040097](https://github.com/iasanullweb-maker/GymNote/actions/runs/38037040097) 성공(IPA 아티팩트 `GymNote-ipa`), [Validate GymNote 38037040124](https://github.com/iasanullweb-maker/GymNote/actions/runs/38037040124) 성공(iPad XCTest·계정·DB 검사). AltStore 소스·릴리스는 갱신하지 않았다. 첫 검사에서 실패한 `testStaleWidgetAndSyncAcknowledgement`는 샘플 토요일 계획(1세트)에서만 실패하던 기존 요일 의존 테스트라 운동을 5세트로 고정했다(로컬 main `f2c0b56`).
+- 로컬 main은 원격보다 앞서 있고 다른 대화의 공통 종목 변경(`cac0966`, 배포 보류 표기)이 섞여 있다. main push는 정식 배포가 되므로 아래 확인 후 사용자 결정으로 진행한다.
+
+### 아이폰 설치·여러 기기 확인 체크리스트 (사용자 요청, 미완료)
+**1. 아이폰에 AltStore 설치**
+- [ ] 노트북 AltServer·iTunes·iCloud 준비 확인 (iTunes·iCloud는 Apple 홈페이지 버전, 아이패드 때 것 그대로)
+- [ ] 아이폰 USB 연결 후 '신뢰'
+- [ ] iTunes에서 'Wi-Fi를 통해 이 iPhone과 동기화' 켜기 (7일 자동 갱신용)
+- [ ] AltServer 아이콘 → Install AltStore → 아이폰 선택, 아이패드와 같은 Apple ID로 로그인
+- [ ] 아이폰 설정 → 일반 → VPN 및 기기 관리에서 Apple ID 신뢰
+- [ ] 설정 → 개인정보 보호 및 보안 → 개발자 모드 켜기 (재시동 후 확인)
+- [ ] AltStore Settings에서 Apple ID 로그인
+- [ ] AltStore Sources에 `https://raw.githubusercontent.com/iasanullweb-maker/GymNote/altstore/source.json` 추가
+- 참고: 무료 Apple ID는 기기당 활성 앱 3개(AltStore 포함), 7일마다 갱신
+
+**2. 테스트 빌드 설치**
+- [ ] GitHub 로그인 후 Build IPA 38037040097에서 `GymNote-ipa` 받기 → 파일 앱에서 압축 해제
+- [ ] 아이폰: AltStore My Apps → + → GymNote.ipa 설치
+- [ ] 아이패드: 같은 방법으로 덮어 설치, 기존 기록 유지 확인
+- [ ] 두 기기 같은 계정 로그인, 아이폰에 아이패드 기록이 내려오는지
+
+**3. 동기화**
+- [ ] 서로 다른 항목 동시 수정이 30초 안에 합쳐짐 (예: 아이패드 세트 체크 + 아이폰 휴식 시간)
+- [ ] 양쪽에서 각각 최고 기록 추가 → 둘 다 남음
+- [ ] 같은 항목을 양쪽에서 다르게 수정 → 선택 안내 표시
+- [ ] 한 기기에서 운동 진행 중 다른 기기를 열어도 진행 유지
+- [ ] 아이폰 Wi-Fi 끄고 LTE/5G만으로 동기화
+- [ ] 편집 화면을 열어 둔 동안 내용이 바뀌지 않음
+
+**4. 기기별 알림**
+- [ ] '이 기기에서 알림 받기': 아이폰(새 설치) 꺼짐, 아이패드(업데이트) 켜짐
+- [ ] 켠 기기에서만 일상 알림이 울림
+- [ ] 끄면 예약된 일상 알림만 사라지고 휴식 타이머 알림은 유지
+
+**5. 마무리**
+- [ ] 문제 화면은 스크린샷으로 전달해 수정
+- [ ] 확인 후 main push(정식 배포, 공통 종목 변경 포함) 여부 결정
+- [ ] `.github/workflows/build.yml`·`check.yml`에 `scripts/test_cloud_merge.swift` 실행 2줄 추가
 
 ## 최신 앱 배포: 0.1.91 (2026-10-09 23:00 KST)
 - 사용자 요청으로 친구·기록·Claude 실행 탭 변경을 교차 검토하고 로컬 main에 통합한 뒤 배포했다. 배포 커밋 `0128f23`, 앱 코드 통합 `50bad50`, 검증 소스 `9f218e7`. 최초 가입 안내·튜토리얼·사용자 조사는 제외했다.
