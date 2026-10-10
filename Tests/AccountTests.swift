@@ -157,7 +157,8 @@ final class AccountTests: XCTestCase {
         let a = UUID()
         let selection = try SharedStore.activate(userID: a)
         var data = AppData.sample
-        let exercise = data.plan().exercises.first ?? Exercise(name: "운동", sets: 5, detail: "10", restSeconds: 0)
+        // 요일 계획에 따라 1세트 운동(토요일 기록 테스트)이면 한 번 체크로 운동이 끝나 버리므로 고정한다.
+        let exercise = Exercise(name: "운동", sets: 5, detail: "10", restSeconds: 0)
         data.scheduledPlans[DayKey.key()] = DayPlan(title: "테스트", exercises: [exercise])
         XCTAssertTrue(data.startWorkout())
         _ = try SharedStore.persistEdits(from: .empty, to: data, selection: selection)
