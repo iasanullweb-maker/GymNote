@@ -21,6 +21,26 @@ enum DailyReminderScheduler {
         ])
     }
 
+    // MARK: 이 기기에서 알림 받기 (기기별, 서버에 올리지 않음)
+
+    /// 같은 계정을 여러 기기에서 쓰면 일상 알림이 기기마다 울리므로 기기별로 끄고 켠다.
+    static let devicePreferenceKey = "gymnote.dailyReminders.thisDevice"
+
+    static var enabledOnThisDevice: Bool {
+        UserDefaults.standard.object(forKey: devicePreferenceKey) as? Bool ?? false
+    }
+
+    /// 처음 한 번만 기본값을 정한다. 이미 쓰던 기기(저장 파일이 있음)는 켜 두고, 새로 설치한 기기는 꺼 둔다.
+    /// 앱이 저장 파일을 만들기 전에 불러야 한다.
+    static func prepareDevicePreference() {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: devicePreferenceKey) == nil else { return }
+        let fm = FileManager.default
+        let existing = fm.fileExists(atPath: SharedStore.fileURL.path)
+            || fm.fileExists(atPath: SharedStore.directory.appendingPathComponent("active-account.json").path)
+        defaults.set(existing, forKey: devicePreferenceKey)
+    }
+
     @MainActor private static var running: Task<Void, Never>?
 
     /// 변경이 몰려도 순서대로 한 번씩 적용한다.
@@ -34,7 +54,8 @@ enum DailyReminderScheduler {
 
     static func apply(data: AppData, generation: String, now: Date = Date()) async {
         let center = UNUserNotificationCenter.current()
-        let plan = data.plannedReminders(now: now)
+        // 이 기기에서 끄면 계획이 비어 예약된 일상 알림이 모두 지워진다(휴식 타이머 알림은 그대로).
+        let plan = enabledOnThisDevice ? data.plannedReminders(now: now) : []
         let planned = Dictionary(uniqueKeysWithValues: plan.map { ($0.id, $0) })
         let pending = await center.pendingNotificationRequests().filter { $0.identifier.hasPrefix(AppData.reminderPrefix) }
 
@@ -110,7 +131,7 @@ enum DailyReminderScheduler {
 
     private static func snoozeStillNeeded(_ request: UNNotificationRequest, data: AppData, generation: String) -> Bool {
         let info = request.content.userInfo
-        guard data.dailyReminders.enabled, info["generation"] as? String == generation,
+        guard enabledOnThisDevice, data.dailyReminders.enabled, info["generation"] as? String == generation,
               let id = (info["itemID"] as? String).flatMap(UUID.init(uuidString:)),
               let day = info["day"] as? String, let date = DayKey.date(fromKey: day),
               let item = data.dailyItems.first(where: { $0.id == id }) else { return false }

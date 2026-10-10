@@ -158,6 +158,7 @@ enum SharedStore {
                 try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
             }
             latest.data = cloud
+            latest.syncedBase = cloud
             latest.serverVersion = version
             latest.dirty = false
             latest.revision = UUID()
@@ -166,12 +167,48 @@ enum SharedStore {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    static func acknowledge(version: Int64, revision: UUID, selection: StoreSelection) throws {
+    /// Another device saved while this one had unsent edits. Merges against the last agreed server
+    /// snapshot using the latest local file (edits made during the download are included).
+    /// Returns false, changing nothing, when both devices changed the same item; the user then chooses.
+    static func mergeWithCloud(_ cloud: AppData, version: Int64, selection: StoreSelection) throws -> Bool {
+        let merged: Bool = try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var latest = try readSnapshot(userID: selection.userID)
+            guard let base = latest.syncedBase, let data = cloud.mergingCloud(local: latest.data, base: base) else { return false }
+            // One rolling copy of the pre-merge file; eraseAccount removes it with the account.
+            try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-merge.json"))
+            latest.data = data
+            latest.syncedBase = cloud
+            latest.serverVersion = version
+            latest.dirty = data != cloud
+            latest.revision = UUID()
+            try write(latest, to: url(for: selection.userID))
+            return true
+        }
+        if merged { WidgetCenter.shared.reloadAllTimelines() }
+        return merged
+    }
+
+    /// Files saved before automatic merging have no base: record it once local and server agree.
+    static func recordSyncedBase(version: Int64, selection: StoreSelection) throws {
+        try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            var latest = try readSnapshot(userID: selection.userID)
+            guard latest.syncedBase == nil, !latest.dirty, latest.serverVersion == version else { return }
+            latest.syncedBase = latest.data
+            try write(latest, to: url(for: selection.userID))
+        }
+    }
+
+    /// `uploaded` is the exact data the server accepted; it becomes the base for later merges.
+    static func acknowledge(version: Int64, revision: UUID, uploaded: AppData? = nil, selection: StoreSelection) throws {
         try locked {
             guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
             var latest = try readSnapshot(userID: selection.userID)
             latest.serverVersion = version
             if latest.revision == revision { latest.dirty = false }
+            if let uploaded { latest.syncedBase = uploaded }
+            else { latest.syncedBase = latest.revision == revision ? latest.data : nil }
             try write(latest, to: url(for: selection.userID))
         }
     }
@@ -188,6 +225,7 @@ enum SharedStore {
             try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
             try write(cloud, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
             latest.data = cloud.importingGuest(latest.data)
+            latest.syncedBase = cloud
             latest.serverVersion = version
             latest.dirty = true
             latest.revision = UUID()

@@ -58,7 +58,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 @MainActor
 struct GymNoteApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = AppModel()
+    @State private var model: AppModel
+
+    init() {
+        // Must run before AppModel creates the store files: it tells a fresh install from an update.
+        DailyReminderScheduler.prepareDevicePreference()
+        _model = State(initialValue: AppModel())
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -163,6 +169,17 @@ struct RootView: View {
                 }
                 do { try await Task.sleep(for: .seconds(60)) }
                 catch { return }
+            }
+        }
+        .task(id: scenePhase) {
+            // 앱이 화면에 있는 동안 30초마다 서버 버전만 확인하고, 다른 기기가 저장했으면 동기화한다.
+            // 앱을 닫으면 iOS가 주기 실행을 보장하지 않으므로 다음에 열 때 맞춘다.
+            // 편집 화면이 열려 있는 동안은 화면 내용이 바뀌지 않도록 건너뛴다.
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(30)) }
+                catch { return }
+                if !editingNavigation.isEditing { await account.checkForRemoteChanges() }
             }
         }
         .alert("저장소 확인", isPresented: Binding(get: { model.storageError != nil }, set: { if !$0 { model.storageError = nil } })) {

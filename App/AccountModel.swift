@@ -265,6 +265,18 @@ final class AccountModel {
         }
     }
 
+    /// Called every 30 seconds while the app is on screen. Checks only the server version number and
+    /// runs a full sync when another device saved (or this device still has unsent edits).
+    func checkForRemoteChanges() async {
+        guard initialized, isOnline, session != nil, !needsLogin, !deleting, conflict == nil, !busy, let client else { return }
+        let selection = model.selection
+        guard let current = try? await validSession(), current.user.id == selection.userID,
+              let version = try? await client.remoteVersion(token: current.accessToken),
+              model.selection == selection,
+              let local = try? SharedStore.snapshot(userID: selection.userID) else { return }
+        if version != local.serverVersion || local.dirty { scheduleSync() }
+    }
+
     private func finishOperation() {
         busy = false
         if syncRequested {
@@ -447,17 +459,27 @@ final class AccountModel {
                 UserDefaults.standard.removeObject(forKey: importConsentKey(current.user.id))
             }
             if let remote, remote.version != local.serverVersion {
-                if local.dirty {
+                // Another device saved. Edits to different items merge automatically; only the same
+                // item changed differently on both devices asks the user.
+                if try SharedStore.mergeWithCloud(remote.payload, version: remote.version, selection: selection) {
+                    model.reload()
+                } else if local.syncedBase == nil, !local.dirty {
+                    // A file saved before automatic merging, with nothing unsent: take the server copy.
+                    try SharedStore.replaceWithCloud(remote.payload, version: remote.version, revision: local.revision, selection: selection)
+                    model.reload()
+                } else {
                     conflict = remote
                     syncStatus = "다른 기기의 변경 확인 필요"
                     return
                 }
-                try SharedStore.replaceWithCloud(remote.payload, version: remote.version, revision: local.revision, selection: selection)
-                model.reload()
-            } else if local.dirty {
+                local = try SharedStore.snapshot(userID: selection.userID)
+            }
+            if local.dirty {
                 let version = try await client.upload(local, token: current.accessToken)
                 guard generation == operation, model.selection == selection else { throw AccountError.stale }
-                try SharedStore.acknowledge(version: version, revision: local.revision, selection: selection)
+                try SharedStore.acknowledge(version: version, revision: local.revision, uploaded: local.data, selection: selection)
+            } else if local.syncedBase == nil, let remote {
+                try SharedStore.recordSyncedBase(version: remote.version, selection: selection)
             }
             syncStatus = "동기화 완료"
             recordSuccessfulSync()
@@ -498,7 +520,7 @@ final class AccountModel {
                 var upload = local
                 upload.serverVersion = remote.version
                 let version = try await client.upload(upload, token: current.accessToken)
-                try SharedStore.acknowledge(version: version, revision: local.revision, selection: selection)
+                try SharedStore.acknowledge(version: version, revision: local.revision, uploaded: upload.data, selection: selection)
             }
             conflict = nil
             model.reload()

@@ -7,6 +7,9 @@ struct StoredWorkout: Codable {
     var serverVersion: Int64 = 0
     var dirty = true
     var importedGuest = false
+    /// The last server snapshot this device agreed with. Comparing it with the local and the latest
+    /// server data shows what each device changed, so edits to different items merge automatically.
+    var syncedBase: AppData? = nil
 }
 
 struct StoreSelection: Codable, Equatable {
@@ -122,17 +125,22 @@ extension AppData {
     /// Apply only the app's edits to the latest disk snapshot, preserving concurrent widget checks.
     func applyingEdits(from base: AppData, to edited: AppData) -> AppData {
         var result = self
-        result.dailyItems = mergeDailyEdits(latest: result.dailyItems, base: base.dailyItems, edited: edited.dailyItems)
-        result.dailyCompletions = mergeDailyEdits(latest: result.dailyCompletions, base: base.dailyCompletions, edited: edited.dailyCompletions)
+        // Lists merge by ID so items another device (or the widget) added in the meantime are kept.
+        result.dailyItems = mergeByID(latest: result.dailyItems, base: base.dailyItems, edited: edited.dailyItems)
+        result.dailyCompletions = mergeByID(latest: result.dailyCompletions, base: base.dailyCompletions, edited: edited.dailyCompletions)
+        result.recordTypes = mergeByID(latest: result.recordTypes, base: base.recordTypes, edited: edited.recordTypes)
+        result.records = mergeByID(latest: result.records, base: base.records, edited: edited.records)
+        result.exerciseLibrary = mergeByID(latest: result.exerciseLibrary, base: base.exerciseLibrary, edited: edited.exerciseLibrary)
         if base.week != edited.week { result.week = edited.week }
-        if base.recordTypes != edited.recordTypes { result.recordTypes = edited.recordTypes }
-        if base.records != edited.records { result.records = edited.records }
         if base.defaultRest != edited.defaultRest { result.defaultRest = edited.defaultRest }
         if base.restSound != edited.restSound { result.restSound = edited.restSound }
         if base.restStep != edited.restStep { result.restStep = edited.restStep }
         if base.dailyReminders != edited.dailyReminders { result.dailyReminders = edited.dailyReminders }
-        if base.scheduledPlans != edited.scheduledPlans { result.scheduledPlans = edited.scheduledPlans }
-        if base.exerciseLibrary != edited.exerciseLibrary { result.exerciseLibrary = edited.exerciseLibrary }
+        // Dated plans merge per day.
+        for day in Set(base.scheduledPlans.keys).union(edited.scheduledPlans.keys)
+        where base.scheduledPlans[day] != edited.scheduledPlans[day] {
+            result.scheduledPlans[day] = edited.scheduledPlans[day]
+        }
         let days = Set(base.logs.map(\.day) + edited.logs.map(\.day))
         for day in days {
             if base.logs.contains(where: { $0.day == day }), !edited.logs.contains(where: { $0.day == day }) {
@@ -236,7 +244,104 @@ extension AppData {
     }
 }
 
-private func mergeDailyEdits<T: Identifiable & Equatable>(latest: [T], base: [T], edited: [T]) -> [T] {
+// MARK: - 여러 기기 동기화 병합
+
+extension AppData {
+    /// Cloud sync merge. `self` is the latest server data, `base` is the server data this device last
+    /// agreed with, and `local` is this device's data. Changes to different items from both devices are
+    /// kept. Returns nil when both devices changed the same item differently; the user then chooses.
+    func mergingCloud(local: AppData, base: AppData) -> AppData? {
+        guard !hasCloudConflict(local: local, base: base) else { return nil }
+        // A change both devices made identically (for example the same set checked on both) counts once.
+        var agreed = base
+        if local.activeWorkout == activeWorkout { agreed.activeWorkout = local.activeWorkout }
+        agreed.logs = agreedLogs(base: base.logs, local: local.logs, remote: logs)
+        var result = applyingEdits(from: agreed, to: local)
+        // Two devices can complete the same daily item on the same day with different IDs.
+        var seen = Set<String>()
+        result.dailyCompletions = result.dailyCompletions.filter { seen.insert("\($0.itemID.uuidString)|\($0.day)").inserted }
+        return result
+    }
+
+    /// True when the same item was changed differently here (`local`) and on another device (`self`).
+    func hasCloudConflict(local: AppData, base: AppData) -> Bool {
+        let remote = self
+        if divergent(base.week, local.week, remote.week)
+            || divergent(base.defaultRest, local.defaultRest, remote.defaultRest)
+            || divergent(base.restSound, local.restSound, remote.restSound)
+            || divergent(base.restStep, local.restStep, remote.restStep)
+            || divergent(base.dailyReminders, local.dailyReminders, remote.dailyReminders)
+            || divergent(base.activeWorkout, local.activeWorkout, remote.activeWorkout) { return true }
+        if divergentByID(base.recordTypes, local.recordTypes, remote.recordTypes)
+            || divergentByID(base.records, local.records, remote.records)
+            || divergentByID(base.exerciseLibrary, local.exerciseLibrary, remote.exerciseLibrary)
+            || divergentByID(base.workouts, local.workouts, remote.workouts)
+            || divergentByID(base.dailyItems, local.dailyItems, remote.dailyItems)
+            || divergentByID(base.dailyCompletions, local.dailyCompletions, remote.dailyCompletions) { return true }
+        let planDays = Set(base.scheduledPlans.keys).union(local.scheduledPlans.keys).union(remote.scheduledPlans.keys)
+        for day in planDays where divergent(base.scheduledPlans[day], local.scheduledPlans[day], remote.scheduledPlans[day]) {
+            return true
+        }
+        let logDays = Set((base.logs + local.logs + remote.logs).map(\.day))
+        for day in logDays {
+            let before = base.logs.first { $0.day == day }
+            let mine = local.logs.first { $0.day == day }
+            let theirs = remote.logs.first { $0.day == day }
+            guard divergent(before, mine, theirs) else { continue }
+            // One device cleared the day while the other changed it.
+            guard let mine, let theirs else { return true }
+            let previous = before?.doneSets ?? [:]
+            for key in Set(previous.keys).union(mine.doneSets.keys).union(theirs.doneSets.keys)
+            where divergent(previous[key], mine.doneSets[key], theirs.doneSets[key]) {
+                return true
+            }
+        }
+        return false
+    }
+}
+
+/// Moves set counts both devices changed to the same value into the base, so the merge applies them once.
+private func agreedLogs(base: [DayLog], local: [DayLog], remote: [DayLog]) -> [DayLog] {
+    var result = base
+    for day in Set((base + local + remote).map(\.day)) {
+        let before = base.first { $0.day == day }
+        let mine = local.first { $0.day == day }
+        let theirs = remote.first { $0.day == day }
+        if before != nil, mine == nil, theirs == nil {
+            result.removeAll { $0.day == day }
+            continue
+        }
+        guard let mine, let theirs else { continue }
+        var counts = before?.doneSets ?? [:]
+        for key in Set(mine.doneSets.keys).union(theirs.doneSets.keys)
+        where mine.doneSets[key] == theirs.doneSets[key] && mine.doneSets[key] != counts[key] {
+            counts[key] = mine.doneSets[key]
+        }
+        guard counts != (before?.doneSets ?? [:]) else { continue }
+        if let index = result.firstIndex(where: { $0.day == day }) { result[index].doneSets = counts }
+        else { result.append(DayLog(day: day, doneSets: counts)) }
+    }
+    return result
+}
+
+private func divergent<V: Equatable>(_ base: V, _ local: V, _ remote: V) -> Bool {
+    local != base && remote != base && local != remote
+}
+
+private func divergentByID<T: Identifiable & Equatable>(_ base: [T], _ local: [T], _ remote: [T]) -> Bool {
+    guard divergent(base, local, remote) else { return false }
+    func index(_ list: [T]) -> [T.ID: T] { Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first }) }
+    let before = index(base), mine = index(local), theirs = index(remote)
+    for id in Set(before.keys).union(mine.keys).union(theirs.keys) where divergent(before[id], mine[id], theirs[id]) {
+        return true
+    }
+    return false
+}
+
+/// Applies edits by ID. Without a concurrent change the edited list is used as is, keeping its order.
+private func mergeByID<T: Identifiable & Equatable>(latest: [T], base: [T], edited: [T]) -> [T] {
+    if edited == base { return latest }
+    if latest == base { return edited }
     var result = latest
     for previous in base where !edited.contains(where: { $0.id == previous.id }) {
         result.removeAll { $0.id == previous.id }
