@@ -10,6 +10,8 @@ struct SettingsView: View {
     @Environment(AccountModel.self) private var account
     @State private var showingAccount = false
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    /// 기기별 설정. 같은 계정의 다른 기기와 공유하지 않는다.
+    @AppStorage(DailyReminderScheduler.devicePreferenceKey) private var remindersOnThisDevice = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -72,6 +74,8 @@ struct SettingsView: View {
         Section {
             Toggle("일상 알림", isOn: $model.data.dailyReminders.enabled)
             if model.data.dailyReminders.enabled {
+                Toggle("이 기기에서 알림 받기", isOn: $remindersOnThisDevice)
+                    .onChange(of: remindersOnThisDevice) { _, _ in model.refreshReminders() }
                 Toggle("알림 소리", isOn: $model.data.dailyReminders.sound)
                 optionalTime("아침 요약", \.morningSummary, default: ReminderTime(hour: 8, minute: 0))
                 optionalTime("저녁 확인", \.eveningCheck, default: ReminderTime(hour: 21, minute: 0))
@@ -85,8 +89,8 @@ struct SettingsView: View {
             Text("일상 알림")
         } footer: {
             Text(notificationStatus == .denied
-                 ? "아이패드 설정에서 헬스노트 알림이 꺼져 있어 울리지 않아요."
-                 : "항목별 알림 시간은 일상 추가·편집에서 정해요. 아침 요약은 그날 할 일상을, 저녁 확인은 아직 끝내지 않은 일상이 있을 때만 알려요. 앞으로 2주치를 미리 예약하고 앱을 열 때마다 다시 채워요.")
+                 ? "기기 설정에서 헬스노트 알림이 꺼져 있어 울리지 않아요."
+                 : "항목별 알림 시간은 일상 추가·편집에서 정해요. 아침 요약은 그날 할 일상을, 저녁 확인은 아직 끝내지 않은 일상이 있을 때만 알려요. 앞으로 2주치를 미리 예약하고 앱을 열 때마다 다시 채워요. '이 기기에서 알림 받기'는 기기마다 따로 정해서, 같은 계정을 쓰는 여러 기기 중 켠 기기에서만 울려요.")
         }
     }
 

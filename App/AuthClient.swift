@@ -291,6 +291,13 @@ final class AuthClient {
         let data = try await request(path: "/rest/v1/rpc/load_workout", token: token, body: Data("{}".utf8))
         return try JSONDecoder().decode([CloudWorkout].self, from: data).first
     }
+    /// Only the server's version number, cheap enough to check while the app is open. 0 = no server copy yet.
+    /// Row-level security returns only the signed-in user's row.
+    func remoteVersion(token: String) async throws -> Int64 {
+        struct Row: Decodable { let version: Int64 }
+        let data = try await request(path: "/rest/v1/workout_backups?select=version", token: token, method: "GET")
+        return try JSONDecoder().decode([Row].self, from: data).first?.version ?? 0
+    }
     func upload(_ snapshot: StoredWorkout, token: String) async throws -> Int64 {
         struct Body: Encodable { var p_payload: AppData; var p_expected_version: Int64 }
         let body = try JSONEncoder().encode(Body(p_payload: snapshot.data, p_expected_version: snapshot.serverVersion))

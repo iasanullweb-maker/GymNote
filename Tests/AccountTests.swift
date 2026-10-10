@@ -175,6 +175,40 @@ final class AccountTests: XCTestCase {
         XCTAssertEqual(try SharedStore.snapshot(userID: next.userID).data, .empty)
     }
 
+    func testCloudMergeKeepsEditsFromBothDevices() throws {
+        let a = UUID()
+        let selection = try SharedStore.activate(userID: a)
+        var data = AppData.empty
+        data.defaultRest = 60
+        _ = try SharedStore.persistEdits(from: .empty, to: data, selection: selection)
+        let first = try SharedStore.snapshot(userID: a)
+        try SharedStore.acknowledge(version: 1, revision: first.revision, uploaded: first.data, selection: selection)
+        XCTAssertEqual(try SharedStore.snapshot(userID: a).syncedBase, first.data)
+
+        // 이 기기: 업로드 전 기록 추가. 다른 기기: 휴식 시간 변경(서버 버전 2).
+        var local = first.data
+        let mine = RecordEntry(typeID: "pushup", date: Date(), value: 20)
+        local.records.append(mine)
+        _ = try SharedStore.persistEdits(from: first.data, to: local, selection: selection)
+        var remote = first.data
+        remote.defaultRest = 90
+        XCTAssertTrue(try SharedStore.mergeWithCloud(remote, version: 2, selection: selection))
+        let merged = try SharedStore.snapshot(userID: a)
+        XCTAssertEqual(merged.data.defaultRest, 90)
+        XCTAssertEqual(merged.data.records, [mine])
+        XCTAssertEqual(merged.serverVersion, 2)
+        XCTAssertTrue(merged.dirty, "합친 결과는 서버에 다시 올림")
+        XCTAssertEqual(merged.syncedBase, remote)
+
+        // 같은 기록을 양쪽에서 다르게 바꾸면 아무것도 바꾸지 않고 선택을 요청한다.
+        var conflicting = remote
+        var changed = mine
+        changed.value = 99
+        conflicting.records = [changed]
+        XCTAssertFalse(try SharedStore.mergeWithCloud(conflicting, version: 3, selection: selection))
+        XCTAssertEqual(try SharedStore.snapshot(userID: a).data, merged.data)
+    }
+
     func testCorruptAccountIsNeverOverwritten() throws {
         let a = UUID()
         _ = try SharedStore.activate(userID: a)
