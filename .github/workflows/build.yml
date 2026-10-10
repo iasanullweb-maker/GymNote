@@ -51,6 +51,8 @@ jobs:
           /tmp/social-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/gymnote-account-checks
           /tmp/gymnote-account-checks
+          swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_cloud_merge.swift -o /tmp/gymnote-cloud-merge-checks
+          /tmp/gymnote-cloud-merge-checks
 
       - name: Build (unsigned)
         env:
