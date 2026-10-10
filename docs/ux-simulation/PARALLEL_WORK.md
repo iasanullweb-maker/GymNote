@@ -15,6 +15,10 @@
 
 기존 AGENTS.md를 우선 읽는다. 이 문서는 파일 소유 범위와 통합 순서를 구체화한다. 다른 담당 파일이 필요하면 해당 결과 문서에 요청을 남긴다. App/AppModel.swift, Shared/Models.swift, project.yml, 기존 테스트, CI, 운영 SQL은 이 단계에서 변경하지 않는다. B의 새 Swift 파일은 기존 XcodeGen의 App/·Tests/ 경로에 자동 포함된다. 별도 UI 테스트 타깃은 후속 단계다.
 
+## 2026-10-10: 실기기 subagent 파일럿 준비
+
+사용자의 subagent 가상 사용자 준비 요청은 기존 UX 총괄 워크트리에서 진행한다. 추가 소유 범위는 `docs/ux-simulation/pilot/**`, `scripts/ux_simulation_prepare_pilot.py`, `docs/ux-simulation/results/subagent-pilot.md`다. 기존 C의 persona/시나리오/프롬프트와 D의 runner는 수정하지 않는다. 역할 준비 subagent는 읽기 전용으로 초보·주의 분산·기획자 설계를 검토하고 부모만 파일을 편집한다. 실제 사용자 실행은 새 독립 컨텍스트로 시작하며 단일 실기기 조작은 부모가 직렬 중계한다. [실행 안내](pilot/README.md)를 따른다.
+
 ## 공통 계약과 독립 작업
 
 CONTRACT.md와 simulation/contracts/*.schema.json을 v1 기준으로 사용한다. 각 담당은 examples/를 테스트용 입력으로 읽을 수 있지만 수정하지 않는다. 담당끼리 아직 없는 파일은 자신이 소유하는 테스트 디렉터리에 명시적인 합성 샘플을 만들어 검증하고, 실제 상대 산출물과의 통합 검증은 A가 진행한다.
