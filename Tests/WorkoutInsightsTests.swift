@@ -140,7 +140,10 @@ final class WorkoutInsightsTests: XCTestCase {
         let restored = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(data))
         XCTAssertEqual(restored.activeWorkout, saved)
         let merged = before.applyingEdits(from: before, to: data)
-        XCTAssertEqual(merged.activeWorkout, saved)
+        var normalized = saved
+        // The existing progress merger represents an untouched new exercise with an empty array.
+        normalized.actualReps[id.uuidString] = []
+        XCTAssertEqual(merged.activeWorkout, normalized)
         data.changeSets(id, by: 1, on: date, actualReps: 8)
         data.changeSets(id, by: 1, on: date, actualReps: 7)
         XCTAssertNil(data.activeWorkout)
@@ -245,6 +248,29 @@ final class WorkoutAssistancePersistenceTests: XCTestCase {
         XCTAssertEqual(persisted.activeWorkout?.plan.exercises.count, 1)
         model.reload()
         XCTAssertEqual(model.data.activeWorkout, persisted.activeWorkout)
+    }
+
+    func testReplacementRejectsWidgetStartingWorkoutAfterSheetOpened() throws {
+        let model = AppModel()
+        let date = Date()
+        let exercise = Exercise(name: "푸쉬업", sets: 3, detail: "10회")
+        model.data.scheduledPlans[DayKey.key(date)] = DayPlan(title: "오늘", exercises: [exercise])
+        let base = model.data
+        var widget = base
+        XCTAssertTrue(widget.startWorkout(at: date))
+        widget.changeSets(exercise.id, by: 1, on: date, actualReps: 10)
+        _ = try SharedStore.persistEdits(from: base, to: widget, selection: model.selection)
+        let latest = try SharedStore.snapshot(userID: nil).data
+        var edited = base
+        let replacement = Exercise(name: "벽 푸쉬업", sets: 3, detail: "8회")
+        XCTAssertNotNil(edited.replaceExecutionExercise(exercise, with: replacement, on: date,
+                                                        expectedSessionID: nil, expectedDone: 0))
+        XCTAssertTrue(latest.hasStaleWorkoutReplacement(from: base, to: edited))
+        XCTAssertFalse(model.saveEdit { $0 = edited })
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data, latest,
+                       "시작 전 대체가 거부되면 최신 세션과 날짜 계획 모두 보존")
+        model.reload()
+        XCTAssertEqual(model.data, latest)
     }
 
     func testReplacementRejectsAnotherDevicesChangedPlanButAllowsIndependentEdits() throws {

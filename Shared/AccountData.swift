@@ -16,7 +16,12 @@ extension AppData {
         }
         for day in Set(base.scheduledPlans.keys).union(edited.scheduledPlans.keys) {
             if let original = base.scheduledPlans[day], let updated = edited.scheduledPlans[day],
-               removesSets(original, updated), scheduledPlans[day] != original { return true }
+               removesSets(original, updated) {
+                if scheduledPlans[day] != original { return true }
+                // A widget may start this day's workout after the replacement sheet opened.
+                // Reject the dated-plan edit as well so a failed replacement writes nothing.
+                if activeWorkout?.day == day, activeWorkout?.id != base.activeWorkout?.id { return true }
+            }
         }
         return false
     }
