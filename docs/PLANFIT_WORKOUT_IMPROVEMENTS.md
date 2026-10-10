@@ -9,7 +9,7 @@
 - Codex 앱의 create_worktree 호출은 `fatal: invalid reference: codex/shared-exercise-catalog`로 실패했다. 앱 도구의 복구 성공으로 보고하지 않는다.
 - 확인 결과 대화 cwd인 상위 `gymnote in web 2`에도 별도의 빈 Git 저장소가 있고(`master`, HEAD 없음), 실제 GymNote는 그 아래 별도 저장소다. 앱 호출의 브랜치 참조 실패는 이 상위 폴더를 저장소로 인식한 상황과 일치한다. 이번에는 앱 프로젝트 설정을 임의 변경하지 않고 실제 GymNote 루트를 명시해 Git 워크트리를 사용했다.
 - HANDOFF의 Git 방식은 정상: `git -C GymNote worktree add -b codex/planfit-workout-improvements .worktrees/planfit-workout-improvements HEAD`로 실제 생성했다. 경로는 위 시작 폴더 아래 `.worktrees/planfit-workout-improvements`, 새 브랜치는 `codex/planfit-workout-improvements`다. git worktree 목록과 브랜치로 확인한다.
-- 검토·커밋 후 기존 `codex/shared-exercise-catalog`로 공통 UX 통합 잠금 아래 로컬 병합한다. 최종 통합 여부와 커밋은 완료 응답의 상태 확인 결과를 따른다. 별도 main 통합·원격 push·배포·운영 DB 변경은 하지 않는다.
+- 기능 커밋 `3d5592f` 및 동시 기록 보호 커밋 `490f439`를 검토하고 기존 `codex/shared-exercise-catalog`로 공통 UX 통합 잠금과 대상 폴더 잠금 아래 로컬 fast-forward 병합했다. 통합 후 양쪽 추적 파일 변경 없음·공백 검사·source ancestry를 확인했다. 최종 문서 커밋은 완료 응답에 표시한다. 별도 main 통합·원격 push·배포·운영 DB 변경은 하지 않았다.
 
 ## 구현한 순서와 사용법
 
