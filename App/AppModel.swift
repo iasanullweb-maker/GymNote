@@ -6,6 +6,8 @@ import Observation
 final class AppModel {
     @ObservationIgnored private var replacingData = false
     @ObservationIgnored private var previewOnly = false
+    @ObservationIgnored private var failedWriteCount = 0
+    private(set) var currentDate = Date()
     @ObservationIgnored lazy var account = AccountModel(model: self)
     @ObservationIgnored lazy var social = SocialModel(model: self)
     private(set) var selection = StoreSelection(userID: nil)
@@ -27,6 +29,7 @@ final class AppModel {
                 account.scheduleSync()
                 if oldValue.activeWorkout != data.activeWorkout { refreshWorkoutActivity() }
             } catch {
+                failedWriteCount += 1
                 replaceData(oldValue)
                 storageError = "기록을 저장하지 못했어요. 원본 파일은 유지됩니다. 기기를 잠금 해제하고 다시 시도해 주세요."
             }
@@ -53,13 +56,26 @@ final class AppModel {
         }
     }
 
-    var todayPlan: DayPlan { data.activeWorkout?.plan ?? data.plan() }
-    var workoutDate: Date { data.activeWorkout?.startedAt ?? Date() }
+    /// Return the actual write outcome so editors can keep their draft on failure.
+    func saveEdit(_ edit: (inout AppData) -> Void) -> Bool {
+        let failures = failedWriteCount
+        var edited = data
+        edit(&edited)
+        data = edited
+        return failedWriteCount == failures
+    }
+
+    func refreshCurrentDate(now: Date = Date()) {
+        currentDate = now
+    }
+
+    var todayPlan: DayPlan { data.activeWorkout?.plan ?? data.plan(for: currentDate) }
+    var workoutDate: Date { data.activeWorkout?.startedAt ?? currentDate }
     var workoutProgress: (done: Int, total: Int) {
         if let session = data.activeWorkout { return (session.done, session.total) }
-        return data.progress()
+        return data.progress(on: currentDate)
     }
-    var savedToday: Bool { data.hasSavedWorkout() }
+    var savedToday: Bool { data.hasSavedWorkout(on: currentDate) }
 
     func startWorkout() {
         data.startWorkout()

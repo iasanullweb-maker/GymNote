@@ -139,6 +139,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                model.refreshCurrentDate()
                 model.reload()
                 account.scheduleSync()
                 Task { await model.social.publish(force: false) }
@@ -148,6 +149,12 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: .gymnoteStoreChanged).receive(on: RunLoop.main)) { _ in
             model.reload()
             account.scheduleSync()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+            model.refreshCurrentDate()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification).receive(on: RunLoop.main)) { _ in
+            model.refreshCurrentDate()
         }
         .task {
             await account.bootstrap()

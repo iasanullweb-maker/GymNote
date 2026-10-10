@@ -3,7 +3,7 @@ import SwiftUI
 struct DailyTodayView: View {
     @Environment(AppModel.self) private var model
     @State private var editing: DailyItem?
-    private var today: Date { Date() }
+    private var today: Date { model.currentDate }
     private var scheduled: [DailyItem] { model.data.dailyItems(on: today) }
     private var undated: [DailyItem] {
         model.data.dailyItems.filter { $0.isUndated && !model.data.isDailyComplete($0, on: today) }
@@ -116,7 +116,7 @@ struct DailyPlansView: View {
     @Environment(AppModel.self) private var model
     @Binding var selectedDate: Date
     @State private var editing: DailyItem?
-    @State private var showAll = false
+    @AppStorage("planShowWorkoutAndDaily") private var showAll = false
 
     var body: some View {
         NavigationStack {
@@ -128,16 +128,21 @@ struct DailyPlansView: View {
                         Text("운동은 기본 글씨, 일상은 청록색으로 표시해요.").font(.caption).foregroundStyle(.secondary)
                     }
                 }
-                CalendarSection(selectedDate.formatted(.dateTime.year().month().day().weekday())) {
-                    let items = model.data.dailyItems(on: selectedDate)
-                    if items.isEmpty { Text("예정된 항목이 없어요.").foregroundStyle(.secondary) }
-                    ForEach(items) { item in
-                        DailyItemRow(item: item, date: selectedDate) { editing = item }
+                if showAll {
+                    TogetherPlanDaySection(date: selectedDate)
+                } else {
+                    CalendarSection(selectedDate.formatted(.dateTime.year().month().day().weekday())) {
+                        let items = model.data.dailyItems(on: selectedDate)
+                        if items.isEmpty { Text("예정된 항목이 없어요.").foregroundStyle(.secondary) }
+                        ForEach(items) { item in
+                            DailyItemRow(item: item, date: selectedDate) { editing = item }
+                        }
+                        Button {
+                            editing = DailyItem(title: "", scheduledDate: selectedDate, startDate: selectedDate)
+                        } label: { Label("이 날짜에 추가", systemImage: "plus") }
                     }
-                    Button {
-                        editing = DailyItem(title: "", scheduledDate: selectedDate, startDate: selectedDate)
-                    } label: { Label("이 날짜에 추가", systemImage: "plus") }
                 }
+                UndatedDailyPlanSection()
                 let skipped = model.data.dailyItems.filter { $0.isRepeating && $0.skippedDays.contains(DayKey.key(selectedDate)) }
                 if !skipped.isEmpty {
                     CalendarSection("건너뛴 반복 일정") {
@@ -149,34 +154,38 @@ struct DailyPlansView: View {
                         }
                     }
                 }
-                CalendarSection("선택한 주의 일상") {
-                    Text("날짜를 누르면 위에서 그날의 일상을 확인하고 수정할 수 있어요.")
+                CalendarSection(showAll ? "선택한 주의 운동·일상" : "선택한 주의 일상") {
+                    Text(showAll ? "날짜를 누르면 위에서 그날의 운동과 일상을 확인하고 수정할 수 있어요." : "날짜를 누르면 위에서 그날의 일상을 확인하고 수정할 수 있어요.")
                         .font(.footnote).foregroundStyle(.secondary)
-                    ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
-                        let items = model.data.dailyItems(on: date)
-                        let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                        Button { selectedDate = date } label: {
-                            HStack(spacing: 12) {
-                                VStack {
-                                    Text(DayKey.weekdayName(date)).font(.caption)
-                                    Text(String(Calendar.current.component(.day, from: date))).bold()
-                                        .foregroundStyle(Calendar.current.isDateInToday(date) ? Color.orange : Color.primary)
+                    if showAll {
+                        TogetherPlanWeekRows(selectedDate: $selectedDate)
+                    } else {
+                        ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
+                            let items = model.data.dailyItems(on: date)
+                            let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                            Button { selectedDate = date } label: {
+                                HStack(spacing: 12) {
+                                    VStack {
+                                        Text(DayKey.weekdayName(date)).font(.caption)
+                                        Text(String(Calendar.current.component(.day, from: date))).bold()
+                                            .foregroundStyle(Calendar.current.isDateInToday(date) ? Color.orange : Color.primary)
+                                    }
+                                    .frame(width: 32)
+                                    if items.isEmpty {
+                                        Text("예정된 항목 없음")
+                                            .foregroundStyle(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                    } else {
+                                        Text(items.map(\.title).joined(separator: ", "))
+                                            .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                                    }
+                                    if selected { Image(systemName: "checkmark").foregroundStyle(.secondary) }
                                 }
-                                .frame(width: 32)
-                                if items.isEmpty {
-                                    Text("예정된 항목 없음")
-                                        .foregroundStyle(.secondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                } else {
-                                    Text(items.map(\.title).joined(separator: ", "))
-                                        .lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                if selected { Image(systemName: "checkmark").foregroundStyle(.secondary) }
+                                .foregroundStyle(.primary)
                             }
-                            .foregroundStyle(.primary)
+                            .accessibilityAddTraits(selected ? [.isSelected] : [])
+                            Divider()
                         }
-                        .accessibilityAddTraits(selected ? [.isSelected] : [])
-                        Divider()
                     }
                 }
                 CalendarSection("관리") {
@@ -191,6 +200,79 @@ struct DailyPlansView: View {
             }
             .navigationTitle("일상 계획")
             .sheet(item: $editing) { DailyItemEditor(item: $0) }
+        }
+    }
+}
+
+/// Both planning workspaces render exactly the same combined date contents.
+struct TogetherPlanDaySection: View {
+    @Environment(AppModel.self) private var model
+    let date: Date
+    @State private var editing: DailyItem?
+
+    var body: some View {
+        CalendarSection(date.formatted(.dateTime.year().month().day().weekday())) {
+            let plan = model.data.plan(for: date)
+            NavigationLink { ScheduledDayEditor(date: date) } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("운동 · \(plan.isRestDay ? "휴식" : plan.title)", systemImage: "figure.strengthtraining.traditional")
+                    ForEach(plan.exercises) { exercise in ExerciseSummary(exercise: exercise) }
+                    Text("이 날짜의 운동 계획 설정").font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }.foregroundStyle(.primary)
+            Divider()
+            Text("일상").font(.subheadline.bold()).foregroundStyle(.teal)
+            let items = model.data.dailyItems(on: date)
+            if items.isEmpty { Text("이 날짜에 예정된 일상이 없어요.").foregroundStyle(.secondary) }
+            ForEach(items) { item in DailyItemRow(item: item, date: date) { editing = item } }
+            Button { editing = DailyItem(title: "", scheduledDate: date, startDate: date) } label: {
+                Label("이 날짜에 일상 추가", systemImage: "plus")
+            }
+        }
+        .sheet(item: $editing) { DailyItemEditor(item: $0) }
+    }
+}
+
+struct TogetherPlanWeekRows: View {
+    @Environment(AppModel.self) private var model
+    @Binding var selectedDate: Date
+
+    var body: some View {
+        ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
+            let plan = model.data.plan(for: date)
+            let items = model.data.dailyItems(on: date)
+            let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+            Button { selectedDate = date } label: {
+                HStack(spacing: 12) {
+                    VStack {
+                        Text(DayKey.weekdayName(date)).font(.caption)
+                        Text(String(Calendar.current.component(.day, from: date))).bold()
+                    }.frame(width: 32)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("운동 · " + (plan.isRestDay ? "휴식" : plan.exercises.map(\.name).joined(separator: ", ")))
+                        Text("일상 · " + (items.isEmpty ? "예정 없음" : items.map(\.title).joined(separator: ", ")))
+                            .foregroundStyle(.teal)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                    if selected { Image(systemName: "checkmark").foregroundStyle(.secondary) }
+                }.foregroundStyle(.primary)
+            }.accessibilityAddTraits(selected ? [.isSelected] : [])
+            Divider()
+        }
+    }
+}
+
+struct UndatedDailyPlanSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var editing: DailyItem?
+
+    var body: some View {
+        let items = model.data.dailyItems.filter { $0.isUndated && !model.data.isDailyComplete($0, on: model.currentDate) }
+        if !items.isEmpty {
+            CalendarSection("날짜 미정 일상") {
+                Text("아직 날짜가 정해지지 않아 달력 칸에는 표시하지 않아요. 편집에서 날짜를 지정할 수 있어요.")
+                    .font(.caption).foregroundStyle(.secondary)
+                ForEach(items) { item in DailyItemRow(item: item, date: model.currentDate) { editing = item } }
+            }.sheet(item: $editing) { DailyItemEditor(item: $0) }
         }
     }
 }
@@ -234,6 +316,7 @@ private struct DailyItemEditor: View {
     @State private var remind: Bool
     @State private var reminderDate: Date
     @State private var confirmDelete = false
+    @State private var saveFailed = false
 
     init(item: DailyItem) {
         _draft = State(initialValue: item)
@@ -254,6 +337,7 @@ private struct DailyItemEditor: View {
     var body: some View {
         NavigationStack {
             Form {
+                if saveFailed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
                 Section("내용") {
                     TextField("이름 · 예: 독서, 과제 제출", text: $draft.title)
                     TextField("메모 (선택)", text: $draft.note, axis: .vertical).lineLimit(3...6)
@@ -315,7 +399,7 @@ private struct DailyItemEditor: View {
                         draft.scheduledDate = !draft.isRepeating && hasDate ? date : nil
                         draft.reminderTime = remind && canRemind ? ReminderTime(reminderDate) : nil
                         let wantsReminder = draft.reminderTime != nil
-                        model.data.saveDailyItemEditing(draft)
+                        guard model.saveEdit({ $0.saveDailyItemEditing(draft) }) else { saveFailed = true; return }
                         if wantsReminder { Task { await RestController.requestPermissions() } }
                         dismiss()
                     }.disabled(!valid)
@@ -323,7 +407,7 @@ private struct DailyItemEditor: View {
             }
             .confirmationDialog("이 항목을 삭제할까요?", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("삭제", role: .destructive) {
-                    model.data.dailyItems.removeAll { $0.id == draft.id }
+                    guard model.saveEdit({ data in data.dailyItems.removeAll { $0.id == draft.id } }) else { saveFailed = true; return }
                     dismiss()
                 }
             }
@@ -335,7 +419,7 @@ private struct DailyItemEditor: View {
 struct DailyHistoryView: View {
     @Environment(AppModel.self) private var model
     private var days: [String] { Array(Set(model.data.dailyCompletions.map(\.day))).sorted(by: >) }
-    private var week: [Date] { DayKey.weekDates(containing: Date()) }
+    private var week: [Date] { DayKey.weekDates(containing: model.currentDate) }
 
     var body: some View {
         NavigationStack {
@@ -346,7 +430,7 @@ struct DailyHistoryView: View {
                     LabeledContent("완료한 일상", value: "\(completions.count)개")
                 }
                 Section {
-                    let past = week.filter { Calendar.current.startOfDay(for: $0) <= Calendar.current.startOfDay(for: Date()) }
+                    let past = week.filter { Calendar.current.startOfDay(for: $0) <= Calendar.current.startOfDay(for: model.currentDate) }
                     ForEach(model.data.dailyItems.filter(\.isRepeating)) { item in
                         let planned = past.filter { item.occurs(on: $0) }
                         let completed = planned.filter { model.data.isDailyComplete(item, on: $0) }.count
