@@ -8,6 +8,7 @@ struct StarterWorkoutView: View {
     @State private var experience = WorkoutExperience.beginner
     @State private var minutes = 15
     @State private var failure: String?
+    @State private var owner: UUID?
 
     private var preview: DayPlan { StarterWorkouts.plan(equipment: equipment, experience: experience, minutes: minutes) }
     private var activeOnDate: Bool { model.data.activeWorkout?.day == DayKey.key(date) }
@@ -27,7 +28,7 @@ struct StarterWorkoutView: View {
                     }
                 }
                 Section {
-                    ForEach(preview.exercises) { exercise in
+                    ForEach(Array(preview.exercises.enumerated()), id: \.offset) { _, exercise in
                         VStack(alignment: .leading, spacing: 4) {
                             ExerciseSummary(exercise: exercise)
                             if let guide = ExerciseGuides.find(exercise.name) {
@@ -55,15 +56,21 @@ struct StarterWorkoutView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("계획에 추가") {
+                        guard model.selection.generation == owner else {
+                            failure = "계정이 바뀌었어요. 취소한 뒤 다시 선택해 주세요."
+                            return
+                        }
                         var next = model.data
                         guard let ids = next.appendStarterWorkout(preview, on: date) else { return }
-                        model.data = next
+                        let persisted = model.saveEdit { $0 = next }
+                        if !persisted { model.reload() }
                         let savedIDs = Set(model.data.plan(for: date).exercises.map(\.id))
-                        if ids.allSatisfy({ savedIDs.contains($0) }) { dismiss() }
+                        if persisted && ids.allSatisfy({ savedIDs.contains($0) }) { dismiss() }
                         else { failure = "계획을 추가하지 못했어요. 다시 시도해 주세요." }
                     }.disabled(activeOnDate)
                 }
             }
+            .onAppear { if owner == nil { owner = model.selection.generation } }
         }
         .protectEditingNavigation()
     }

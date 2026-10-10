@@ -76,7 +76,7 @@ struct TodayView: View {
                                 onMove: { move in
                                     withAnimation(orderAnimation) { model.moveExecutionExercise(exercise.id, move) }
                                 },
-                                previous: model.data.previousExercise(named: exercise.name, before: model.workoutDate,
+                                previous: model.data.previousExercise(named: exercise.name, before: model.data.activeWorkout?.startedAt ?? Date(),
                                                                       excluding: model.data.activeWorkout?.id),
                                 onGuide: {
                                     guideRequest = ExerciseGuideRequest(exercise: exercise, date: model.workoutDate,

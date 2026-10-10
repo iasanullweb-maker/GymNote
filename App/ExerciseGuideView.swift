@@ -111,9 +111,10 @@ struct ExerciseGuideView: View {
             failure = "운동 상태가 바뀌었어요. 닫은 뒤 현재 세트를 확인하고 다시 선택해 주세요."
             return
         }
-        model.data = next
+        let persisted = model.saveEdit { $0 = next }
+        if !persisted { model.reload() }
         let plan = model.data.activeWorkout?.plan ?? model.data.plan(for: request.date)
-        if plan.exercises.contains(where: { $0.id == id }) { dismiss() }
+        if persisted && plan.exercises.contains(where: { $0.id == id }) { dismiss() }
         else { failure = "변경을 저장하지 못했어요. 다시 시도해 주세요." }
     }
 }

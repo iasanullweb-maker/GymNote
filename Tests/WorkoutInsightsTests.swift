@@ -193,3 +193,78 @@ final class WorkoutInsightsTests: XCTestCase {
         XCTAssertTrue(ExerciseGuides.alternatives(for: "플랭크", equipment: nil, reason: .busy).isEmpty)
     }
 }
+
+@MainActor
+final class WorkoutAssistancePersistenceTests: XCTestCase {
+    private var folder: URL!
+
+    override func setUp() async throws {
+        folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        SharedStore.testingDirectory = folder
+    }
+
+    override func tearDown() async throws {
+        SharedStore.testingDirectory = nil
+        try FileManager.default.removeItem(at: folder)
+    }
+
+    func testStarterPersistsOnceAndFailedWriteKeepsOriginalPlan() throws {
+        let model = AppModel()
+        model.data = AppData(week: [])
+        let date = model.workoutDate
+        let routine = StarterWorkouts.plan(equipment: .bodyweight, experience: .beginner, minutes: 15)
+        XCTAssertTrue(model.saveEdit { _ = $0.appendStarterWorkout(routine, on: date) })
+        let saved = model.data
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.plan(for: date), saved.plan(for: date))
+        _ = try SharedStore.activate(userID: UUID())
+        XCTAssertFalse(model.saveEdit { _ = $0.appendStarterWorkout(routine, on: date) })
+        XCTAssertEqual(model.data, saved)
+    }
+
+    func testReplacementRejectsWidgetProgressMadeAfterSheetOpened() throws {
+        let model = AppModel()
+        let exercise = Exercise(name: "푸쉬업", sets: 3, detail: "10회")
+        model.data.scheduledPlans[DayKey.key()] = DayPlan(title: "오늘", exercises: [exercise])
+        model.startWorkout()
+        model.completeSet(exercise, actualReps: 10)
+        let base = model.data
+        let active = try XCTUnwrap(base.activeWorkout)
+        var widget = base
+        widget.changeSets(exercise.id, by: 1, on: active.startedAt, actualReps: 11)
+        _ = try SharedStore.persistEdits(from: base, to: widget, selection: model.selection)
+        var edited = base
+        let replacement = Exercise(name: "벽 푸쉬업", sets: 2, detail: "8회")
+        XCTAssertNotNil(edited.replaceExecutionExercise(exercise, with: replacement, on: active.startedAt,
+                                                        expectedSessionID: active.id, expectedDone: 1))
+        XCTAssertTrue(widget.hasStaleWorkoutReplacement(from: base, to: edited))
+        XCTAssertFalse(model.saveEdit { $0 = edited })
+        let persisted = try SharedStore.snapshot(userID: nil).data
+        XCTAssertEqual(persisted.activeWorkout?.actualReps[exercise.id.uuidString], [10, 11])
+        XCTAssertEqual(persisted.activeWorkout?.done, 2)
+        XCTAssertEqual(persisted.activeWorkout?.plan.exercises.count, 1)
+        model.reload()
+        XCTAssertEqual(model.data.activeWorkout, persisted.activeWorkout)
+    }
+
+    func testReplacementRejectsAnotherDevicesChangedPlanButAllowsIndependentEdits() throws {
+        let date = Date()
+        let exercise = Exercise(name: "푸쉬업", sets: 3, detail: "10회")
+        var base = AppData(week: [])
+        base.scheduledPlans[DayKey.key(date)] = DayPlan(title: "오늘", exercises: [exercise])
+        var edited = base
+        let replacement = Exercise(name: "벽 푸쉬업", sets: 3, detail: "8회")
+        XCTAssertNotNil(edited.replaceExecutionExercise(exercise, with: replacement, on: date,
+                                                        expectedSessionID: nil, expectedDone: 0))
+        XCTAssertFalse(base.hasStaleWorkoutReplacement(from: base, to: edited))
+        var changed = base
+        changed.scheduledPlans[DayKey.key(date)]?.title = "다른 기기 수정"
+        XCTAssertTrue(changed.hasStaleWorkoutReplacement(from: base, to: edited))
+        changed = base
+        changed.defaultRest += 15
+        XCTAssertFalse(changed.hasStaleWorkoutReplacement(from: base, to: edited))
+        var appended = base
+        _ = appended.appendStarterWorkout(StarterWorkouts.plan(equipment: .bodyweight, experience: .beginner, minutes: 15), on: date)
+        XCTAssertFalse(changed.hasStaleWorkoutReplacement(from: base, to: appended))
+    }
+}
