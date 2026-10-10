@@ -86,7 +86,7 @@ const gymTouchLabel = document.createElement('label');
 gymTouchLabel.textContent = '터치 좌표: ';
 gymTouchLabel.style.cssText = 'display:block;padding:8px;text-align:center;color:#fff;background:#222';
 const gymTouchSelect = document.createElement('select');
-for (const [value, title] of [['auto','자동 (현재 가로 방향 90°)'], ['0','보정 없음 / 세로'], ['90','가로 90°'], ['270','반대 가로 270°'], ['180','뒤집힌 세로 180°']]) {
+for (const [value, title] of [['auto','자동 (확인된 가로 방향 270°)'], ['0','보정 없음 / 세로'], ['90','반대 가로 90°'], ['270','가로 270° (확인됨)'], ['180','뒤집힌 세로 180°']]) {
     const option = document.createElement('option'); option.value = value; option.textContent = title;
     gymTouchSelect.append(option);
 }
