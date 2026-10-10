@@ -157,6 +157,7 @@ struct TodayView: View {
                 AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
                     let result = model.saveRecord(entry)
                     if result != .rejected { pendingRecordResult = (result, "\(type.name) \(type.display(entry))") }
+                    return result != .rejected
                 }
             }
             .alert("기록을 저장했어요", isPresented: Binding(

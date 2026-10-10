@@ -79,12 +79,13 @@ struct PlanCalendarView: View {
     private func moveMonth(by offset: Int) {
         let start = Calendar.current.dateInterval(of: .month, for: displayedMonth)?.start ?? displayedMonth
         displayedMonth = Calendar.current.date(byAdding: .month, value: offset, to: start) ?? start
+        selectedDate = DayKey.date(inMonth: displayedMonth, selectingDayOf: selectedDate)
     }
 
     private func dayCell(_ date: Date, workouts: [WorkoutSession]) -> some View {
         let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
         let inMonth = Calendar.current.isDate(date, equalTo: displayedMonth, toGranularity: .month)
-        let today = Calendar.current.isDateInToday(date)
+        let today = Calendar.current.isDate(date, inSameDayAs: model.currentDate)
         let exercises = content == .daily || content == .journal ? [] : model.data.plan(for: date).exercises
         let dailyItems = content == .workout || content == .journal ? [] : model.data.dailyItems(on: date)
         let journalNames = Array(Set(workouts.flatMap { workout in

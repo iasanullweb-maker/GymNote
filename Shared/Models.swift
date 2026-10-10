@@ -421,6 +421,14 @@ struct AppData: Codable, Equatable {
 enum DayKey {
     static let weekdayNames = ["일", "월", "화", "수", "목", "금", "토"]
 
+    static func date(inMonth month: Date, selectingDayOf selected: Date) -> Date {
+        let calendar = Calendar.current
+        guard let start = calendar.dateInterval(of: .month, for: month)?.start,
+              let days = calendar.range(of: .day, in: .month, for: month) else { return month }
+        let day = min(calendar.component(.day, from: selected), days.count)
+        return calendar.date(byAdding: .day, value: day - 1, to: start) ?? start
+    }
+
     static func weekDates(containing date: Date) -> [Date] {
         let calendar = Calendar.current
         let day = calendar.startOfDay(for: date)
