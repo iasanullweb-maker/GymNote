@@ -51,16 +51,18 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertNotNil(model.storageError)
     }
 
-    func testEditorSaveSuccessIsPersistedAndCanBeRetriedAfterFailure() throws {
+    func testEditorSaveSuccessIsPersistedAndCanBeRetriedAfterFailure() async throws {
         let model = makeModel()
         let item = DailyItem(title: "독서", scheduledDate: Date())
         let originalSelection = model.selection
         try breakPersistence()
         XCTAssertFalse(model.saveEdit { $0.saveDailyItemEditing(item) })
         XCTAssertFalse(model.data.dailyItems.contains { $0.id == item.id })
-        // Restore the same account selection, as after a temporary store failure is resolved.
-        _ = try SharedStore.activate(userID: originalSelection.userID)
-        model.reload()
+        // Re-select through the model so it receives the fresh generation. A plain reload
+        // must not authorize writes using the stale selection from before the switch.
+        try await model.switchAccount(originalSelection.userID)
+        XCTAssertEqual(model.selection.userID, originalSelection.userID)
+        XCTAssertNotEqual(model.selection.generation, originalSelection.generation)
         XCTAssertTrue(model.saveEdit { $0.saveDailyItemEditing(item) })
         XCTAssertTrue(try SharedStore.snapshot(userID: originalSelection.userID).data.dailyItems.contains { $0.id == item.id })
     }
