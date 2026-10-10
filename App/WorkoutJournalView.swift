@@ -13,6 +13,8 @@ struct WorkoutJournalView: View {
     }
 
     var body: some View {
+        let selectedWorkouts = model.data.workouts(on: selectedDate)
+        let selectedSets = selectedWorkouts.reduce(0) { $0 + $1.done }
         List {
             Section {
                 Button { addingWorkout = true } label: {
@@ -25,16 +27,30 @@ struct WorkoutJournalView: View {
                     Text("전체 목록").tag(false)
                 }.pickerStyle(.segmented)
                 if showingCalendar {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("선택 날짜 · \(selectedDate.formatted(.dateTime.year().month().day().weekday()))")
+                            .font(.subheadline)
+                        Text(selectedWorkouts.isEmpty ? "저장된 운동이 없어요."
+                             : "운동 \(selectedWorkouts.count)회 · 완료 \(selectedSets)세트")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Button {
+                            detailDay = JournalDay(date: selectedDate)
+                        } label: {
+                            Label("세트별 기록 보기", systemImage: "list.bullet.rectangle")
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityHint("선택한 날짜의 모든 운동과 세트별 기록을 열어요.")
+                    }
                     PlanCalendarView(selectedDate: $selectedDate, content: .journal) { date in
                         detailDay = JournalDay(date: date)
                     }
                     .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
-                    Text("날짜를 길게 누르면 모든 운동과 세트별 기록을 볼 수 있어요.")
+                    Text("위 버튼으로 선택한 날짜의 기록을 볼 수 있어요. 다른 날짜를 길게 눌러도 상세가 열려요.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             Section {
-                let workouts = showingCalendar ? model.data.workouts(on: selectedDate)
+                let workouts = showingCalendar ? selectedWorkouts
                     : model.data.workouts.sorted { $0.startedAt > $1.startedAt }
                 if workouts.isEmpty {
                     Text(showingCalendar ? "이 날짜에는 운동 일지가 없어." : "아직 운동 일지가 없어.")
@@ -58,8 +74,11 @@ struct WorkoutJournalView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                             Text(workout.plan.exercises.filter { workout.doneSets($0) > 0 }.map(\.name).joined(separator: ", "))
                                 .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            Text("세트별 기록 보기")
+                                .font(.caption).foregroundStyle(.tint)
                         }
                     }
+                    .accessibilityHint("이 운동의 요약과 세트별 기록을 열어요.")
                     .shortSwipeAction {
                         model.data.workouts.removeAll { $0.id == workout.id }
                     }

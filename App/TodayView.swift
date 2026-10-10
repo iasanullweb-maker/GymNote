@@ -4,6 +4,7 @@ struct TodayView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.dynamicTypeSize) private var textSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var recordingType: RecordType?
     /// 기록 입력 시트가 닫힌 뒤에 보여 줄 결과(시트와 알림이 겹쳐 알림이 사라지지 않게).
@@ -15,22 +16,32 @@ struct TodayView: View {
     var body: some View {
         let plan = model.todayPlan
         let progress = model.workoutProgress
+        let isWorkingOut = model.data.activeWorkout != nil
+        let savedWorkouts = model.data.workouts(on: model.currentDate)
+        let savedSets = savedWorkouts.reduce(0) { $0 + $1.done }
+        let stackSavedSummary = compact || textSize.isAccessibilitySize
         NavigationStack {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(plan.isRestDay ? "오늘은 휴식일" : "\(progress.done) / \(progress.total) 세트")
+                        Text(plan.isRestDay ? "오늘은 휴식일"
+                             : isWorkingOut ? "진행 중 · \(progress.done) / \(progress.total) 세트"
+                             : "오늘 계획 · 총 \(plan.totalSets)세트")
                             .font(.headline)
-                        if !plan.isRestDay {
+                        if isWorkingOut, !plan.isRestDay {
                             ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
                                 .tint(.orange)
+                        } else if !plan.isRestDay {
+                            Text("진행 중인 운동은 없어요. 운동을 시작하면 진행 상황이 표시돼요.")
+                                .font(.footnote).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 4)
                     if model.data.activeWorkout == nil, model.savedToday {
-                        (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
-                            Label("운동 일지에 저장됨", systemImage: "checkmark.circle.fill")
+                        (stackSavedSummary ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
+                            Label("오늘 일지에 \(savedWorkouts.count)회 · \(savedSets)세트 저장됨", systemImage: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            if !compact { Spacer() }
+                                .accessibilityHint("오늘 저장한 운동 횟수와 완료한 세트의 합계예요.")
+                            if !stackSavedSummary { Spacer() }
                             Button { model.startWorkout() } label: {
                                 Label("새 운동 시작", systemImage: "plus")
                             }
