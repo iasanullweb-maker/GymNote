@@ -13,8 +13,8 @@
         const clamp = value => Math.max(0, Math.min(1, value));
         let x = clamp((dx * Math.cos(rad) - dy * Math.sin(rad) + dw / 2) / dw);
         let y = clamp((dx * Math.sin(rad) + dy * Math.cos(rad) + dh / 2) / dh);
-        // Confirmed device: displayed right edge is the iPad's portrait top.
-        const rotation = mode === 'auto' ? (dw > dh ? '90' : '0') : mode;
+        // Real-device click and drag verification confirmed the 270-degree mode.
+        const rotation = mode === 'auto' ? (dw > dh ? '270' : '0') : mode;
         if (rotation === '90') [x, y] = [y, 1 - x];
         else if (rotation === '270') [x, y] = [1 - y, x];
         else if (rotation === '180') [x, y] = [1 - x, 1 - y];
