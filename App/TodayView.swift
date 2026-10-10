@@ -6,6 +6,8 @@ struct TodayView: View {
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var recordingType: RecordType?
+    @State private var showingStarter = false
+    @State private var guideRequest: ExerciseGuideRequest?
     /// 기록 입력 시트가 닫힌 뒤에 보여 줄 결과(시트와 알림이 겹쳐 알림이 사라지지 않게).
     @State private var pendingRecordResult: (result: AppModel.RecordSaveResult, text: String)?
     @State private var savedRecordText: String?
@@ -42,6 +44,17 @@ struct TodayView: View {
                             Label("운동 시작", systemImage: "play.fill")
                         }.disabled(plan.isRestDay)
                     }
+                    if plan.isRestDay {
+                        Button { showingStarter = true } label: {
+                            Label("기본 루틴으로 오늘 운동 준비", systemImage: "list.bullet.clipboard")
+                        }
+                    }
+                }
+                if model.data.activeWorkout == nil,
+                   let saved = model.data.workouts(on: model.workoutDate).first {
+                    Section("최근 운동 결과") {
+                        WorkoutSummaryView(summary: model.data.workoutSummary(saved))
+                    }
                 }
                 if !plan.isRestDay {
                     let date = model.workoutDate
@@ -62,6 +75,13 @@ struct TodayView: View {
                                 },
                                 onMove: { move in
                                     withAnimation(orderAnimation) { model.moveExecutionExercise(exercise.id, move) }
+                                },
+                                previous: model.data.previousExercise(named: exercise.name, before: model.workoutDate,
+                                                                      excluding: model.data.activeWorkout?.id),
+                                onGuide: {
+                                    guideRequest = ExerciseGuideRequest(exercise: exercise, date: model.workoutDate,
+                                        sessionID: model.data.activeWorkout?.id,
+                                        done: model.data.doneSets(exercise, on: model.workoutDate), owner: model.selection.generation)
                                 }
                             )
                             .id("\(model.data.activeWorkout?.id.uuidString ?? "idle")-\(exercise.id)")
@@ -130,6 +150,8 @@ struct TodayView: View {
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
             .navigationBarTitleDisplayMode(compact ? .inline : .large)
+            .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: model.workoutDate) }
+            .sheet(item: $guideRequest) { ExerciseGuideView(request: $0) }
             // 공통 종목 갱신은 RootView가 앱 활성 중 60초마다 한다(탭을 오갈 때마다 다시 요청하지 않음).
             .sheet(item: $recordingType, onDismiss: showRecordResult) { type in
                 AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
@@ -188,6 +210,8 @@ struct ExerciseRow: View {
     /// 접근성 순서 바꾸기(같은 완료 묶음 안). 끌기와 같은 규칙으로 저장된다.
     var availableMoves: [ExecutionMove] = []
     var onMove: (ExecutionMove) -> Void = { _ in }
+    var previous: PreviousExercise? = nil
+    var onGuide: () -> Void = {}
     @State private var draftReps: Int?
     @State private var editingReps = false
 
@@ -220,6 +244,24 @@ struct ExerciseRow: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("세트 진행")
             .accessibilityValue("\(exercise.sets)세트 중 \(done)세트 완료")
+
+            Button(action: onGuide) {
+                Label("운동 안내·대체", systemImage: "info.circle")
+            }.buttonStyle(.borderless)
+
+            if let previous {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("지난 기록 · \(previous.session.startedAt.formatted(.dateTime.month().day()))")
+                        .font(.subheadline.bold())
+                    Text(previous.text).font(.subheadline).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !finished, exercise.plannedReps != nil, let reps = previous.repetition(at: done) {
+                        Button("지난 \(done + 1)세트 횟수로 채우기 (\(reps)회)") { draftReps = reps }
+                            .buttonStyle(.bordered).disabled(session == nil)
+                            .accessibilityHint("입력 횟수만 채워요. 세트 완료 버튼을 눌러 기록하세요. 무게는 참고용이에요.")
+                    }
+                }
+            }
 
             if !finished, let value = actualReps {
                 Text("\(done + 1)세트 · 계획 \(exercise.detail)")
