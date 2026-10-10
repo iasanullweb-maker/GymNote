@@ -19,6 +19,32 @@ def replace_once(source, old, new):
 
 
 def patch_viewer(source, lifecycle):
+    coordinates = (Path(__file__).resolve().parent.parent / "simulation/usb/viewer_coordinates.js").read_text(encoding="utf-8")
+    if source.count("function touchCoords(e) {") != 1 or source.count("\nasync function postJson") != 1:
+        raise RuntimeError("Upstream touch mapping changed; refusing an unverified patch")
+    start = source.index("function touchCoords(e) {")
+    end = source.index("\nasync function postJson", start)
+    original = source[start:end]
+    source = replace_once(source, original, """let gymTouchMode = 'auto';
+function touchCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    return gymNoteTouchCoordinates(e, {
+        left: rect.left, top: rect.top, width: rect.width, height: rect.height,
+        canvasWidth: canvas.width, canvasHeight: canvas.height, visualRotation,
+    }, gymTouchMode);
+}
+""")
+    source = coordinates + "\n" + source
+    source = replace_once(source, "async function swipe(direction) {", """function gymDisplayTouch(x, y) {
+    const rect = canvas.getBoundingClientRect();
+    return touchCoords({clientX: rect.left + x / 65535 * rect.width,
+                        clientY: rect.top + y / 65535 * rect.height});
+}
+async function swipe(direction) {""")
+    for kind, x in [('contact', 'xStart'), ('contact', 'x'), ('release', 'xEnd')]:
+        x_field = 'x' if x == 'x' else 'x: ' + x
+        source = replace_once(source, "{type: '" + kind + "', " + x_field + ", y: yMid}",
+                              "{type: '" + kind + "', ...gymDisplayTouch(" + x + ", yMid)}")
     source = lifecycle + "\nconst gymViewer = createGymNoteViewerLifecycle({document, window, now: () => performance.now()});\n" + source
     anchor = "let _lastFc = -1, _stableSec = 0, _nextPliSec = 0, _nextRestartSec = 0;\nsetInterval(() => {"
     source = replace_once(source, anchor, anchor.replace("setInterval(() => {", """gymViewer.setReset(() => {
@@ -55,6 +81,19 @@ setInterval(() => {
         if (done) { streamTerminated = true; log('stream ended'); break; }""")
     source = replace_once(source, "try { if (localStorage.getItem('clipboardSync') === 'true') setClipboardSync(true); } catch (e) {}", "// Clipboard sync is disabled in this local adapter.")
     source += "\nfor (const id of ['clipboard-toggle', 'clipboard-sync', 'clipboard-send', 'clipboard-get', 'clipboard-text', 'sound-toggle']) { const el = document.getElementById(id); if (el) el.disabled = true; }\n"
+    source += """
+const gymTouchLabel = document.createElement('label');
+gymTouchLabel.textContent = '터치 좌표: ';
+gymTouchLabel.style.cssText = 'display:block;padding:8px;text-align:center;color:#fff;background:#222';
+const gymTouchSelect = document.createElement('select');
+for (const [value, title] of [['auto','자동 (현재 가로 방향 90°)'], ['0','보정 없음 / 세로'], ['90','가로 90°'], ['270','반대 가로 270°'], ['180','뒤집힌 세로 180°']]) {
+    const option = document.createElement('option'); option.value = value; option.textContent = title;
+    gymTouchSelect.append(option);
+}
+gymTouchSelect.setAttribute('aria-label', '터치 좌표 보정');
+gymTouchSelect.addEventListener('change', () => { releaseActive(); gymTouchMode = gymTouchSelect.value; });
+gymTouchLabel.append(gymTouchSelect); document.body.prepend(gymTouchLabel);
+"""
     return source
 
 

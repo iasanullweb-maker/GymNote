@@ -41,6 +41,9 @@ async def verify():
     else:
         raise AssertionError("Changed upstream must be rejected")
     assert b"gymViewer.canRecover()" in screen_stream.VIEWER_JS_TEMPLATE
+    assert b"gymNoteTouchCoordinates(e" in screen_stream.VIEWER_JS_TEMPLATE
+    assert screen_stream.VIEWER_JS_TEMPLATE.count(b"...gymDisplayTouch(") == 3
+    assert b"gymTouchSelect" in screen_stream.VIEWER_JS_TEMPLATE
     print("Adapter checks passed (8 denied routes, no audio, changed upstream rejected).")
 
 asyncio.run(verify())
