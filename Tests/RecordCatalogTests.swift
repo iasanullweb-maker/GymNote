@@ -22,6 +22,45 @@ final class RecordCatalogTests: XCTestCase {
                                                     publicKey: "sb_publishable_test"), configuration: settings)
     }
 
+    func testCatalogWorkoutCopiesPreservePlansAndPrivateLibrary() throws {
+        var type = CatalogRecordType.defaults[0]
+        type.name = "관리자 운동"
+        let first = type.makeExercise()
+        let second = type.makeExercise()
+        XCTAssertNotEqual(first.id, second.id, "각 루틴 슬롯은 독립된 진행 상태를 가져야 함")
+        var data = AppData(week: [DayPlan(title: "공통 운동", exercises: [first])])
+        data.exerciseLibrary = [Exercise(name: "개인 운동", sets: 5, detail: "8회")]
+        let before = data
+        type.name = "이름 수정"
+        type.active = false
+        _ = type.makeExercise()
+        XCTAssertEqual(data, before, "공통 수정·중단은 기존 계획과 개인 목록을 덮어쓰지 않음")
+        let restored = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(data))
+        XCTAssertEqual(restored.week[0].exercises[0], first)
+        XCTAssertEqual(restored.exerciseLibrary, data.exerciseLibrary)
+    }
+
+    func testCommonExercisesImportIntoManualWorkoutWithTimeAndWeight() throws {
+        var timed = CatalogRecordType.defaults[0]
+        timed.name = "플랭크"; timed.unit = "초"
+        var draft = ManualWorkoutDraft()
+        draft.append(timed.makeExercise())
+        XCTAssertTrue(draft.moves[0].sets.allSatisfy { $0.reps.isEmpty })
+        XCTAssertTrue(draft.isValid, "시간 운동에 반복 횟수를 만들어 넣지 않음")
+        var weighted = timed
+        weighted.name = "벤치 프레스"; weighted.unit = "kg"
+        draft.append(weighted.makeExercise())
+        XCTAssertFalse(draft.isValid, "무게 종목을 반복 횟수로 잘못 간주하지 않음")
+        draft.moves[1].detail = "8회"
+        for index in draft.moves[1].sets.indices {
+            draft.moves[1].sets[index].reps = "8"
+            draft.moves[1].sets[index].weight = "40"
+        }
+        let session = try XCTUnwrap(draft.session())
+        XCTAssertEqual(session.plan.exercises.map(\.name), ["플랭크", "벤치 프레스"])
+        XCTAssertEqual(session.actualWeights[session.plan.exercises[1].id.uuidString], [40, 40, 40])
+    }
+
     func testGuestSeesNewAdministratorTypeAfterRefresh() async throws {
         var remote = CatalogRecordType.defaults
         let client = catalogClient()
