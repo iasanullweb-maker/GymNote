@@ -18,6 +18,21 @@ struct CatalogRecordType: Codable, Identifiable, Hashable {
                    lowerIsBetter: lowerIsBetter, hint: hint)
     }
 
+    /// A new private workout snapshot; catalog edits never rewrite saved plans or history.
+    func makeExercise() -> Exercise {
+        let detail: String
+        if style == .rounds { detail = "1라운드" }
+        else {
+            switch unit.trimmingCharacters(in: .whitespacesAndNewlines) {
+            case "회": detail = "10회"
+            case "초": detail = "60초"
+            case "분": detail = "1분"
+            default: detail = ""
+            }
+        }
+        return Exercise(name: name, sets: 3, detail: detail)
+    }
+
     static let defaults: [CatalogRecordType] = RecordType.defaults.enumerated().map { index, type in
         CatalogRecordType(id: "common-\(type.id)-v1", name: type.name, unit: type.unit,
                           style: type.style, repsPerRound: type.repsPerRound,

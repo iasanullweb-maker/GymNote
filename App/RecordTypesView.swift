@@ -36,7 +36,7 @@ struct RecordTypesView: View {
                         }.disabled(account.busy || account.catalogLoading)
                     }
                 } footer: {
-                    Text("공통 종목은 관리자가 관리합니다. 단위·수행 조건·계산 규칙을 바꿀 때는 새 종목을 만들어 과거 기록의 비교 기준을 유지합니다.")
+                    Text("공통 종목은 운동 목록·계획·운동 일지·최고 기록에서 함께 사용하며 관리자가 관리합니다. 개인별 세트·횟수는 운동을 가져온 뒤 설정하세요. 단위·수행 조건·계산 규칙을 바꿀 때는 새 종목을 만들어 과거 기록의 비교 기준을 유지합니다.")
                 }
                 if let date = account.catalogFetchedAt {
                     Text("목록 갱신: \(date.formatted(date: .abbreviated, time: .shortened))")
@@ -79,7 +79,7 @@ struct CatalogTypeEditor: View {
                     TextField("종목 이름", text: $type.name)
                     TextField("수행 규칙 및 설명", text: $type.hint, axis: .vertical)
                     Stepper("표시 순서: \(type.position + 1)", value: $type.position, in: 0...9999)
-                    Toggle("새 기록 입력 허용", isOn: $type.active)
+                    Toggle("새 운동 선택·기록 입력 허용", isOn: $type.active)
                 }
                 Section {
                     Picker("기록 방식", selection: $type.style) {

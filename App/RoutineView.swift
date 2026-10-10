@@ -197,11 +197,14 @@ struct PlanCopyView: View {
 
 struct ExerciseLibraryView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @State private var editing: Exercise?
+    @State private var showingCatalog = false
 
     var body: some View {
         List {
-            Section {
+            CatalogExerciseSection { editing = $0.makeExercise() }
+            Section("내 운동 목록") {
                 ForEach(model.data.exerciseLibrary) { exercise in
                     Button { editing = exercise } label: { ExerciseSummary(exercise: exercise) }
                         .foregroundStyle(.primary)
@@ -220,7 +223,15 @@ struct ExerciseLibraryView: View {
             }
         }
         .navigationTitle("운동 목록")
-        .toolbar { EditButton() }
+        .toolbar {
+            EditButton()
+            ToolbarItem(placement: .primaryAction) {
+                Button(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내") { showingCatalog = true }
+            }
+        }
+        .task { await account.refreshRecordCatalog() }
+        .refreshable { await account.refreshRecordCatalog() }
+        .sheet(isPresented: $showingCatalog) { RecordTypesView() }
         .sheet(item: $editing) { exercise in
             ExerciseDraftView(exercise: exercise, title: "운동 설정") { saved in
                 if let i = model.data.exerciseLibrary.firstIndex(where: { $0.id == saved.id }) {
@@ -235,6 +246,7 @@ struct ExerciseLibraryView: View {
 
 struct ExercisePicker: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
     let onSave: (Exercise) -> Void
     @State private var draft: Exercise?
@@ -243,6 +255,10 @@ struct ExercisePicker: View {
     var body: some View {
         NavigationStack {
             List {
+                CatalogExerciseSection { type in
+                    saveToLibrary = false
+                    draft = type.makeExercise()
+                }
                 Section("운동 목록에서 가져오기") {
                     ForEach(model.data.exerciseLibrary) { exercise in
                         Button {
@@ -262,6 +278,8 @@ struct ExercisePicker: View {
                 } label: { Label("새 운동 만들기", systemImage: "plus") }
             }
             .navigationTitle("운동 추가")
+            .task { await account.refreshRecordCatalog() }
+            .refreshable { await account.refreshRecordCatalog() }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
             .navigationDestination(item: $draft) { exercise in
                 ExerciseDraftForm(exercise: exercise, title: "운동 설정", onCancel: { dismiss() }) { saved in
@@ -276,6 +294,35 @@ struct ExercisePicker: View {
             }
         }
         .protectEditingNavigation()
+    }
+}
+
+/// Shared definitions stay outside the account's editable exercise library.
+struct CatalogExerciseSection: View {
+    @Environment(AccountModel.self) private var account
+    let onSelect: (CatalogRecordType) -> Void
+
+    var body: some View {
+        Section {
+            ForEach(CatalogRecordType.sorted(account.catalogTypes).filter(\.active)) { type in
+                Button { onSelect(type) } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(type.name)
+                        if !type.hint.isEmpty {
+                            Text(type.hint).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }.foregroundStyle(.primary)
+            }
+            if !account.catalogTypes.contains(where: \.active) {
+                Text("현재 사용할 수 있는 공통 종목이 없어요.").foregroundStyle(.secondary)
+            }
+            if let message = account.catalogMessage {
+                Text(message).font(.footnote).foregroundStyle(.secondary)
+            }
+        } header: { Text("공통 운동 종목") } footer: {
+            Text("관리자가 등록한 운동이에요. 선택 후 내 세트·횟수·시간을 설정할 수 있어요. 공통 목록이 바뀌어도 저장한 계획과 기록은 유지돼요.")
+        }
     }
 }
 

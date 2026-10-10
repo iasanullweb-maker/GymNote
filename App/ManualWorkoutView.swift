@@ -3,6 +3,7 @@ import UIKit
 
 struct ManualWorkoutView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
     @Environment(\.gymnoteCompactLayout) private var compact
     @AppStorage private var savedDraft: String
@@ -42,10 +43,20 @@ struct ManualWorkoutView: View {
                         }
                     }.disabled(model.data.workouts.isEmpty)
                     Menu("운동 목록") {
-                        ForEach(model.data.exerciseLibrary) { exercise in
-                            Button(exercise.name) { draft.append(exercise) }
+                        Section("공통 운동 종목") {
+                            ForEach(CatalogRecordType.sorted(account.catalogTypes).filter(\.active)) { type in
+                                Button(type.name) { draft.append(type.makeExercise()) }
+                            }
                         }
-                    }.disabled(model.data.exerciseLibrary.isEmpty)
+                        Section("내 운동 목록") {
+                            ForEach(model.data.exerciseLibrary) { exercise in
+                                Button(exercise.name) { draft.append(exercise) }
+                            }
+                        }
+                    }.disabled(model.data.exerciseLibrary.isEmpty && !account.catalogTypes.contains(where: \.active))
+                    if let message = account.catalogMessage {
+                        Text(message).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 ForEach($draft.moves) { $move in
                     Section {
@@ -96,6 +107,7 @@ struct ManualWorkoutView: View {
                 }
             }
             .navigationTitle("지난 운동 기록")
+            .task { await account.refreshRecordCatalog() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("닫기") { dismiss() } }
