@@ -51,6 +51,18 @@ async def verify():
     assert b'"packets":7' in writer.data
     assert b"synthetic-secret" not in writer.data
     assert writer.closed
+    server._gym_stop_event = asyncio.Event()
+    for path in ("/gymnote/observe-idle", "/gymnote/stop"):
+        reader = asyncio.StreamReader()
+        reader.feed_data(f"POST {path} HTTP/1.1\r\nHost: 127.0.0.1:8766\r\n\r\n".encode())
+        reader.feed_eof()
+        writer = Writer()
+        await server._handle_http(reader, writer)
+        assert writer.data.startswith(b"HTTP/1.1 202")
+        assert writer.closed
+    assert server._gym_stop_event.is_set()
+    hold = server._gym_recovery.watchdog_hold_until - asyncio.get_running_loop().time()
+    assert 89 < hold <= 90
     try:
         adapter.patch_viewer("changed source", lifecycle)
     except RuntimeError:
@@ -61,6 +73,6 @@ async def verify():
     assert b"gymNoteTouchCoordinates(e" in screen_stream.VIEWER_JS_TEMPLATE
     assert screen_stream.VIEWER_JS_TEMPLATE.count(b"...gymDisplayTouch(") == 3
     assert b"gymTouchSelect" in screen_stream.VIEWER_JS_TEMPLATE
-    print("Adapter checks passed (8 denied routes, no audio, safe health counters, changed upstream rejected).")
+    print("Adapter checks passed (8 denied routes, no audio, safe health counters, bounded observation, graceful stop, changed upstream rejected).")
 
 asyncio.run(verify())

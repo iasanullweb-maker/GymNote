@@ -59,7 +59,7 @@ async function swipe(direction) {""")
     offlineOverlay.classList.add('hidden');
 });
 setInterval(() => {
-    if (!gymViewer.canRecover()) {
+    if (!gymViewer.canRecover() || (gymServerHealth?.video_idle && performance.now() - gymHealthUpdated < 5000)) {
         _lastFc = frameCount; _stableSec = 0; _nextPliSec = 0; _nextRestartSec = 0;
         offlineOverlay.classList.add('hidden');
         return;
@@ -92,6 +92,8 @@ setInterval(() => {
     source = """const gymBrowserCounters = {bytes: 0, messages: 0, drawn: 0};
 let gymReconnectPending = false;
 const gymStartedAt = performance.now();
+let gymServerHealth = null;
+let gymHealthUpdated = 0;
 function gymReconnectViewer() {
     if (gymReconnectPending) return;
     gymReconnectPending = true;
@@ -118,6 +120,8 @@ setInterval(async () => {
         const response = await fetch('/gymnote/health', {cache: 'no-store'});
         if (!response.ok) return;
         const health = await response.json();
+        gymServerHealth = health;
+        gymHealthUpdated = performance.now();
         gymCounterPanel.textContent = JSON.stringify({server: health, browser: {
             ...gymBrowserCounters, decoded: frameCount, visible: document.visibilityState === 'visible',
         }}, null, 2);
@@ -157,8 +161,24 @@ def install_patches(module, lifecycle):
     health = '''        if path == "/gymnote/health":
             await self._gym_health_http(writer)
             return
+        if path == "/gymnote/stop" and method == "POST":
+            stop = getattr(self, "_gym_stop_event", None)
+            if stop is not None:
+                stop.set()
+            writer.write(b"HTTP/1.1 202 Accepted\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n")
+            await writer.drain()
+            writer.close()
+            return
+        if path == "/gymnote/observe-idle" and method == "POST":
+            self._gym_recovery.watchdog_hold_until = asyncio.get_running_loop().time() + 90
+            writer.write(b"HTTP/1.1 202 Accepted\\r\\nContent-Length: 0\\r\\nConnection: close\\r\\n\\r\\n")
+            await writer.drain()
+            writer.close()
+            return
 '''
     handler = replace_once(handler, needle, needle + health)
+    handler = replace_once(handler, "self._hid_queue.put_nowait((path, body))",
+                           "self._hid_queue.put_nowait((path, body)); self._gym_recovery.last_input_t = asyncio.get_running_loop().time()")
     # Only the video subscriber loop has this exact exit branch.
     anchor = '''            await writer.drain()
     except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
