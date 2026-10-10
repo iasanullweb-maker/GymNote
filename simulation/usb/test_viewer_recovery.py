@@ -17,6 +17,88 @@ def server():
 
 
 class RecoveryChecks(unittest.IsolatedAsyncioTestCase):
+    async def test_idle_needs_recent_device_reply_and_no_unreflected_input(self):
+        state = recovery.RecoveryState()
+        obj = server()
+        now = asyncio.get_running_loop().time()
+        obj._active_service = object()
+        obj._last_good_au_t = now - 30
+        self.assertFalse(state.visual_idle(obj, now))
+        state.last_control_ok = now
+        self.assertTrue(state.visual_idle(obj, now))
+        self.assertTrue(state.defer_watchdog(obj, now))
+        state.last_input_t = now - 5
+        self.assertFalse(state.visual_idle(obj, now))
+        self.assertFalse(state.defer_watchdog(obj, now))
+        state.last_input_t = 0
+        state.last_control_ok = now - 16
+        self.assertFalse(state.visual_idle(obj, now))
+        state.last_control_ok = now
+        state.control_failed = True
+        self.assertFalse(state.visual_idle(obj, now))
+
+    async def test_control_probe_discards_sessions_and_is_rate_limited(self):
+        state = recovery.RecoveryState()
+        obj = server()
+        obj._active_service = object()
+        obj._subscribers = {"viewer": object()}
+        obj._last_good_au_t = asyncio.get_running_loop().time() - 30
+        obj._rsd = object()
+        calls = []
+
+        class Service:
+            def __init__(self, rsd): pass
+            async def connect(self): calls.append("connect")
+            async def get_media_stream_server_status(self):
+                calls.append("query")
+                return {"sessions": "synthetic-private-session"}
+            async def close(self): calls.append("close")
+
+        module = SimpleNamespace(DisplayService=Service, _is_tunnel_dead_error=recovery.closed_userspace)
+        state.probe_if_quiet(obj, module)
+        await state.control_task
+        self.assertEqual(calls, ["connect", "query", "close"])
+        self.assertEqual(state.control_ok_count, 1)
+        self.assertNotIn("synthetic-private-session", str(vars(state)))
+        state.probe_if_quiet(obj, module)
+        self.assertEqual(calls, ["connect", "query", "close"])
+
+    async def test_control_error_cannot_mask_disconnected_device(self):
+        state = recovery.RecoveryState()
+        obj = server()
+        obj._active_service = object()
+        obj._subscribers = {"viewer": object()}
+        obj._last_good_au_t = asyncio.get_running_loop().time() - 30
+        obj._rsd = object()
+        state.last_control_ok = asyncio.get_running_loop().time()
+
+        class Service:
+            def __init__(self, rsd): pass
+            async def connect(self): raise ConnectionError("userspace dial plane is closed")
+            async def close(self): pass
+
+        module = SimpleNamespace(DisplayService=Service, _is_tunnel_dead_error=recovery.closed_userspace)
+        state.probe_if_quiet(obj, module)
+        await state.control_task
+        self.assertTrue(state.control_failed)
+        self.assertTrue(state.fresh_tunnel.is_set())
+        self.assertFalse(state.visual_idle(obj, asyncio.get_running_loop().time()))
+
+    async def test_diagnostic_hold_defers_forced_restart_only_until_expiry(self):
+        state = recovery.RecoveryState()
+        obj = server()
+        obj._active_service = object()
+        state.watchdog_hold_until = asyncio.get_running_loop().time() + 90
+        calls = []
+
+        async def start(obj, force): calls.append(force)
+
+        await state.ensure(obj, start, True)
+        self.assertEqual(calls, [])
+        state.watchdog_hold_until = 0
+        await state.ensure(obj, start, True)
+        self.assertEqual(calls, [True])
+
     async def test_concurrent_requests_share_one_start(self):
         state = recovery.RecoveryState()
         obj = server()
@@ -168,6 +250,7 @@ class RecoveryChecks(unittest.IsolatedAsyncioTestCase):
 
         class FakeServer:
             _udp_recv_and_depacketize = screen_stream.ScreenStreamServer._udp_recv_and_depacketize
+            _stall_watchdog = screen_stream.ScreenStreamServer._stall_watchdog
 
             async def _ensure_fresh_stream(self, force=False):
                 raise ConnectionError("userspace dial plane is closed")
@@ -205,6 +288,15 @@ class RecoveryChecks(unittest.IsolatedAsyncioTestCase):
 
 
 class ClassificationChecks(unittest.TestCase):
+    def test_udp_wire_checksum_and_boundaries(self):
+        # ::1 -> ::2, source 100, destination 200, empty UDP, checksum feaf.
+        packet = bytes.fromhex('6000000000081140' + '00' * 15 + '01' + '00' * 15 + '02' + '006400c80008feaf')
+        self.assertTrue(recovery.udp6_checksum_valid(packet))
+        damaged = bytearray(packet)
+        damaged[-1] ^= 1
+        self.assertFalse(recovery.udp6_checksum_valid(damaged))
+        self.assertFalse(recovery.udp6_checksum_valid(packet + b'extra'))
+        self.assertIsNone(recovery.udp6_checksum_valid(b'short'))
     def test_classification_is_exact_and_cycle_safe(self):
         closed = ConnectionError("userspace dial plane is closed")
         wrapped = RuntimeError("wrapper")
