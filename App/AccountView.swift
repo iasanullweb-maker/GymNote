@@ -46,7 +46,7 @@ struct AccountView: View {
                                 Text("계정 삭제는 다시 로그인한 뒤 이용할 수 있어요.")
                                     .font(.footnote).foregroundStyle(.secondary)
                             } else if !account.isOnline {
-                                Text("계정 삭제는 Wi-Fi 연결이 필요해요.")
+                                Text("계정 삭제는 인터넷 연결이 필요해요.")
                                     .font(.footnote).foregroundStyle(.secondary)
                             }
                             AccountOperationFeedback(context: .management)
@@ -107,7 +107,7 @@ struct AccountView: View {
             } else if account.needsLogin {
                 Text("다시 로그인하면 백업을 이어서 진행해요.").font(.footnote).foregroundStyle(.secondary)
             } else if !account.isOnline {
-                Text("Wi-Fi에 연결되면 기기의 변경 사항을 자동으로 백업해요.")
+                Text("인터넷에 연결되면 기기의 변경 사항을 자동으로 백업해요.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             AccountOperationFeedback(context: .backup)
@@ -190,7 +190,7 @@ struct AccountAuthenticationSection: View {
                 }
             }
             if !account.isOnline {
-                Text("인증하려면 Wi-Fi에 연결해 주세요.").font(.footnote).foregroundStyle(.secondary)
+                Text("인증하려면 인터넷에 연결해 주세요.").font(.footnote).foregroundStyle(.secondary)
             } else if !account.canUseEmailForReauthentication && !SocialProvider.allCases.contains(where: { account.canSignIn(with: $0) }) {
                 Text("연결된 로그인 방법을 지금 사용할 수 없어요. 잠시 후 다시 시도해 주세요.")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -239,7 +239,7 @@ struct AccountDeletionView: View {
                     Section {
                         Button("본인 확인으로 계속") { account.beginDeletion(); started = account.isDeleting }
                             .disabled(account.busy || !account.isOnline || account.needsLogin)
-                        if !account.isOnline { Text("본인 확인은 Wi-Fi 연결이 필요해요.").font(.footnote) }
+                        if !account.isOnline { Text("본인 확인은 인터넷 연결이 필요해요.").font(.footnote) }
                         if account.needsLogin { Text("계정 화면에서 다시 로그인한 뒤 진행해 주세요.").font(.footnote) }
                     }
                 } else if account.readyToDelete {
@@ -248,7 +248,7 @@ struct AccountDeletionView: View {
                         Text("아래 버튼을 누르면 마지막으로 삭제 여부를 확인해요.").font(.footnote)
                         Button("계정 영구 삭제", role: .destructive) { confirmDelete = true }
                             .disabled(account.busy || !account.isOnline)
-                        if !account.isOnline { Text("삭제하려면 Wi-Fi에 연결해 주세요.").font(.footnote) }
+                        if !account.isOnline { Text("삭제하려면 인터넷에 연결해 주세요.").font(.footnote) }
                         AccountOperationFeedback(context: .authentication)
                     } header: { Text("3. 최종 확인") }
                 } else {

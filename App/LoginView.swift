@@ -101,7 +101,7 @@ struct LoginView: View {
 
     private var providerFootnote: String {
         if !account.configured { return "계정 연결을 준비 중이에요. 기기 기록은 계속 이용할 수 있어요." }
-        if !account.isOnline { return "로그인하려면 Wi-Fi에 연결해 주세요. 기기 기록은 계속 이용할 수 있어요." }
+        if !account.isOnline { return "로그인하려면 인터넷에 연결해 주세요. 기기 기록은 계속 이용할 수 있어요." }
         let ready = SocialProvider.allCases.filter { account.canSignIn(with: $0) }.map(\.title)
         let pending = SocialProvider.allCases.filter { !account.canSignIn(with: $0) }.map(\.title)
         if pending.isEmpty { return "\(ready.joined(separator: "·")) 로그인 창은 시스템 인증 화면으로 열려요." }
@@ -125,7 +125,7 @@ struct LoginView: View {
                 Text("\(provider.title)로 계속하기").font(.body.weight(.semibold))
                 Spacer(minLength: 4)
                 if !ready {
-                    Text(account.isOnline ? "준비 중" : "Wi-Fi 필요")
+                    Text(account.isOnline ? "준비 중" : "인터넷 필요")
                         .font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 }
             }
@@ -197,7 +197,7 @@ struct LoginView: View {
             }
             if account.hasGuestRecords { importToggle }
             if !account.isOnline {
-                Label("인증번호를 받으려면 Wi-Fi에 연결해 주세요", systemImage: "wifi.slash")
+                Label("인증번호를 받으려면 인터넷에 연결해 주세요", systemImage: "wifi.slash")
                     .font(.footnote).foregroundStyle(.secondary)
             }
             Button {

@@ -110,7 +110,8 @@ final class AccountModel {
         connection = initialConnection
         monitorsEnvironment = monitorConnectivity
         connectivity.pathUpdateHandler = { [weak self] path in
-            let connected = path.status == .satisfied && (path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet))
+            // Wi-Fi·유선·모바일 데이터 모두 온라인으로 본다(아이폰 셀룰러에서도 여러 기기 동기화).
+            let connected = path.status == .satisfied
             Task { @MainActor [weak self] in self?.updateConnection(connected ? .online : .offline) }
         }
         if monitorConnectivity { connectivity.start(queue: DispatchQueue(label: "com.gymnote.connectivity")) }
@@ -246,7 +247,7 @@ final class AccountModel {
 
     private func requireConnection() -> Bool {
         guard isOnline else {
-            message = "이 계정 작업은 Wi-Fi 연결이 필요해요. 기존 기록은 기기에 계속 저장됩니다."
+            message = "이 계정 작업은 인터넷 연결이 필요해요. 기존 기록은 기기에 계속 저장됩니다."
             return false
         }
         return true
