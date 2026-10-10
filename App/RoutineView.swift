@@ -4,7 +4,7 @@ struct RoutineView: View {
     @Environment(AppModel.self) private var model
     @Binding var selectedDate: Date
     @State private var confirmingRepeat = false
-    @State private var showAll = false
+    @AppStorage("planShowWorkoutAndDaily") private var showAll = false
 
     var body: some View {
         @Bindable var model = model
@@ -24,32 +24,40 @@ struct RoutineView: View {
                         }
                     }
                 }
-                CalendarSection("선택한 주의 운동") {
-                    ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
-                        NavigationLink {
-                            ScheduledDayEditor(date: date)
-                        } label: {
-                            let plan = model.data.plan(for: date)
-                            HStack(spacing: 12) {
-                                VStack {
-                                    Text(DayKey.weekdayName(date)).font(.caption)
-                                    Text(String(Calendar.current.component(.day, from: date))).bold()
-                                        .foregroundStyle(Calendar.current.isDateInToday(date) ? Color.orange : Color.primary)
-                                }
-                                .frame(width: 32)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(plan.isRestDay ? "휴식" : plan.title)
-                                    if !plan.isRestDay {
-                                        Text(plan.exercises.map(\.name).joined(separator: ", "))
-                                            .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                if showAll {
+                    TogetherPlanDaySection(date: selectedDate)
+                    UndatedDailyPlanSection()
+                }
+                CalendarSection(showAll ? "선택한 주의 운동·일상" : "선택한 주의 운동") {
+                    if showAll {
+                        TogetherPlanWeekRows(selectedDate: $selectedDate)
+                    } else {
+                        ForEach(DayKey.weekDates(containing: selectedDate), id: \.self) { date in
+                            NavigationLink {
+                                ScheduledDayEditor(date: date)
+                            } label: {
+                                let plan = model.data.plan(for: date)
+                                HStack(spacing: 12) {
+                                    VStack {
+                                        Text(DayKey.weekdayName(date)).font(.caption)
+                                        Text(String(Calendar.current.component(.day, from: date))).bold()
+                                            .foregroundStyle(Calendar.current.isDateInToday(date) ? Color.orange : Color.primary)
                                     }
+                                    .frame(width: 32)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(plan.isRestDay ? "휴식" : plan.title)
+                                        if !plan.isRestDay {
+                                            Text(plan.exercises.map(\.name).joined(separator: ", "))
+                                                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                        }
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                                 }
-                                Spacer()
-                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                             }
+                            .foregroundStyle(.primary)
+                            Divider()
                         }
-                        .foregroundStyle(.primary)
-                        Divider()
                     }
                     Button {
                         confirmingRepeat = true
@@ -132,19 +140,27 @@ struct ScheduledDayEditor: View {
         .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
         .toolbar { EditButton() }
         .sheet(isPresented: $showingAdd) {
-            ExercisePicker { exercise in
-                var updated = plan.wrappedValue
-                if updated.isRestDay && updated.title == "휴식" { updated.title = "운동" }
-                updated.exercises.append(exercise)
-                plan.wrappedValue = updated
+            ExercisePicker { exercise, saveToLibrary in
+                model.saveEdit { data in
+                    var updated = data.plan(for: date)
+                    if updated.isRestDay && updated.title == "휴식" { updated.title = "운동" }
+                    updated.exercises.append(exercise)
+                    data.scheduledPlans[DayKey.key(date)] = updated
+                    if saveToLibrary {
+                        var template = exercise
+                        template.id = UUID()
+                        data.exerciseLibrary.append(template)
+                    }
+                }
             }
         }
         .sheet(item: $editing) { exercise in
             ExerciseDraftView(exercise: exercise, title: "운동 수정") { saved in
-                var updated = plan.wrappedValue
-                if let i = updated.exercises.firstIndex(where: { $0.id == saved.id }) {
-                    updated.exercises[i] = saved
-                    plan.wrappedValue = updated
+                guard model.data.plan(for: date).exercises.contains(where: { $0.id == saved.id }) else { return false }
+                return model.saveEdit { data in
+                    var updated = data.plan(for: date)
+                    if let i = updated.exercises.firstIndex(where: { $0.id == saved.id }) { updated.exercises[i] = saved }
+                    data.scheduledPlans[DayKey.key(date)] = updated
                 }
             }
         }
@@ -156,7 +172,7 @@ struct ScheduledDayEditor: View {
                     next.id = UUID()
                     return next
                 }
-                plan.wrappedValue = copy
+                return model.saveEdit { $0.scheduledPlans[DayKey.key(date)] = copy }
             }
         }
     }
@@ -166,22 +182,24 @@ struct PlanCopyView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let targetDate: Date
-    let onCopy: (DayPlan) -> Void
+    let onCopy: (DayPlan) -> Bool
     @State private var sourceDate = Date()
+    @State private var saveFailed = false
 
     var body: some View {
         NavigationStack {
             Form {
+                if saveFailed { Text("저장하지 못했어요. 다시 시도해 주세요.").foregroundStyle(.red) }
                 Section("날짜에서 가져오기") {
                     DatePicker("날짜", selection: $sourceDate, displayedComponents: .date)
                     let source = model.data.plan(for: sourceDate)
-                    Button("\(source.title) 가져오기") { onCopy(source); dismiss() }
+                    Button("\(source.title) 가져오기") { if onCopy(source) { dismiss() } else { saveFailed = true } }
                         .disabled(DayKey.key(sourceDate) == DayKey.key(targetDate))
                 }
                 Section {
                     ForEach([1, 2, 3, 4, 5, 6, 0], id: \.self) { i in
                         let source = model.data.week[i]
-                        Button("\(DayKey.weekdayNames[i])요일 · \(source.title)") { onCopy(source); dismiss() }
+                        Button("\(DayKey.weekdayNames[i])요일 · \(source.title)") { if onCopy(source) { dismiss() } else { saveFailed = true } }
                     }
                 } header: {
                     Text("기존 요일 계획")
@@ -234,10 +252,12 @@ struct ExerciseLibraryView: View {
         .sheet(isPresented: $showingCatalog) { RecordTypesView() }
         .sheet(item: $editing) { exercise in
             ExerciseDraftView(exercise: exercise, title: "운동 설정") { saved in
-                if let i = model.data.exerciseLibrary.firstIndex(where: { $0.id == saved.id }) {
-                    model.data.exerciseLibrary[i] = saved
-                } else {
-                    model.data.exerciseLibrary.append(saved)
+                model.saveEdit { data in
+                    if let i = data.exerciseLibrary.firstIndex(where: { $0.id == saved.id }) {
+                        data.exerciseLibrary[i] = saved
+                    } else {
+                        data.exerciseLibrary.append(saved)
+                    }
                 }
             }
         }
@@ -248,7 +268,7 @@ struct ExercisePicker: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
-    let onSave: (Exercise) -> Void
+    let onSave: (Exercise, Bool) -> Bool
     @State private var draft: Exercise?
     @State private var saveToLibrary = false
 
@@ -283,13 +303,9 @@ struct ExercisePicker: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
             .navigationDestination(item: $draft) { exercise in
                 ExerciseDraftForm(exercise: exercise, title: "운동 설정", onCancel: { dismiss() }) { saved in
-                    if saveToLibrary {
-                        var template = saved
-                        template.id = UUID()
-                        model.data.exerciseLibrary.append(template)
-                    }
-                    onSave(saved)
+                    guard onSave(saved, saveToLibrary) else { return false }
                     dismiss()
+                    return true
                 }
             }
         }
@@ -341,12 +357,13 @@ struct ExerciseDraftView: View {
     @Environment(\.dismiss) private var dismiss
     let exercise: Exercise
     let title: String
-    let onSave: (Exercise) -> Void
+    let onSave: (Exercise) -> Bool
     var body: some View {
         NavigationStack {
             ExerciseDraftForm(exercise: exercise, title: title, onCancel: { dismiss() }) { saved in
-                onSave(saved)
+                guard onSave(saved) else { return false }
                 dismiss()
+                return true
             }
         }
         .protectEditingNavigation()
@@ -357,11 +374,13 @@ struct ExerciseDraftForm: View {
     @State var exercise: Exercise
     let title: String
     let onCancel: () -> Void
-    let onSave: (Exercise) -> Void
+    let onSave: (Exercise) -> Bool
     @FocusState private var nameFocused: Bool
+    @State private var saveFailed = false
 
     var body: some View {
         Form {
+            if saveFailed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
             TextField("운동 이름", text: $exercise.name).focused($nameFocused)
             Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
             TextField("횟수·시간 (예: 10회, 1분)", text: $exercise.detail)
@@ -377,7 +396,7 @@ struct ExerciseDraftForm: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("저장") {
                     exercise.name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    onSave(exercise)
+                    if !onSave(exercise) { saveFailed = true }
                 }.disabled(exercise.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                            || exercise.hasPercentageTarget)
             }

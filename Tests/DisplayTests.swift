@@ -22,10 +22,10 @@ final class DisplayTests: XCTestCase {
         return data
     }
 
-    private func host<V: View>(_ view: V, name: String) async throws -> UIWindow {
+    private func host<V: View>(_ view: V, name: String, width: CGFloat = 834) async throws -> UIWindow {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)
-        window.frame = CGRect(x: 0, y: 0, width: 834, height: 1194)
+        window.frame = CGRect(x: 0, y: 0, width: width, height: 1194)
         window.rootViewController = UIHostingController(rootView: view.tint(.orange))
         window.makeKeyAndVisible()
         window.layoutIfNeeded()
@@ -69,6 +69,26 @@ final class DisplayTests: XCTestCase {
         defer { window.isHidden = true }
         try await checkScroll(window)
         capture(window, name: "daily-plan-scrolled")
+    }
+
+    func testTogetherPlansRenderInBothWorkspacesAndWidths() async throws {
+        let suite = "gymnote-combined-plan-test-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "planShowWorkoutAndDaily")
+        var data = fixture()
+        data.dailyItems.append(DailyItem(title: "날짜 미정 검증"))
+        let model = AppModel(previewData: data)
+        for width in [CGFloat(390), CGFloat(834)] {
+            let workout = try await host(RoutineView(selectedDate: .constant(Date()))
+                .environment(model).defaultAppStorage(defaults)
+                .environment(\.gymnoteCompactLayout, width < 600), name: "combined-workout-\(Int(width))", width: width)
+            workout.isHidden = true
+            let daily = try await host(DailyPlansView(selectedDate: .constant(Date()))
+                .environment(model).defaultAppStorage(defaults)
+                .environment(\.gymnoteCompactLayout, width < 600), name: "combined-daily-\(Int(width))", width: width)
+            daily.isHidden = true
+        }
     }
 
     private func checkScroll(_ window: UIWindow) async throws {

@@ -38,6 +38,66 @@ final class WorkoutFlowTests: XCTestCase {
         _ = try SharedStore.activate(userID: UUID())
     }
 
+    func testEditorSaveFailurePreservesLibraryAndPlanTogether() throws {
+        let model = makeModel()
+        let before = model.data
+        let exercise = Exercise(name: "새 운동", sets: 3, detail: "10회")
+        try breakPersistence()
+        XCTAssertFalse(model.saveEdit { data in
+            data.exerciseLibrary.append(exercise)
+            data.scheduledPlans[DayKey.key()]?.exercises.append(exercise)
+        })
+        XCTAssertEqual(model.data, before, "저장 실패는 개인 목록과 계획을 모두 보존")
+        XCTAssertNotNil(model.storageError)
+    }
+
+    func testEditorSaveSuccessIsPersistedAndCanBeRetriedAfterFailure() throws {
+        let model = makeModel()
+        let item = DailyItem(title: "독서", scheduledDate: Date())
+        let originalSelection = model.selection
+        try breakPersistence()
+        XCTAssertFalse(model.saveEdit { $0.saveDailyItemEditing(item) })
+        XCTAssertFalse(model.data.dailyItems.contains { $0.id == item.id })
+        // Restore the same account selection, as after a temporary store failure is resolved.
+        _ = try SharedStore.activate(userID: originalSelection.userID)
+        model.reload()
+        XCTAssertTrue(model.saveEdit { $0.saveDailyItemEditing(item) })
+        XCTAssertTrue(try SharedStore.snapshot(userID: originalSelection.userID).data.dailyItems.contains { $0.id == item.id })
+    }
+
+    func testDayChangeRefreshesIdlePlanAndPreservesActiveWorkout() throws {
+        let firstDay = try XCTUnwrap(DayKey.date(fromKey: "2026-10-10"))
+        let nextDay = try XCTUnwrap(DayKey.date(fromKey: "2026-10-11"))
+        var data = AppData.empty
+        let firstPlan = DayPlan(title: "첫날", exercises: [a])
+        let nextPlan = DayPlan(title: "다음날", exercises: [b])
+        data.scheduledPlans[DayKey.key(firstDay)] = firstPlan
+        data.scheduledPlans[DayKey.key(nextDay)] = nextPlan
+        let model = AppModel(previewData: data)
+        model.refreshCurrentDate(now: firstDay)
+        XCTAssertEqual(model.todayPlan, firstPlan)
+        model.refreshCurrentDate(now: nextDay)
+        XCTAssertEqual(model.todayPlan, nextPlan)
+        model.data.activeWorkout = WorkoutSession(startedAt: firstDay, plan: firstPlan)
+        model.refreshCurrentDate(now: nextDay)
+        XCTAssertEqual(model.todayPlan, firstPlan, "자정이 지나도 진행 중인 운동은 시작한 날의 계획 유지")
+        XCTAssertEqual(model.workoutDate, firstDay)
+    }
+
+    func testMonthSelectionClampsDayAndKeepsWeekInsideNewMonth() throws {
+        for (selected, target, expected) in [
+            ("2024-01-31", "2024-02-01", "2024-02-29"),
+            ("2026-01-31", "2026-02-01", "2026-02-28"),
+            ("2026-10-10", "2026-11-01", "2026-11-10"),
+            ("2026-12-31", "2027-01-01", "2027-01-31")
+        ] {
+            let date = DayKey.date(inMonth: try XCTUnwrap(DayKey.date(fromKey: target)),
+                                   selectingDayOf: try XCTUnwrap(DayKey.date(fromKey: selected)))
+            XCTAssertEqual(DayKey.key(date), expected)
+            XCTAssertTrue(DayKey.weekDates(containing: date).contains { DayKey.key($0) == expected })
+        }
+    }
+
     func testReorderKeepsProgressAndSurvivesRelaunch() throws {
         let model = makeModel()
         model.startWorkout()

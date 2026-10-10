@@ -248,16 +248,17 @@ struct AddRecordView: View {
     let types: [RecordType]
     let existing: RecordEntry?
     let lockType: Bool
-    let onSave: (RecordEntry) -> Void
+    let onSave: (RecordEntry) -> Bool
 
     @State private var typeID: String
     @State private var value: Double?
     @State private var extra: Int?
     @State private var date: Date
+    @State private var saveFailed = false
 
     /// fixedTypeID를 주면 그 종목으로 고정 (종목 선택 칸 숨김)
     init(types: [RecordType], existing: RecordEntry? = nil, fixedTypeID: String? = nil,
-         onSave: @escaping (RecordEntry) -> Void) {
+         onSave: @escaping (RecordEntry) -> Bool) {
         self.types = types
         self.existing = existing
         self.lockType = fixedTypeID != nil
@@ -277,6 +278,7 @@ struct AddRecordView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if saveFailed { Text("저장하지 못했어요. 입력 내용을 확인하고 다시 시도해 주세요.").foregroundStyle(.red) }
                 if !lockType {
                     Picker("종목", selection: $typeID) {
                         ForEach(types) { t in
@@ -336,7 +338,7 @@ struct AddRecordView: View {
             entry.value = Double(total / perRound)
             entry.extraReps = total % perRound
         }
-        onSave(entry)
+        guard onSave(entry) else { saveFailed = true; return }
         dismiss()
     }
 }
