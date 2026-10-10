@@ -247,7 +247,9 @@ struct ExerciseLibraryView: View {
         }
         .navigationTitle("운동 목록")
         .toolbar {
-            EditButton()
+            ToolbarItem(placement: .automatic) {
+                EditButton()
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내") { showingCatalog = true }
             }
