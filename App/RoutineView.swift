@@ -225,7 +225,7 @@ struct ExerciseLibraryView: View {
     var body: some View {
         List {
             CatalogExerciseSection { editing = $0.makeExercise() }
-            Section("내 운동 목록") {
+            Section {
                 ForEach(model.data.exerciseLibrary) { exercise in
                     Button { editing = exercise } label: { ExerciseSummary(exercise: exercise) }
                         .foregroundStyle(.primary)
@@ -239,6 +239,8 @@ struct ExerciseLibraryView: View {
                 } label: {
                     Label("운동 만들기", systemImage: "plus")
                 }
+            } header: {
+                Text("내 운동 목록")
             } footer: {
                 Text("기본 세트·횟수를 저장해 두면 계획에 바로 가져올 수 있어. 수정하거나 삭제해도 이미 배정한 운동은 유지돼.")
             }
