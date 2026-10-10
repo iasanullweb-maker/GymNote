@@ -98,6 +98,7 @@ struct ScheduledDayEditor: View {
     let date: Date
     @State private var showingAdd = false
     @State private var showingCopy = false
+    @State private var showingStarter = false
     @State private var editing: Exercise?
 
     private var plan: Binding<DayPlan> {
@@ -134,11 +135,13 @@ struct ScheduledDayEditor: View {
                 Text("운동을 모두 지우면 휴식일이 돼. 가져온 운동의 세트·횟수를 바꿔도 운동 목록은 그대로야.")
             }
             Section {
+                Button("기본 루틴 선택해서 추가") { showingStarter = true }
                 Button("다른 날짜 / 기존 요일 계획 가져오기") { showingCopy = true }
             }
         }
         .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
         .toolbar { EditButton() }
+        .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: date) }
         .sheet(isPresented: $showingAdd) {
             ExercisePicker { exercise, saveToLibrary in
                 model.saveEdit { data in

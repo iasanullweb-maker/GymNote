@@ -1,5 +1,27 @@
 import Foundation
 
+extension AppData {
+    /// Structural replacement is safe only against the session/dated plan the user saw.
+    /// Ordinary set completions, ordering edits and appends retain the existing merge behavior.
+    func hasStaleWorkoutReplacement(from base: AppData, to edited: AppData) -> Bool {
+        func removesSets(_ old: DayPlan, _ new: DayPlan) -> Bool {
+            old.exercises.contains { exercise in
+                guard let next = new.exercises.first(where: { $0.id == exercise.id }) else { return true }
+                return next.sets < exercise.sets
+            }
+        }
+        if let original = base.activeWorkout, let updated = edited.activeWorkout,
+           original.id == updated.id, removesSets(original.plan, updated.plan), activeWorkout != original {
+            return true
+        }
+        for day in Set(base.scheduledPlans.keys).union(edited.scheduledPlans.keys) {
+            if let original = base.scheduledPlans[day], let updated = edited.scheduledPlans[day],
+               removesSets(original, updated), scheduledPlans[day] != original { return true }
+        }
+        return false
+    }
+}
+
 /// A revision identifies the exact local snapshot uploaded; serverVersion enables compare-and-swap.
 struct StoredWorkout: Codable {
     var data: AppData

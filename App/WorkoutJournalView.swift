@@ -190,12 +190,8 @@ struct WorkoutJournalDetail: View {
         List {
             Section("운동 요약") {
                 LabeledContent("날짜", value: workout.startedAt.formatted(.dateTime.year().month().day()))
-                LabeledContent("완료 세트", value: "\(workout.done) / \(workout.total)")
-                if let end = workout.endedAt {
-                    LabeledContent("운동 시간", value: "\(Int(end.timeIntervalSince(workout.startedAt)) / 60)분")
-                } else {
-                    LabeledContent("운동 시간", value: "미기록")
-                }
+                WorkoutSummaryView(summary: model.data.workoutSummary(workout))
+                if workout.endedAt == nil { LabeledContent("운동 시간", value: "미기록") }
             }
             Section {
                 ForEach(workout.plan.exercises) { exercise in

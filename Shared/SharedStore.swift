@@ -139,6 +139,11 @@ enum SharedStore {
         let result = try locked {
             guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
             var latest = try readSnapshot(userID: selection.userID)
+            // A widget can finish another set after the replacement sheet opened.
+            // Splitting/removing that exercise with the old count would truncate its actual reps.
+            guard !latest.data.hasStaleWorkoutReplacement(from: base, to: edited) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
             latest.data = latest.data.applyingEdits(from: base, to: edited)
             latest.dirty = true
             latest.revision = UUID()
