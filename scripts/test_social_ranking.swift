@@ -100,6 +100,18 @@ struct SocialRankingChecks {
         assert(overview.joinedGroups.map(\.name) == ["헬스 동아리"] && overview.groupInvites.map(\.name) == ["반 친구들"])
         let empty = try JSONDecoder().decode(SocialOverview.self, from: Data(#"{"profile":null,"friends":[],"groups":[]}"#.utf8))
         assert(empty.profile == nil && empty.friends.isEmpty)
+        // 신디(라운드형)는 세트로 센다: 새 기록은 "N세트", 예전 추가 횟수 기록만 기존 표기.
+        let cindyType = RecordType.defaults.first { $0.style == .rounds }!
+        assert(cindyType.display(RecordEntry(typeID: cindyType.id, date: Date(), value: 5)) == "5세트")
+        assert(cindyType.shortDisplay(RecordEntry(typeID: cindyType.id, date: Date(), value: 5)) == "5세트")
+        assert(cindyType.display(RecordEntry(typeID: cindyType.id, date: Date(), value: 3, extraReps: 2)) == "3R + 2")
+        assert(cindyType.chartValue(RecordEntry(typeID: cindyType.id, date: Date(), value: 4)) == 4)
+        let cindyCatalog = CatalogRecordType.defaults.first { $0.style == .rounds }!
+        assert(cindyCatalog.makeExercise().detail == "한 세트" && cindyCatalog.makeExercise().plannedReps == nil)
+        var oldPlan = AppData(week: [])
+        oldPlan.exerciseLibrary = [Exercise(name: "신디", sets: 3, detail: "1라운드")]
+        oldPlan.normalizePercentageTargets()
+        assert(oldPlan.exerciseLibrary[0].detail == "한 세트", "예전 '1라운드' 계획은 '한 세트'로")
         print("Social ranking checks passed: ties, rounds, lower-is-better, publish values, retired types, overview decoding")
     }
 }

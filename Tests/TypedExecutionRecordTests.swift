@@ -17,7 +17,7 @@ final class TypedExecutionRecordTests: XCTestCase {
     }
 
     private func startedData(type: RecordType, sets: Int = 1, on date: Date) -> (AppData, Exercise) {
-        let exercise = Exercise(name: type.name, sets: sets, detail: type.style == .rounds ? "1라운드" : "")
+        let exercise = Exercise(name: type.name, sets: sets, detail: type.style == .rounds ? "한 세트" : "")
         var data = AppData.empty
         data.recordTypes.append(type)
         data.preserveExistingBestRecords()
@@ -26,11 +26,13 @@ final class TypedExecutionRecordTests: XCTestCase {
         return (data, exercise)
     }
 
-    func testTodayExecutionSavesRoundsAndExtraRepetitions() throws {
+    func testRoundStyleExerciseCountsSetsWithoutRecord() throws {
         let model = AppModel()
         let definition = try XCTUnwrap(model.account.catalogTypes.first { $0.style == .rounds })
         var exercise = definition.makeExercise()
-        exercise.sets = 1
+        XCTAssertEqual(exercise.detail, "한 세트", "신디는 라운드가 아니라 세트로 부른다")
+        XCTAssertNil(exercise.plannedReps)
+        exercise.sets = 2
         var data = AppData.empty
         data.recordTypes.append(definition.recordType)
         let previous = RecordEntry(typeID: definition.id, date: Date().addingTimeInterval(-86400), value: 5, extraReps: 2)
@@ -40,19 +42,27 @@ final class TypedExecutionRecordTests: XCTestCase {
         model.data = data
 
         model.startWorkout(catalog: model.account.catalogTypes)
-        model.completeSet(exercise, measurement: 5, extraReps: definition.repsPerRound)
-        XCTAssertEqual(model.data.activeWorkout?.done, 0, "추가 횟수로 한 라운드 이상을 입력하면 완료하지 않음")
-        XCTAssertEqual(model.data.records, [previous])
-        model.completeSet(exercise, measurement: 5, extraReps: 3)
+        model.completeSet(exercise)
+        XCTAssertEqual(model.data.activeWorkout?.done, 1, "세트 완료만 눌러도 한 세트가 완료된다")
+        // 예전 화면처럼 라운드 값을 넘겨도 기록하지 않고 세트로만 센다.
+        model.completeSet(exercise, measurement: 9, extraReps: 3)
 
         XCTAssertNil(model.data.activeWorkout)
         XCTAssertEqual(model.data.workouts.count, 1)
-        XCTAssertEqual(model.data.records.count, 2)
-        XCTAssertTrue(model.data.records.contains(previous))
-        let best = try XCTUnwrap(model.data.best(definition.recordType))
-        XCTAssertEqual(best.value, 5)
-        XCTAssertEqual(best.extraReps, 3)
-        XCTAssertEqual(DayKey.key(best.date), DayKey.key())
+        XCTAssertEqual(model.data.workouts.first?.done, 2)
+        XCTAssertEqual(model.data.records, [previous], "실행에서는 신디 최고기록을 바꾸지 않는다")
+        XCTAssertEqual(try XCTUnwrap(model.data.best(definition.recordType)), previous)
+    }
+
+    func testOldRoundPlanIsCalledOneSet() throws {
+        var data = AppData.empty
+        let old = Exercise(name: "신디", sets: 3, detail: "1라운드")
+        data.scheduledPlans[DayKey.key()] = DayPlan(title: "신디", exercises: [old])
+        data.exerciseLibrary = [old]
+        let restored = try JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(data))
+        XCTAssertEqual(restored.scheduledPlans[DayKey.key()]?.exercises.first?.detail, "한 세트")
+        XCTAssertEqual(restored.exerciseLibrary.first?.detail, "한 세트")
+        XCTAssertEqual(restored.scheduledPlans[DayKey.key()]?.exercises.first?.id, old.id, "진행 기록이 이어지도록 ID 유지")
     }
 
     func testPastSessionCompletedInExecutionDoesNotCreditMeasurement() throws {

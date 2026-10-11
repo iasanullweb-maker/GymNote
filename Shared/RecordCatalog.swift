@@ -21,7 +21,8 @@ struct CatalogRecordType: Codable, Identifiable, Hashable {
     /// A new private workout snapshot; catalog edits never rewrite saved plans or history.
     func makeExercise() -> Exercise {
         let detail: String
-        if style == .rounds { detail = "1라운드" }
+        // 라운드형(신디)도 세트로만 센다: "신디 한 세트". 라운드·추가 횟수 입력을 만들지 않는다.
+        if style == .rounds { detail = "한 세트" }
         else {
             switch unit.trimmingCharacters(in: .whitespacesAndNewlines) {
             case "회": detail = "10회"

@@ -125,12 +125,12 @@ struct RecordSection: View {
                     if entries.count >= 2 {
                         LineMark(
                             x: .value("날짜", entry.date),
-                            y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
+                            y: .value(type.style == .rounds ? "세트" : "기록", type.chartValue(entry))
                         )
                     }
                     PointMark(
                         x: .value("날짜", entry.date),
-                        y: .value(type.style == .rounds ? "총 반복" : "기록", type.score(entry))
+                        y: .value(type.style == .rounds ? "세트" : "기록", type.chartValue(entry))
                     )
                 }
                 .foregroundStyle(.orange)
@@ -274,10 +274,11 @@ struct AddRecordView: View {
                 if let type = type {
                     Section {
                         if type.style == .rounds {
-                            TextField("라운드", value: $value, format: .number)
-                                .keyboardType(.numberPad)
-                            TextField("추가 횟수", value: $extra, format: .number)
-                                .keyboardType(.numberPad)
+                            HStack {
+                                TextField("완료한 세트 수", value: $value, format: .number)
+                                    .keyboardType(.numberPad)
+                                Text("세트").foregroundStyle(.secondary)
+                            }
                         } else {
                             HStack {
                                 TextField("기록", value: $value, format: .number)
@@ -288,7 +289,7 @@ struct AddRecordView: View {
                         }
                         DatePicker("날짜", selection: $date, displayedComponents: .date)
                     } footer: {
-                        if type.requiresWholeValue { Text("횟수와 라운드는 소수점 없이 정수로 입력해 주세요.") }
+                        if type.requiresWholeValue { Text("횟수와 세트 수는 소수점 없이 정수로 입력해 주세요.") }
                         if !type.hint.isEmpty { Text(type.hint) }
                     }
                 }
@@ -315,13 +316,8 @@ struct AddRecordView: View {
         guard validInput, let type, let v = value else { return }
         var entry = RecordEntry(typeID: type.id, date: date, value: v)
         if let existing = existing { entry.id = existing.id }
-        if type.style == .rounds {
-            // 추가 횟수가 라운드당 횟수를 넘으면 라운드로 넘김
-            let perRound = max(type.repsPerRound, 1)
-            let total = Int(v) * perRound + max(extra ?? 0, 0)
-            entry.value = Double(total / perRound)
-            entry.extraReps = total % perRound
-        }
+        // 라운드형(신디)은 세트 수만 기록한다. 예전 기록을 고쳐 저장하면 추가 횟수는 없어진다.
+        if type.style == .rounds { entry.extraReps = 0 }
         guard onSave(entry) else { saveFailed = true; return }
         dismiss()
     }

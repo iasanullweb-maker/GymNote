@@ -144,7 +144,8 @@ struct ExerciseRow: View {
     var onMeasuredComplete: (Double, Int) -> Void = { _, _ in }
     @State private var measurement = ""
     @State private var extraReps = "0"
-    private var requiresMeasurement: Bool { recordType.map { !AppData.acceptsWorkoutRepetitions($0) } ?? false }
+    /// 무게·시간 같은 측정 종목만 값을 입력한다. 라운드형(신디)은 세트 완료만 누른다.
+    private var requiresMeasurement: Bool { recordType.map { $0.style == .count && !AppData.acceptsWorkoutRepetitions($0) } ?? false }
     private var measuredValue: Double? {
         guard let type = recordType, let value = Double(measurement), value >= 0, value <= 1_000_000,
               type.acceptsValue(value), let extra = Int(extraReps), (0...1_000_000).contains(extra),
@@ -191,17 +192,8 @@ struct ExerciseRow: View {
             }
 
             if requiresMeasurement, !finished, let type = recordType {
-                HStack {
-                    TextField(type.style == .rounds ? "완료 라운드" : "실제 측정값 (\(type.unit))", text: $measurement)
-                        .keyboardType(type.style == .rounds ? .numberPad : .decimalPad)
-                    if type.style == .rounds {
-                        TextField("추가 횟수", text: $extraReps).keyboardType(.numberPad)
-                    }
-                }
-                if type.style == .rounds {
-                    Text("추가 횟수는 0~\(max(type.repsPerRound - 1, 0))회예요. 한 라운드를 채우면 완료 라운드를 늘려 주세요.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                TextField("실제 측정값 (\(type.unit))", text: $measurement)
+                    .keyboardType(.decimalPad)
             }
             HStack(spacing: 12) {
                 Button(action: onUndo) {

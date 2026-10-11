@@ -188,7 +188,8 @@ extension AppData {
 struct RecordType: Codable, Identifiable, Hashable {
     enum Style: String, Codable, CaseIterable {
         case count   // 숫자 하나 (횟수, kg, 초 등)
-        case rounds  // 라운드 + 추가 횟수 (AMRAP)
+        /// 예전 라운드형(신디). 새로 만들지 않으며 세트 수로 기록·표시한다. 기존 "NR + x" 기록은 그대로 읽는다.
+        case rounds
     }
 
     var id: String = UUID().uuidString
@@ -199,7 +200,7 @@ struct RecordType: Codable, Identifiable, Hashable {
     var lowerIsBetter: Bool = false
     var hint: String = ""
 
-    /// 횟수와 완료 라운드는 정수로만 기록한다. 무게·시간의 소수는 유지한다.
+    /// 횟수와 세트 수는 정수로만 기록한다. 무게·시간의 소수는 유지한다.
     var requiresWholeValue: Bool {
         let normalizedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines)
         return style == .rounds || normalizedUnit == "회" || normalizedUnit.isEmpty
@@ -218,7 +219,7 @@ struct RecordType: Codable, Identifiable, Hashable {
         RecordType(id: "pushup", name: "푸쉬업", hint: "한 세트 최대 반복 횟수"),
         RecordType(id: "pullup", name: "풀업", hint: "한 세트 최대 반복 횟수"),
         RecordType(id: "cindy", name: "신디", unit: "", style: .rounds, repsPerRound: 30,
-                   hint: "20분 AMRAP (풀업 5 · 푸쉬업 10 · 에어 스쿼트 15). 완료한 라운드와 추가 횟수를 적어."),
+                   hint: "풀업 5 · 푸쉬업 10 · 에어 스쿼트 15를 한 세트로 세요. 완료한 세트 수를 기록해요."),
     ]
 
     func score(_ e: RecordEntry) -> Double {
@@ -230,11 +231,18 @@ struct RecordType: Codable, Identifiable, Hashable {
     }
 
     func display(_ e: RecordEntry) -> String {
-        style == .rounds ? "\(Int(e.value))R + \(e.extraReps)" : "\(Self.number(e.value))\(unit)"
+        guard style == .rounds else { return "\(Self.number(e.value))\(unit)" }
+        // 새 기록은 세트 수만 있다. 추가 횟수가 있는 예전 기록만 기존 표기로 보여 준다.
+        return e.extraReps == 0 ? "\(Int(e.value))세트" : "\(Int(e.value))R + \(e.extraReps)"
+    }
+
+    /// 그래프용 값. 라운드형은 세트 수(예전 추가 횟수는 소수로 환산)로 그린다.
+    func chartValue(_ e: RecordEntry) -> Double {
+        style == .rounds ? e.value + Double(e.extraReps) / Double(max(repsPerRound, 1)) : e.value
     }
 
     func shortDisplay(_ e: RecordEntry) -> String {
-        if style == .rounds { return "\(Int(e.value))R+\(e.extraReps)" }
+        if style == .rounds { return e.extraReps == 0 ? "\(Int(e.value))세트" : "\(Int(e.value))R+\(e.extraReps)" }
         return Self.number(e.value) + (unit == "회" ? "" : unit)
     }
 
@@ -512,6 +520,8 @@ extension AppData {
         func normalized(_ exercise: Exercise) -> Exercise {
             var result = exercise
             if result.hasPercentageTarget { result.detail = "10회" }
+            // 신디 등 라운드형은 세트로 센다: 예전 계획의 "1라운드"를 "한 세트"로 부른다(과거 일지는 보존).
+            if result.detail.trimmingCharacters(in: .whitespaces) == "1라운드" { result.detail = "한 세트" }
             return result
         }
         func normalizedPlan(_ plan: DayPlan) -> DayPlan {

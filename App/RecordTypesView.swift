@@ -84,13 +84,11 @@ struct CatalogTypeEditor: View {
                 Section {
                     Picker("기록 방식", selection: $type.style) {
                         Text("숫자").tag(RecordType.Style.count)
-                        Text("라운드 + 횟수").tag(RecordType.Style.rounds)
+                        // 라운드 + 추가 횟수 방식은 새로 만들지 않는다. 기존 라운드형 종목만 세트 수로 표시한다.
+                        if type.style == .rounds { Text("세트 수 (기존 라운드형)").tag(RecordType.Style.rounds) }
                     }
                     TextField("단위 (회, kg, 초)", text: $type.unit)
                     Toggle("낮을수록 좋은 기록", isOn: $type.lowerIsBetter)
-                    if type.style == .rounds {
-                        Stepper("라운드당 횟수: \(type.repsPerRound)", value: $type.repsPerRound, in: 1...500)
-                    }
                 } header: { Text("비교 규칙") } footer: {
                     Text(isNew ? "생성 후 비교 규칙은 고정됩니다. 수행 조건을 설명에 명확히 적어 주세요."
                          : "비교 규칙은 바꿀 수 없습니다. 설명은 오탈자 정정에 사용하고, 수행 조건이 바뀌면 새 종목을 만들어 주세요.")
