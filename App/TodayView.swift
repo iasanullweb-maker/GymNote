@@ -304,6 +304,15 @@ struct CompletedRepetitionRows: View {
                 let actual = session.repetitions(exercise, set: index)
                 let weights = session.actualWeights[exercise.id.uuidString] ?? []
                 let weight = index < weights.count ? weights[index] : nil
+                let measurements = session.recordEntries[exercise.id.uuidString] ?? []
+                if index < measurements.count, let entry = measurements[index],
+                   let type = model.data.recordType(entry.typeID) {
+                    HStack {
+                        Text("\(index + 1)세트 측정")
+                        Spacer()
+                        Text(type.display(entry))
+                    }.font(.subheadline).monospacedDigit()
+                }
                 if exercise.plannedReps != nil || actual != nil {
                     Button { editingSet = index } label: {
                         HStack {
