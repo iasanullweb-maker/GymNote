@@ -156,7 +156,7 @@ struct ExerciseRow: View {
     @State private var editingReps = false
 
     private var finished: Bool { done >= exercise.sets }
-    private var actualReps: Int? { draftReps ?? exercise.plannedReps }
+    private var actualReps: Int? { draftReps ?? exercise.plannedReps ?? (recordType.map { AppData.acceptsWorkoutRepetitions($0) } == true ? 0 : nil) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {

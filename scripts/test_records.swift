@@ -57,6 +57,7 @@ struct RecordChecks {
         data.activeWorkout = nil
 
         // 기존 최고는 보존하고 일지 수정·삭제는 반영하지 않음
+        data.records = [RecordEntry(typeID: data.recordTypes[0].id, date: at(10, 1), value: 20)]
         data.updateRepetitions(sessionID: data.workouts[1].id, exerciseID: pushAgain.id, set: 0, value: 30)
         assert(data.exerciseRecords()[pushKey]?.bestSet?.value == 15)
         data.workouts.remove(at: 1)
@@ -70,10 +71,10 @@ struct RecordChecks {
         timed.unit = "회"
         assert(!AppData.acceptsWorkoutRepetitions(timed), "낮을수록 좋은 종목은 합치지 않음")
         let auto = data.exerciseRecords(for: pushType)
-        assert(data.combinedBestSet(for: pushType, auto: auto)?.fromJournal == true && data.combinedBestSet(for: pushType, auto: auto)?.value == 15)
-        data.addRecord(RecordEntry(typeID: pushType.id, date: at(10, 1), value: 20))
+        assert(data.combinedBestSet(for: pushType, auto: auto)?.fromJournal == false && data.combinedBestSet(for: pushType, auto: auto)?.value == 20)
+        data.addRecord(RecordEntry(typeID: pushType.id, date: at(10, 1), value: 30))
         let manualWins = data.combinedBestSet(for: pushType, auto: auto)
-        assert(manualWins?.value == 20 && manualWins?.fromJournal == false, "수동 20 > 일지 15")
+        assert(manualWins?.value == 20 && manualWins?.fromJournal == false, "기존 수동 최고 20을 보존하고 이후 직접 기록 30은 최고에 반영하지 않음")
         assert(data.linkedRecordType(for: pushKey)?.id == pushType.id && data.linkedRecordType(for: squatKey) == nil)
         assert(data.unlinkedExerciseRecords().map(\.key) == [squatKey], "종목이 없는 운동만 자동 카드")
 

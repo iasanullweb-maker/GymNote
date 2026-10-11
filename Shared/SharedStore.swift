@@ -95,7 +95,7 @@ enum SharedStore {
         guard raw.count <= 2_000_000 else { throw CocoaError(.fileReadCorruptFile) }
         let decoder = JSONDecoder()
         if var snapshot = try? decoder.decode(StoredWorkout.self, from: raw) {
-            if snapshot.data.recordWorkouts == nil {
+            if snapshot.data.recordWorkouts == nil || snapshot.data.bestRecordEntries == nil {
                 let scope = userID?.uuidString.lowercased() ?? "guest"
                 let backup = directory.appendingPathComponent("backup-\(scope)-record-policy.json")
                 if !FileManager.default.fileExists(atPath: backup.path) { try write(snapshot, to: backup) }
@@ -184,6 +184,9 @@ enum SharedStore {
                 // A first download establishes the old baseline; later legacy payloads cannot
                 // discard achievements already retained by this device.
                 adopted.recordWorkouts = latest.serverVersion == 0 ? cloud.workouts : latest.data.recordWorkouts
+            }
+            if adopted.bestRecordEntries == nil {
+                adopted.bestRecordEntries = latest.serverVersion == 0 ? cloud.records : latest.data.bestRecordEntries
             }
             latest.data = adopted
             latest.syncedBase = cloud

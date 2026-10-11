@@ -60,6 +60,7 @@ extension AppData {
     /// This projection never rewrites historical IDs in the account backup.
     func recordProjection(catalog: [CatalogRecordType]) -> AppData {
         var result = self
+        result.records = bestRecordEntries ?? records
         for old in recordTypes {
             guard let current = catalog.first(where: {
                 Self.exerciseKey($0.name) == Self.exerciseKey(old.name) && $0.unit == old.unit
@@ -70,6 +71,7 @@ extension AppData {
                 result.records[index].typeID = current.id
             }
         }
+        if bestRecordEntries != nil { result.bestRecordEntries = result.records }
         result.recordTypes = recordDisplayTypes(catalog: catalog)
         return result
     }

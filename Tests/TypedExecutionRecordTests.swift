@@ -35,6 +35,7 @@ final class TypedExecutionRecordTests: XCTestCase {
         data.recordTypes.append(definition.recordType)
         let previous = RecordEntry(typeID: definition.id, date: Date().addingTimeInterval(-86400), value: 5, extraReps: 2)
         data.records = [previous]
+        data.bestRecordEntries = [previous] // Existing baseline, before the execution under test.
         data.scheduledPlans[DayKey.key()] = DayPlan(title: "신디", exercises: [exercise])
         model.data = data
 
@@ -78,6 +79,7 @@ final class TypedExecutionRecordTests: XCTestCase {
         let previous = RecordEntry(typeID: type.id, date: date.addingTimeInterval(-86400), value: 20)
         let measurement = RecordEntry(typeID: type.id, date: date, value: 32.5)
         data.records = [previous]
+        data.bestRecordEntries = [previous] // Existing baseline, before the execution under test.
 
         data.changeSets(exercise.id, by: 1, on: date, at: date, recordEntry: measurement)
 
@@ -95,6 +97,7 @@ final class TypedExecutionRecordTests: XCTestCase {
         let previous = RecordEntry(typeID: type.id, date: date.addingTimeInterval(-86400), value: 18.75)
         let measurement = RecordEntry(typeID: type.id, date: date, value: 16.25)
         data.records = [previous]
+        data.bestRecordEntries = [previous] // Existing baseline, before the execution under test.
 
         data.changeSets(exercise.id, by: 1, on: date, at: date, recordEntry: measurement)
 
@@ -134,6 +137,7 @@ final class TypedExecutionRecordTests: XCTestCase {
         let previous = RecordEntry(typeID: type.id, date: date.addingTimeInterval(-86400), value: 2, extraReps: 1)
         let measurement = RecordEntry(typeID: type.id, date: date, value: 9, extraReps: 2)
         data.records = [previous]
+        data.bestRecordEntries = [previous] // Existing baseline, before the execution under test.
 
         data.changeSets(exercise.id, by: 1, on: date, at: date, recordEntry: measurement)
         XCTAssertNotNil(data.activeWorkout)

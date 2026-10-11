@@ -106,6 +106,7 @@ extension AppData {
             // 기존 백업의 소수 기록은 보존하되 경쟁 후보에서 제외한 뒤 최고기록을 고른다.
             var eligible = recordProjection(catalog: catalog)
             eligible.records.removeAll { $0.typeID == type.id && !type.acceptsCompetitiveRecord($0) }
+            if eligible.bestRecordEntries != nil { eligible.bestRecordEntries = eligible.records }
             if Self.acceptsWorkoutRepetitions(type),
                let combined = eligible.combinedBestSet(for: type, auto: exerciseRecords(for: type, in: all)),
                type.acceptsCompetitiveRecord(RecordEntry(typeID: type.id, date: combined.date, value: combined.value)) {

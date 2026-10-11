@@ -113,6 +113,11 @@ extension AppData {
             copy.typeID = typeIDs[entry.typeID] ?? entry.typeID
             result.records.append(copy)
         }
+        for entry in guest.bestRecordEntries ?? guest.records {
+            var copy = entry
+            copy.typeID = typeIDs[entry.typeID] ?? entry.typeID
+            if !result.bestRecordEntries!.contains(where: { $0.id == copy.id }) { result.bestRecordEntries!.append(copy) }
+        }
         for exercise in guest.exerciseLibrary where !result.exerciseLibrary.contains(where: { $0.id == exercise.id }) {
             result.exerciseLibrary.append(exercise)
         }
@@ -158,10 +163,13 @@ extension AppData {
     func applyingEdits(from base: AppData, to edited: AppData) -> AppData {
         var result = self
         if result.recordWorkouts == nil { result.recordWorkouts = base.recordWorkouts ?? edited.recordWorkouts }
+        if result.bestRecordEntries == nil { result.bestRecordEntries = base.bestRecordEntries ?? edited.bestRecordEntries }
         result.preserveExistingBestRecords()
         result.recordWorkouts = mergeByID(latest: result.recordWorkouts!,
                                          base: base.recordWorkouts ?? base.workouts,
                                          edited: edited.recordWorkouts ?? base.recordWorkouts ?? base.workouts)
+        result.bestRecordEntries = mergeByID(latest: result.bestRecordEntries!, base: base.bestRecordEntries ?? base.records,
+                                             edited: edited.bestRecordEntries ?? base.bestRecordEntries ?? base.records)
         // Lists merge by ID so items another device (or the widget) added in the meantime are kept.
         result.dailyItems = mergeByID(latest: result.dailyItems, base: base.dailyItems, edited: edited.dailyItems)
         result.dailyCompletions = mergeByID(latest: result.dailyCompletions, base: base.dailyCompletions, edited: edited.dailyCompletions)
@@ -318,8 +326,12 @@ extension AppData {
             let preservedIDs = Set((records + base.records).map(\.id))
             let cancelledIDs = candidateIDs.subtracting(keptIDs).subtracting(preservedIDs)
             result.records.removeAll { cancelledIDs.contains($0.id) }
+            result.bestRecordEntries!.removeAll { cancelledIDs.contains($0.id) }
             for entry in result.workouts[index].recordEntries.values.flatMap({ $0 }).compactMap({ $0 })
-            where !result.records.contains(where: { $0.id == entry.id }) { result.records.append(entry) }
+            {
+                if !result.records.contains(where: { $0.id == entry.id }) { result.records.append(entry) }
+                if !result.bestRecordEntries!.contains(where: { $0.id == entry.id }) { result.bestRecordEntries!.append(entry) }
+            }
             var achievement = result.workouts[index]
             achievement.actualReps = achievement.recordReps
             if let achievementIndex = result.recordWorkouts?.firstIndex(where: { $0.id == achievement.id }) {
@@ -357,6 +369,7 @@ extension AppData {
     func hasCloudConflict(local: AppData, base: AppData) -> Bool {
         var remote = self
         if remote.recordWorkouts == nil { remote.recordWorkouts = base.recordWorkouts ?? local.recordWorkouts }
+        if remote.bestRecordEntries == nil { remote.bestRecordEntries = base.bestRecordEntries ?? local.bestRecordEntries }
         if divergent(base.week, local.week, remote.week)
             || divergent(base.defaultRest, local.defaultRest, remote.defaultRest)
             || divergent(base.restSound, local.restSound, remote.restSound)
@@ -365,6 +378,7 @@ extension AppData {
             || divergent(base.activeWorkout, local.activeWorkout, remote.activeWorkout) { return true }
         if divergentByID(base.recordTypes, local.recordTypes, remote.recordTypes)
             || divergentByID(base.recordWorkouts ?? base.workouts, local.recordWorkouts ?? local.workouts, remote.recordWorkouts ?? remote.workouts)
+            || divergentByID(base.bestRecordEntries ?? base.records, local.bestRecordEntries ?? local.records, remote.bestRecordEntries ?? remote.records)
             || divergentByID(base.records, local.records, remote.records)
             || divergentByID(base.exerciseLibrary, local.exerciseLibrary, remote.exerciseLibrary)
             || divergentByID(base.workouts, local.workouts, remote.workouts)

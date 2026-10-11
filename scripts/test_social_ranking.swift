@@ -61,9 +61,9 @@ struct SocialRankingChecks {
         assert(data.socialPublishPayload(catalog: catalog).isEmpty, "기록이 없으면 공개할 것도 없음")
         data.records = [RecordEntry(typeID: push.id, date: at(10, 1), value: 30),
                         RecordEntry(typeID: cindy.id, date: at(10, 2), value: 12, extraReps: 7),
-                        RecordEntry(typeID: "pushup", date: at(9, 1), value: 99)] // 예전 개인 종목은 공개하지 않음
+                        RecordEntry(typeID: "pushup", date: at(9, 1), value: 99)] // 호환되는 예전 개인 최고는 현재 종목에도 보존
         var payload = data.socialPublishPayload(catalog: catalog)
-        assert(payload == [PublishedRecord(type_id: push.id, value: 30, extra_reps: 0, achieved_at: "2026-10-01"),
+        assert(payload == [PublishedRecord(type_id: push.id, value: 99, extra_reps: 0, achieved_at: "2026-09-01"),
                            PublishedRecord(type_id: cindy.id, value: 12, extra_reps: 7, achieved_at: "2026-10-02")], "\(payload)")
         let originalRecords = data.records
         data.records += [RecordEntry(typeID: push.id, date: at(10, 3), value: 40.004),
@@ -78,10 +78,9 @@ struct SocialRankingChecks {
         session.endedAt = at(10, 5)
         data.workouts = [session]
         // 공통 종목 정의로 계산(기록 탭과 같은 방식)
-        var display = data
-        display.recordTypes = catalog.map(\.recordType)
+        let display = data.recordProjection(catalog: catalog)
         payload = display.socialPublishPayload(catalog: catalog)
-        assert(payload.first == PublishedRecord(type_id: push.id, value: 33, extra_reps: 0, achieved_at: "2026-10-05"), "운동 일지 33회가 직접 기록 30회보다 높음")
+        assert(payload.first == PublishedRecord(type_id: push.id, value: 99, extra_reps: 0, achieved_at: "2026-09-01"), "기존 개인 최고 99회는 새 일지 33회보다 높고 현재 종목에도 보존됨")
         // 사용 중단한 종목은 공개하지 않음
         var retired = catalog
         retired[0].active = false

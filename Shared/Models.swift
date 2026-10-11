@@ -375,12 +375,13 @@ struct AppData: Codable, Equatable {
     var workouts: [WorkoutSession] = []
     /// Frozen achievements survive journal edits/deletions. Nil marks pre-policy data.
     var recordWorkouts: [WorkoutSession]?
+    var bestRecordEntries: [RecordEntry]?
     var dailyItems: [DailyItem] = []
     var dailyCompletions: [DailyCompletion] = []
     var dailyReminders = DailyReminderSettings()
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, recordWorkouts, dailyItems, dailyCompletions, dailyReminders
+        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, recordWorkouts, bestRecordEntries, dailyItems, dailyCompletions, dailyReminders
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -410,6 +411,7 @@ struct AppData: Codable, Equatable {
         activeWorkout = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeWorkout)
         workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
         recordWorkouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .recordWorkouts)
+        bestRecordEntries = try c.decodeIfPresent([RecordEntry].self, forKey: .bestRecordEntries)
         dailyItems = try c.decodeIfPresent([DailyItem].self, forKey: .dailyItems) ?? []
         dailyCompletions = try c.decodeIfPresent([DailyCompletion].self, forKey: .dailyCompletions) ?? []
         dailyReminders = try c.decodeIfPresent(DailyReminderSettings.self, forKey: .dailyReminders) ?? DailyReminderSettings()
@@ -569,7 +571,7 @@ extension AppData {
     }
 
     func best(_ type: RecordType) -> RecordEntry? {
-        records.filter { $0.typeID == type.id }.reduce(nil) { current, e in
+        (bestRecordEntries ?? records).filter { $0.typeID == type.id }.reduce(nil) { current, e in
             guard let current = current else { return e }
             return type.isBetter(e, than: current) ? e : current
         }
@@ -691,6 +693,7 @@ extension AppData {
     /// One-time baseline: later journal edits cannot rewrite historical achievements.
     mutating func preserveExistingBestRecords() {
         if recordWorkouts == nil { recordWorkouts = workouts.map(\.bestRecordSnapshot).filter { !$0.plan.exercises.isEmpty } }
+        if bestRecordEntries == nil { bestRecordEntries = records }
     }
 
     @discardableResult
@@ -699,7 +702,10 @@ extension AppData {
         preserveExistingBestRecords()
         session.endedAt = max(date, session.startedAt)
         for entry in session.recordEntries.values.flatMap({ $0 }).compactMap({ $0 })
-        where !records.contains(where: { $0.id == entry.id }) { records.append(entry) }
+        {
+            if !records.contains(where: { $0.id == entry.id }) { records.append(entry) }
+            if !bestRecordEntries!.contains(where: { $0.id == entry.id }) { bestRecordEntries!.append(entry) }
+        }
         if session.recordReps.values.contains(where: { $0.contains(where: { $0 != nil }) }) {
             var achievement = session
             achievement.actualReps = session.recordReps
