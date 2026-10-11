@@ -6,22 +6,12 @@ struct TodayView: View {
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.dynamicTypeSize) private var textSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var recordingType: RecordType?
-    @State private var showingStarter = false
-    @State private var guideRequest: ExerciseGuideRequest?
-    /// 기록 입력 시트가 닫힌 뒤에 보여 줄 결과(시트와 알림이 겹쳐 알림이 사라지지 않게).
-    @State private var pendingRecordResult: (result: AppModel.RecordSaveResult, text: String)?
-    @State private var savedRecordText: String?
-
     private var orderAnimation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.25) }
 
     var body: some View {
         let plan = model.todayPlan
         let progress = model.workoutProgress
         let isWorkingOut = model.data.activeWorkout != nil
-        let savedWorkouts = model.data.workouts(on: model.currentDate)
-        let savedSets = savedWorkouts.reduce(0) { $0 + $1.done }
-        let stackSavedSummary = compact || textSize.isAccessibilitySize
         NavigationStack {
             List {
                 Section {
@@ -38,33 +28,14 @@ struct TodayView: View {
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 4)
-                    if model.data.activeWorkout == nil, model.savedToday {
-                        (stackSavedSummary ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
-                            Label("오늘 일지에 \(savedWorkouts.count)회 · \(savedSets)세트 저장됨", systemImage: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                                .accessibilityHint("오늘 저장한 운동 횟수와 완료한 세트의 합계예요.")
-                            if !stackSavedSummary { Spacer() }
-                            Button { model.startWorkout() } label: {
-                                Label("새 운동 시작", systemImage: "plus")
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(plan.isRestDay)
+                    if !isWorkingOut {
+                        Button { model.startWorkout(catalog: account.catalogTypes) } label: {
+                            Label(model.savedToday ? "새 운동 시작" : "운동 시작", systemImage: "play.fill")
+                        }.disabled(plan.isRestDay || !plan.exercises.allSatisfy { model.data.isRegisteredExercise($0, catalog: account.catalogTypes) })
+                        if !plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) {
+                            Text("계획에서 등록된 운동 종목을 다시 선택해 주세요. 기존 기록은 유지돼요.")
+                                .font(.footnote).foregroundStyle(.secondary)
                         }
-                    } else if model.data.activeWorkout == nil {
-                        Button { model.startWorkout() } label: {
-                            Label("운동 시작", systemImage: "play.fill")
-                        }.disabled(plan.isRestDay)
-                    }
-                    if plan.isRestDay {
-                        Button { showingStarter = true } label: {
-                            Label("기본 루틴으로 오늘 운동 준비", systemImage: "list.bullet.clipboard")
-                        }
-                    }
-                }
-                if model.data.activeWorkout == nil,
-                   let saved = model.data.workouts(on: model.workoutDate).first {
-                    Section("최근 운동 결과") {
-                        WorkoutSummaryView(summary: model.data.workoutSummary(saved))
                     }
                 }
                 if !plan.isRestDay {
@@ -87,15 +58,11 @@ struct TodayView: View {
                                 onMove: { move in
                                     withAnimation(orderAnimation) { model.moveExecutionExercise(exercise.id, move) }
                                 },
-                                previous: model.data.previousExercise(named: exercise.name, before: model.data.activeWorkout?.startedAt ?? Date(),
-                                                                      excluding: model.data.activeWorkout?.id),
-                                onGuide: {
-                                    guideRequest = ExerciseGuideRequest(exercise: exercise, date: model.workoutDate,
-                                        sessionID: model.data.activeWorkout?.id,
-                                        done: model.data.doneSets(exercise, on: model.workoutDate), owner: model.selection.generation)
-                                }
+                                recordType: account.catalogTypes.first { $0.active && AppData.exerciseKey($0.name) == AppData.exerciseKey(exercise.name) }?.recordType,
+                                onMeasuredComplete: { value, extra in model.completeSet(exercise, measurement: value, extraReps: extra) }
                             )
                             .id("\(model.data.activeWorkout?.id.uuidString ?? "idle")-\(exercise.id)")
+                            .disabled(!model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes))
                         }
                         .onMove { source, destination in
                             withAnimation(orderAnimation) {
@@ -107,28 +74,6 @@ struct TodayView: View {
                     } footer: {
                         Text("운동을 길게 눌러 끌면 순서를 바꿀 수 있어요. 완료한 운동은 아래에 모이고, 완료를 취소하면 원래 자리로 돌아가요.")
                     }
-                }
-                Section {
-                    let types = account.catalogTypes.filter(\.active)
-                    Menu {
-                        ForEach(types) { type in
-                            Button {
-                                recordingType = type.recordType
-                            } label: {
-                                Label(type.name, systemImage: type.recordType.style == .rounds ? "repeat" : "number")
-                            }
-                        }
-                    } label: {
-                        Label("종목 기록 남기기", systemImage: "square.and.pencil")
-                    }
-                    .disabled(types.isEmpty)
-                    .accessibilityHint("공통 종목을 골라 횟수·라운드·무게·시간 기록을 입력")
-                } header: {
-                    Text("종목 기록")
-                } footer: {
-                    Text(account.catalogTypes.contains(where: \.active)
-                         ? "횟수·라운드·무게 등의 기록을 남기면 최고 기록에 반영돼요."
-                         : "공통 종목 목록을 불러오면 기록을 남길 수 있어요.")
                 }
                 Section {
                     (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
@@ -161,24 +106,6 @@ struct TodayView: View {
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
             .navigationBarTitleDisplayMode(compact ? .inline : .large)
-            .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: model.workoutDate) }
-            .sheet(item: $guideRequest) { ExerciseGuideView(request: $0) }
-            // 공통 종목 갱신은 RootView가 앱 활성 중 60초마다 한다(탭을 오갈 때마다 다시 요청하지 않음).
-            .sheet(item: $recordingType, onDismiss: showRecordResult) { type in
-                AddRecordView(types: account.catalogTypes.filter(\.active).map(\.recordType), fixedTypeID: type.id) { entry in
-                    let result = model.saveRecord(entry)
-                    if result != .rejected { pendingRecordResult = (result, "\(type.name) \(type.display(entry))") }
-                    return result != .rejected
-                }
-            }
-            .alert("기록을 저장했어요", isPresented: Binding(
-                get: { savedRecordText != nil },
-                set: { if !$0 { savedRecordText = nil } }
-            )) {
-                Button("확인") { savedRecordText = nil }
-            } message: {
-                Text((savedRecordText ?? "") + "\n운동 기록에 남겼어요. 최고 기록은 그대로예요.")
-            }
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { model.recordMessage != nil },
                 set: { if !$0 { model.recordMessage = nil } }
@@ -188,15 +115,6 @@ struct TodayView: View {
                 Text((model.recordMessage ?? "") + "\n기록 탭의 최고 기록에 자동으로 반영했어요.")
             }
         }
-    }
-}
-
-extension TodayView {
-    private func showRecordResult() {
-        guard let pending = pendingRecordResult else { return }
-        pendingRecordResult = nil
-        if pending.result == .newBest { model.recordMessage = pending.text }
-        else { savedRecordText = pending.text }
     }
 }
 
@@ -222,6 +140,16 @@ struct ExerciseRow: View {
     /// 접근성 순서 바꾸기(같은 완료 묶음 안). 끌기와 같은 규칙으로 저장된다.
     var availableMoves: [ExecutionMove] = []
     var onMove: (ExecutionMove) -> Void = { _ in }
+    var recordType: RecordType? = nil
+    var onMeasuredComplete: (Double, Int) -> Void = { _, _ in }
+    @State private var measurement = ""
+    @State private var extraReps = "0"
+    private var requiresMeasurement: Bool { recordType.map { !AppData.acceptsWorkoutRepetitions($0) } ?? false }
+    private var measuredValue: Double? {
+        guard let type = recordType, let value = Double(measurement), value >= 0, value <= 1_000_000,
+              type.acceptsValue(value), let extra = Int(extraReps), (0...1_000_000).contains(extra) else { return nil }
+        return value
+    }
     var previous: PreviousExercise? = nil
     var onGuide: () -> Void = {}
     @State private var draftReps: Int?
@@ -257,55 +185,19 @@ struct ExerciseRow: View {
             .accessibilityLabel("세트 진행")
             .accessibilityValue("\(exercise.sets)세트 중 \(done)세트 완료")
 
-            Button(action: onGuide) {
-                Label("운동 안내·대체", systemImage: "info.circle")
-            }.buttonStyle(.borderless)
-
-            if let previous {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("지난 기록 · \(previous.session.startedAt.formatted(.dateTime.month().day()))")
-                        .font(.subheadline.bold())
-                    Text(previous.text).font(.subheadline).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if !finished, exercise.plannedReps != nil, let reps = previous.repetition(at: done) {
-                        Button("지난 \(done + 1)세트 횟수로 채우기 (\(reps)회)") { draftReps = reps }
-                            .buttonStyle(.bordered).disabled(session == nil)
-                            .accessibilityHint("입력 횟수만 채워요. 세트 완료 버튼을 눌러 기록하세요. 무게는 참고용이에요.")
-                    }
-                }
-            }
-
-            if !finished, let value = actualReps {
-                Text("\(done + 1)세트 · 계획 \(exercise.detail)")
-                    .font(.subheadline).foregroundStyle(.secondary)
-                (compact || textSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 16))) {
-                    Text("실제 횟수").font(.headline)
-                    if !compact && !textSize.isAccessibilitySize { Spacer(minLength: 0) }
-                    HStack(spacing: 12) {
-                        Button { draftReps = max(0, value - 1) } label: {
-                            Image(systemName: "minus").frame(width: 32, height: 36)
-                        }
-                        .buttonStyle(.bordered).disabled(session == nil || value == 0)
-                        .accessibilityLabel("실제 횟수 1회 줄이기")
-                        Button { editingReps = true } label: {
-                            Text("\(value)회").font(.title2.bold().monospacedDigit())
-                                .frame(minWidth: 64, minHeight: 44)
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(session == nil)
-                        .accessibilityLabel("실제 횟수 \(value)회, 직접 입력")
-                        Button { draftReps = min(9999, value + 1) } label: {
-                            Image(systemName: "plus").frame(width: 32, height: 36)
-                        }
-                        .buttonStyle(.bordered).disabled(session == nil || value == 9999)
-                        .accessibilityLabel("실제 횟수 1회 늘리기")
-                    }
-                }
-            }
             if let session, done > 0 {
                 CompletedRepetitionRows(session: session, exercise: exercise)
             }
 
+            if requiresMeasurement, !finished, let type = recordType {
+                HStack {
+                    TextField(type.style == .rounds ? "완료 라운드" : "실제 측정값 (\(type.unit))", text: $measurement)
+                        .keyboardType(type.style == .rounds ? .numberPad : .decimalPad)
+                    if type.style == .rounds {
+                        TextField("추가 횟수", text: $extraReps).keyboardType(.numberPad)
+                    }
+                }
+            }
             HStack(spacing: 12) {
                 Button(action: onUndo) {
                     Image(systemName: "arrow.uturn.backward")
@@ -316,17 +208,38 @@ struct ExerciseRow: View {
                 .disabled(session == nil || done == 0)
                 .accessibilityLabel("세트 완료 되돌리기")
 
-                Button { onComplete(actualReps) } label: {
-                    Text(finished ? "완료" : actualReps.map { "\($0)회로 세트 완료" } ?? "세트 완료")
-                        .font(.title3.bold())
-                        .frame(maxWidth: .infinity, minHeight: 40)
+                HStack(spacing: 0) {
+                    if !finished, !requiresMeasurement, let value = actualReps {
+                        Button { draftReps = max(0, value - 1) } label: {
+                            Image(systemName: "minus").frame(width: 48, height: 48)
+                        }
+                        .disabled(session == nil || value == 0)
+                        .accessibilityLabel("완료할 횟수 1회 줄이기")
+                        Divider().frame(height: 28)
+                    }
+                    Button {
+                        if requiresMeasurement, let value = measuredValue { onMeasuredComplete(value, Int(extraReps) ?? 0) }
+                        else { onComplete(actualReps) }
+                    } label: {
+                        Text(finished ? "완료" : requiresMeasurement ? "세트 완료" : actualReps.map { "\($0)회로 세트 완료" } ?? "세트 완료")
+                            .font(.headline).frame(maxWidth: .infinity, minHeight: 48)
+                    }.disabled(session == nil || finished || (requiresMeasurement && measuredValue == nil))
+                    if !finished, !requiresMeasurement, let value = actualReps {
+                        Divider().frame(height: 28)
+                        Button { draftReps = min(9999, value + 1) } label: {
+                            Image(systemName: "plus").frame(width: 48, height: 48)
+                        }
+                        .disabled(session == nil || value == 9999)
+                        .accessibilityLabel("완료할 횟수 1회 늘리기")
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(session == nil || finished)
+                .buttonStyle(.borderless)
+                .foregroundStyle(.white)
+                .background(Color.orange, in: RoundedRectangle(cornerRadius: 12))
             }
         }
         .padding(.vertical, 10)
-        .onChange(of: done) { _, _ in draftReps = nil }
+        .onChange(of: done) { _, _ in draftReps = nil; measurement = ""; extraReps = "0" }
         .onChange(of: exercise.detail) { _, _ in draftReps = nil }
         .sheet(isPresented: $editingReps) {
             RepetitionEditor(title: "\(done + 1)세트 실제 횟수", initialValue: actualReps ?? 0) {
@@ -425,7 +338,7 @@ struct CompletedRepetitionRows: View {
             if let index = editingSet {
                 RepetitionEditor(title: "\(index + 1)세트 실제 횟수",
                                  initialValue: session.repetitions(exercise, set: index) ?? exercise.plannedReps ?? 0) {
-                    model.data.updateRepetitions(sessionID: session.id, exerciseID: exercise.id, set: index, value: $0)
+                    model.data.updateRepetitions(sessionID: session.id, exerciseID: exercise.id, set: index, value: $0, creditRecords: model.data.activeWorkout?.id == session.id)
                 }
             }
         }

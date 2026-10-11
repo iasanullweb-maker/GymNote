@@ -236,26 +236,13 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertNil(model.savedWorkout, "계정 전환 시 이전 계정 표시를 남기지 않음")
     }
 
-    func testRecordEntryFromExecutionTab() throws {
+    func testDirectRecordEntryCannotChangePreservedBest() throws {
         let model = makeModel()
-        let types = model.account.catalogTypes.filter(\.active)
-        let count = try XCTUnwrap(types.first { $0.recordType.style == .count })
-        let rounds = try XCTUnwrap(types.first { $0.recordType.style == .rounds })
-
-        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: count.id, date: Date(), value: 20)), .newBest)
-        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: count.id, date: Date(), value: 15)), .saved,
-                       "최고 기록보다 낮아도 저장")
-        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: rounds.id, date: Date(), value: 5, extraReps: 3)), .newBest)
-        XCTAssertEqual(model.data.records.count, 3)
-        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: count.id, date: Date(), value: 1.5)), .rejected,
-                       "횟수는 정수만")
-        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: "없는 종목", date: Date(), value: 1)), .rejected)
-        XCTAssertEqual(model.data.records.count, 3)
-        model.storageError = nil
-
-        try breakPersistence()
-        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: count.id, date: Date(), value: 30)), .rejected,
-                       "저장 실패는 저장됨으로 표시하지 않음")
-        XCTAssertEqual(model.data.records.count, 3)
+        let count = try XCTUnwrap(model.account.catalogTypes.first { $0.active && $0.style == .count })
+        let existing = RecordEntry(typeID: count.id, date: Date(), value: 20)
+        model.data.records = [existing]
+        XCTAssertEqual(model.saveRecord(RecordEntry(typeID: count.id, date: Date(), value: 30)), .rejected)
+        XCTAssertEqual(model.data.records, [existing])
+        XCTAssertNotNil(model.storageError)
     }
 }

@@ -117,7 +117,9 @@ struct CloudMergeChecks {
         check(renamed.mergingCloud(local: deleted, base: dailyBase) == nil, "삭제 vs 수정은 충돌")
 
         // 12. 이 기기 변경이 없으면 서버 최신본 그대로
-        check(iphone.mergingCloud(local: base, base: base) == iphone, "로컬 변경 없음 → 서버본")
+        var preservedPhone = iphone
+        preservedPhone.preserveExistingBestRecords()
+        check(iphone.mergingCloud(local: base, base: base) == preservedPhone, "로컬 변경 없음 → 서버본")
 
         // 13. 목록 순서 변경은 동시 변경이 없을 때 그대로 유지 (기기 안 위젯 병합 경로)
         var reordered = base

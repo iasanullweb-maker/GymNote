@@ -5,8 +5,6 @@ struct WorkoutSummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("운동 일지에 저장됐어요", systemImage: "checkmark.circle.fill")
-                .font(.headline).foregroundStyle(.green)
             Text(summary.session.plan.title).font(.title3.bold())
             Text("\(summary.session.done) / \(summary.session.total)세트 완료")
                 .monospacedDigit()

@@ -25,7 +25,7 @@ private struct SocialGate<Content: View>: View {
             Section { Text("계정 연결을 준비 중이에요.").foregroundStyle(.secondary) }
         } else if account.user == nil {
             Section {
-                Label("로그인하면 친구와 공통 종목 기록을 겨룰 수 있어요", systemImage: "person.2.fill")
+                Label("로그인하면 친구와 운동 종목 기록을 겨룰 수 있어요", systemImage: "person.2.fill")
                 Text("설정 탭 → 계정에서 로그인해 주세요. 기록은 닉네임을 정한 뒤부터 친구에게 보여요.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
@@ -110,7 +110,7 @@ struct FriendsView: View {
                     .textInputAutocapitalization(.characters).autocorrectionDisabled()
                 Button("요청 보내기") { let value = code; Task { await social.sendFriendRequest(code: value) } }
                 Button("취소", role: .cancel) {}
-            } message: { Text("친구에게 받은 친구 코드를 입력해 주세요. 상대가 수락하면 서로의 공통 종목 기록이 보여요.") }
+            } message: { Text("친구에게 받은 친구 코드를 입력해 주세요. 상대가 수락하면 서로의 운동 종목 기록이 보여요.") }
             .alert("그룹 만들기", isPresented: $creatingGroup) {
                 TextField("그룹 이름 (예: 헬스 동아리)", text: $groupName)
                 Button("만들기") { let value = groupName; Task { await social.createGroup(name: value) } }
@@ -157,7 +157,7 @@ struct FriendsView: View {
                                                 in: RoundedRectangle(cornerRadius: 16))
                         .accessibilityLabel("친구 기능 닉네임")
                     Toggle("최고 기록 자동 공개", isOn: $share)
-                    Text("친구·그룹원에게 닉네임과 공통 종목 최고 기록만 보여요. 이메일은 공개되지 않아요. 공개는 언제든 끌 수 있어요.")
+                    Text("친구·그룹원에게 닉네임과 운동 종목 최고 기록만 보여요. 이메일은 공개되지 않아요. 공개는 언제든 끌 수 있어요.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
                 Button {
@@ -201,7 +201,7 @@ struct FriendsView: View {
             Text("내 정보")
         } footer: {
             Text(profile.share_records
-                 ? "공통 종목 최고기록이 친구·그룹원에게 자동으로 보여요. 친구 코드를 알려 주면 친구 요청을 받을 수 있어요."
+                 ? "운동 종목 최고기록이 친구·그룹원에게 자동으로 보여요. 친구 코드를 알려 주면 친구 요청을 받을 수 있어요."
                  : "공개를 꺼서 내 기록은 다른 사람에게 보이지 않아요. 친구 기록은 계속 볼 수 있어요.")
         }
     }
@@ -280,7 +280,7 @@ struct FriendsView: View {
     }
 }
 
-/// 기록 탭의 '친구': 공통 종목 순위(내 친구 전체/그룹별). 친구 관리는 친구 탭에서 한다.
+/// 기록 탭의 '친구': 운동 종목 순위(내 친구 전체/그룹별). 친구 관리는 친구 탭에서 한다.
 struct FriendRankingView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account

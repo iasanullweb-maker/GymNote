@@ -104,6 +104,13 @@ struct RootView: View {
             .environment(\.gymnoteCompactLayout, geometry.size.width < 600)
             .environment(\.editingNavigationGuard, editingNavigation)
             .environment(\.openFriendsTab, { selectedTab = 3 })
+            .environment(\.openDailyPlan, { date in
+                guard !editingNavigation.isEditing else { return }
+                selectedDate = date
+                workspace = "일상"
+                selectedTab = 1
+                model.requestedDailyPlanDate = date
+            })
         }
         .tint(.orange)
         .onChange(of: selectedTab) { previous, _ in
@@ -163,7 +170,7 @@ struct RootView: View {
             await model.social.refresh(quiet: true)
         }
         .task(id: scenePhase) {
-            // 앱이 화면에 있는 동안만 60초마다 공통 종목을 갱신한다. 백그라운드·비활성으로 바뀌면 반복을 멈춘다.
+            // 앱이 화면에 있는 동안만 60초마다 운동 종목을 갱신한다. 백그라운드·비활성으로 바뀌면 반복을 멈춘다.
             // 진행 중인 요청은 끊지 않고 끝까지 받는다(취소 오류를 '갱신 실패'로 보이지 않게).
             // 동시에 들어온 요청은 AccountModel.catalogLoading이 걸러 낸다.
             guard scenePhase == .active else { return }

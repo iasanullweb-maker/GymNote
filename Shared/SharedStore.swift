@@ -86,6 +86,7 @@ enum SharedStore {
         let file = url(for: userID)
         guard FileManager.default.fileExists(atPath: file.path) else {
             var initial = StoredWorkout(data: userID == nil ? .sample : .empty)
+            initial.data.preserveExistingBestRecords()
             initial.dirty = userID == nil
             try write(initial, to: file)
             return initial
@@ -93,7 +94,22 @@ enum SharedStore {
         let raw = try Data(contentsOf: file)
         guard raw.count <= 2_000_000 else { throw CocoaError(.fileReadCorruptFile) }
         let decoder = JSONDecoder()
-        if let snapshot = try? decoder.decode(StoredWorkout.self, from: raw) { return snapshot }
+        if var snapshot = try? decoder.decode(StoredWorkout.self, from: raw) {
+            if snapshot.data.recordWorkouts == nil {
+                let scope = userID?.uuidString.lowercased() ?? "guest"
+                let backup = directory.appendingPathComponent("backup-\(scope)-record-policy.json")
+                if !FileManager.default.fileExists(atPath: backup.path) { try write(snapshot, to: backup) }
+                snapshot.data.preserveExistingBestRecords()
+                snapshot.dirty = true
+                // Do not make an otherwise readable legacy cache inaccessible at the size cap.
+                // Its original remains backed up; ordinary writes still enforce the server limit.
+                if try JSONEncoder().encode(snapshot).count <= 2_000_000 {
+                    snapshot.revision = UUID()
+                    try write(snapshot, to: file)
+                }
+            }
+            return snapshot
+        }
         // Migrate legacy JSON only for the guest. Corrupt account caches must never become sample data.
         guard userID == nil,
               let fields = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
@@ -102,7 +118,8 @@ enum SharedStore {
         let legacy = try decoder.decode(AppData.self, from: raw)
         let backup = directory.appendingPathComponent("guest-before-accounts.json")
         if !FileManager.default.fileExists(atPath: backup.path) { try write(legacy, to: backup) }
-        let migrated = StoredWorkout(data: legacy)
+        var migrated = StoredWorkout(data: legacy)
+        migrated.data.preserveExistingBestRecords()
         try write(migrated, to: file)
         return migrated
     }
@@ -162,10 +179,16 @@ enum SharedStore {
             if latest.dirty {
                 try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
             }
-            latest.data = cloud
+            var adopted = cloud
+            if adopted.recordWorkouts == nil {
+                // A first download establishes the old baseline; later legacy payloads cannot
+                // discard achievements already retained by this device.
+                adopted.recordWorkouts = latest.serverVersion == 0 ? cloud.workouts : latest.data.recordWorkouts
+            }
+            latest.data = adopted
             latest.syncedBase = cloud
             latest.serverVersion = version
-            latest.dirty = false
+            latest.dirty = adopted != cloud
             latest.revision = UUID()
             try write(latest, to: url(for: selection.userID))
         }

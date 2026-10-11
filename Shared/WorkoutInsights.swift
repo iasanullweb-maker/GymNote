@@ -58,8 +58,12 @@ extension AppData {
         }
         var before = self
         before.workouts.removeAll { $0.id == session.id || $0.startedAt >= session.startedAt }
+        before.recordWorkouts = recordWorkouts?.filter { $0.id != session.id && $0.startedAt < session.startedAt }
         var throughSession = before
         throughSession.workouts.append(session)
+        if let achievement = recordWorkouts?.first(where: { $0.id == session.id }) {
+            throughSession.recordWorkouts?.append(achievement)
+        }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: session.startedAt)
         let start = calendar.date(byAdding: .day, value: -6, to: today) ?? today

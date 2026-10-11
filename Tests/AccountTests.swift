@@ -137,7 +137,9 @@ final class AccountTests: XCTestCase {
         legacy.records = [RecordEntry(typeID: "pushup", date: Date(), value: 42)]
         try JSONEncoder().encode(legacy).write(to: folder.appendingPathComponent("gymnote-data.json"))
         let guest = try SharedStore.activate(userID: nil)
-        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data, legacy)
+        var preservedLegacy = legacy
+        preservedLegacy.preserveExistingBestRecords()
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data, preservedLegacy)
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("guest-before-accounts.json").path))
         let a = UUID(), b = UUID()
         let activeA = try SharedStore.activate(userID: a)
@@ -173,7 +175,9 @@ final class AccountTests: XCTestCase {
         XCTAssertThrowsError(try SharedStore.replaceWithCloud(.empty, version: 2, revision: uploaded.revision, selection: selection))
         let next = try SharedStore.activate(userID: UUID())
         try SharedStore.completeSet(exercise.id, generation: selection.generation.uuidString)
-        XCTAssertEqual(try SharedStore.snapshot(userID: next.userID).data, .empty)
+        var emptyAccount = AppData.empty
+        emptyAccount.preserveExistingBestRecords()
+        XCTAssertEqual(try SharedStore.snapshot(userID: next.userID).data, emptyAccount)
     }
 
     func testCloudMergeKeepsEditsFromBothDevices() throws {

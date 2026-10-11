@@ -168,12 +168,12 @@ final class AccountModel {
             catalogFetchedAt = cache.fetchedAt
             catalogMessage = nil
             do { try SharedStore.saveRecordCatalog(cache) }
-            catch { catalogMessage = "최신 공통 종목을 불러왔지만 기기에 보관하지 못했어요." }
+            catch { catalogMessage = "최신 운동 종목을 불러왔지만 기기에 보관하지 못했어요." }
             await refreshCatalogAdmin()
         } catch {
             // URLSession may bridge Swift cancellation into NSError (including an underlying error).
             guard !isCatalogRefreshCancellation(error) else { return }
-            catalogMessage = "공통 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."
+            catalogMessage = "운동 종목을 갱신하지 못했어요. 저장된 목록을 사용합니다."
         }
     }
 
@@ -214,7 +214,7 @@ final class AccountModel {
     /// Serialize with account operations so rotating a refresh token cannot race a backup or logout.
     func saveCatalogType(_ type: CatalogRecordType) async -> Bool {
         guard canManageCatalog, !busy, !catalogLoading, let client else { return false }
-        startOperation("공통 종목을 저장하는 중…", context: .management)
+        startOperation("운동 종목을 저장하는 중…", context: .management)
         defer { finishOperation() }
         do {
             let current = try await validSession()

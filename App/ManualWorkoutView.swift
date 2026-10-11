@@ -32,35 +32,30 @@ struct ManualWorkoutView: View {
                     Button("선택한 날짜의 루틴") {
                         let plan = model.data.plan(for: draft.date)
                         if draft.moves.isEmpty { draft.title = plan.title }
-                        for exercise in plan.exercises { draft.append(exercise) }
+                        for exercise in plan.exercises where model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) { draft.append(exercise) }
                     }.disabled(model.data.plan(for: draft.date).isRestDay)
                     Menu("이전 운동 일지") {
                         ForEach(model.data.workouts.sorted { $0.startedAt > $1.startedAt }) { workout in
                             Button("\(workout.startedAt.formatted(.dateTime.year().month().day())) · \(workout.plan.title)") {
                                 if draft.moves.isEmpty { draft.title = workout.plan.title }
-                                for exercise in workout.plan.exercises { draft.append(exercise, session: workout) }
+                                for exercise in workout.plan.exercises where model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) { draft.append(exercise, session: workout) }
                             }
                         }
                     }.disabled(model.data.workouts.isEmpty)
                     Menu("운동 목록") {
-                        Section("공통 운동 종목") {
+                        Section("운동 종목") {
                             ForEach(CatalogRecordType.sorted(account.catalogTypes).filter(\.active)) { type in
                                 Button(type.name) { draft.append(type.makeExercise()) }
                             }
                         }
-                        Section("내 운동 목록") {
-                            ForEach(model.data.exerciseLibrary) { exercise in
-                                Button(exercise.name) { draft.append(exercise) }
-                            }
-                        }
-                    }.disabled(model.data.exerciseLibrary.isEmpty && !account.catalogTypes.contains(where: \.active))
+                    }.disabled(!account.catalogTypes.contains(where: \.active))
                     if let message = account.catalogMessage {
                         Text(message).font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 ForEach($draft.moves) { $move in
                     Section {
-                        TextField("운동 이름", text: $move.name)
+                        LabeledContent("운동 종목", value: move.name)
                         TextField("계획 또는 시간 (예: 10회, 1분)", text: $move.detail)
                         ForEach($move.sets) { $entry in
                             VStack(alignment: .leading, spacing: 8) {
@@ -93,13 +88,6 @@ struct ManualWorkoutView: View {
                         }.disabled(move.sets.count >= 100)
                         Button("운동 삭제", role: .destructive) { draft.moves.removeAll { $0.id == move.id } }
                     } header: { Text(move.name.isEmpty ? "새 운동" : move.name) }
-                }
-                Section {
-                    Button { draft.moves.append(ManualWorkoutDraft.Move()) } label: {
-                        Label("직접 운동 추가", systemImage: "plus.circle")
-                    }
-                } footer: {
-                    Text("모든 세트를 완료한 기록으로 저장해요. 횟수는 0~9999회, 무게는 0~9999kg까지 입력하세요. 시간 운동은 계획 또는 시간을 적고 횟수를 비워 둘 수 있어요.")
                 }
                 Section("저장할 내용") {
                     Text("운동 \(draft.moves.count)개 · \(draft.moves.reduce(0) { $0 + $1.sets.count })세트")
@@ -141,6 +129,10 @@ struct ManualWorkoutView: View {
 
     private func save() {
         guard let session = draft.session() else { return }
+        guard session.plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) else {
+            model.storageError = "등록된 운동 종목으로 다시 선택해 주세요. 입력 내용은 임시 저장돼요."
+            return
+        }
         model.data.workouts.append(session)
         guard model.data.workouts.contains(where: { $0.id == session.id }) else { saveFailed = true; return }
         savedDraft = ""

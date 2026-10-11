@@ -56,9 +56,9 @@ struct RecordChecks {
         assert(records[AppData.exerciseKey("딥스")] == nil && records[AppData.exerciseKey("풀업")] == nil)
         data.activeWorkout = nil
 
-        // 일지 수정·삭제 시 다시 계산
+        // 기존 최고는 보존하고 일지 수정·삭제는 반영하지 않음
         data.updateRepetitions(sessionID: data.workouts[1].id, exerciseID: pushAgain.id, set: 0, value: 30)
-        assert(data.exerciseRecords()[pushKey]?.bestSet?.value == 30)
+        assert(data.exerciseRecords()[pushKey]?.bestSet?.value == 15)
         data.workouts.remove(at: 1)
         assert(data.exerciseRecords()[pushKey]?.bestSet?.value == 15)
 
@@ -79,11 +79,11 @@ struct RecordChecks {
 
         // 신기록 알림: 수동 기록·이전 일지보다 좋아졌을 때만, 처음 생긴 기록은 알리지 않음
         var before = data.exerciseRecords()
-        data.workouts.append(session(at(10, 8), [(push, [21, 21, 21], 3), (Exercise(name: "버피", sets: 1, detail: "10회"), [12], 1)]))
+        data.recordWorkouts!.append(session(at(10, 8), [(push, [21, 21, 21], 3), (Exercise(name: "버피", sets: 1, detail: "10회"), [12], 1)]))
         var messages = data.recordImprovements(since: before)
         assert(messages == ["푸쉬업 한 세트 21회", "푸쉬업 하루 총량 63회"], "\(messages)")
         before = data.exerciseRecords()
-        data.workouts.append(session(at(10, 9), [(push, [5], 1)]))
+        data.recordWorkouts!.append(session(at(10, 9), [(push, [5], 1)]))
         messages = data.recordImprovements(since: before)
         assert(messages.isEmpty)
 
@@ -109,8 +109,8 @@ struct RecordChecks {
         let lunge = Exercise(name: "런지", sets: 2, detail: "12회")
         flow.scheduledPlans[DayKey.key(today)] = DayPlan(title: "하체", exercises: [lunge])
         assert(flow.startWorkout(at: today))
-        flow.changeSets(lunge.id, by: 1, on: today, actualReps: 12)
-        flow.changeSets(lunge.id, by: 1, on: today, actualReps: 16)
+        flow.changeSets(lunge.id, by: 1, on: today, actualReps: 12, at: today)
+        flow.changeSets(lunge.id, by: 1, on: today, actualReps: 16, at: today)
         assert(flow.activeWorkout == nil && flow.workouts.count == 1, "마지막 세트로 자동 종료")
         let lungeRecords = flow.exerciseRecords()[AppData.exerciseKey("런지")]
         assert(lungeRecords?.bestSet?.value == 16 && lungeRecords?.bestDay?.value == 28)

@@ -14,7 +14,6 @@ struct WorkoutJournalView: View {
 
     var body: some View {
         let selectedWorkouts = model.data.workouts(on: selectedDate)
-        let selectedSets = selectedWorkouts.reduce(0) { $0 + $1.done }
         List {
             Section {
                 Button { addingWorkout = true } label: {
@@ -27,25 +26,11 @@ struct WorkoutJournalView: View {
                     Text("전체 목록").tag(false)
                 }.pickerStyle(.segmented)
                 if showingCalendar {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("선택 날짜 · \(selectedDate.formatted(.dateTime.year().month().day().weekday()))")
-                            .font(.subheadline)
-                        Text(selectedWorkouts.isEmpty ? "저장된 운동이 없어요."
-                             : "운동 \(selectedWorkouts.count)회 · 완료 \(selectedSets)세트")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        Button {
-                            detailDay = JournalDay(date: selectedDate)
-                        } label: {
-                            Label("세트별 기록 보기", systemImage: "list.bullet.rectangle")
-                        }
-                        .buttonStyle(.bordered)
-                        .accessibilityHint("선택한 날짜의 모든 운동과 세트별 기록을 열어요.")
-                    }
                     PlanCalendarView(selectedDate: $selectedDate, content: .journal) { date in
                         detailDay = JournalDay(date: date)
                     }
                     .listRowInsets(EdgeInsets(top: 12, leading: 8, bottom: 12, trailing: 8))
-                    Text("위 버튼으로 선택한 날짜의 기록을 볼 수 있어요. 다른 날짜를 길게 눌러도 상세가 열려요.")
+                    Text("날짜를 선택하면 아래에 일지가 보여요. 길게 누르면 상세가 열려요.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
@@ -104,7 +89,7 @@ struct WorkoutJournalView: View {
     }
 }
 
-private struct WorkoutJournalDayDetail: View {
+struct WorkoutJournalDayDetail: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let date: Date

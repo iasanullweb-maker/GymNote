@@ -28,7 +28,7 @@ struct RecordTypesView: View {
                         .disabled(!account.canManageCatalog || account.busy || account.catalogLoading)
                     }
                     if account.canManageCatalog {
-                        Button("공통 종목 추가", systemImage: "plus") {
+                        Button("운동 종목 추가", systemImage: "plus") {
                             editing = CatalogRecordType(id: "common-" + UUID().uuidString.lowercased(),
                                 name: "", unit: "회", style: .count, repsPerRound: 30,
                                 lowerIsBetter: false, hint: "", active: true,
@@ -36,17 +36,17 @@ struct RecordTypesView: View {
                         }.disabled(account.busy || account.catalogLoading)
                     }
                 } footer: {
-                    Text("공통 종목은 운동 목록·계획·운동 일지·최고 기록에서 함께 사용하며 관리자가 관리합니다. 개인별 세트·횟수는 운동을 가져온 뒤 설정하세요. 단위·수행 조건·계산 규칙을 바꿀 때는 새 종목을 만들어 과거 기록의 비교 기준을 유지합니다.")
+                    Text("운동 종목은 운동 목록·계획·운동 일지·최고 기록에서 함께 사용하며 관리자가 관리합니다. 개인별 세트·횟수는 운동을 가져온 뒤 설정하세요. 단위·수행 조건·계산 규칙을 바꿀 때는 새 종목을 만들어 과거 기록의 비교 기준을 유지합니다.")
                 }
                 if let date = account.catalogFetchedAt {
                     Text("목록 갱신: \(date.formatted(date: .abbreviated, time: .shortened))")
                         .font(.footnote).foregroundStyle(.secondary)
                 } else {
-                    Text("기본 공통 목록입니다. 서버 연결 후 최신 목록이 적용됩니다.")
+                    Text("기본 운동 목록입니다. 서버 연결 후 최신 목록이 적용됩니다.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내")
+            .navigationTitle(account.canManageCatalog ? "운동 종목 관리" : "운동 종목 안내")
             .refreshable { await account.refreshRecordCatalog() }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -101,7 +101,7 @@ struct CatalogTypeEditor: View {
                 }
             }
             .disabled(saving)
-            .navigationTitle(isNew ? "공통 종목 추가" : "공통 종목 수정")
+            .navigationTitle(isNew ? "운동 종목 추가" : "운동 종목 수정")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("취소") { dismiss() }.disabled(saving)

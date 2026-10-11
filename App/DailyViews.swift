@@ -116,6 +116,7 @@ struct DailyPlansView: View {
     @Environment(AppModel.self) private var model
     @Binding var selectedDate: Date
     @State private var editing: DailyItem?
+    @State private var calendarDay: PlanningDay?
     @AppStorage("planShowWorkoutAndDaily") private var showAll = false
 
     var body: some View {
@@ -123,7 +124,9 @@ struct DailyPlansView: View {
             CalendarScrollView {
                 CalendarSection("캘린더") {
                     Toggle("운동·일상 함께 보기", isOn: $showAll)
-                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .daily)
+                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .daily) {
+                        calendarDay = PlanningDay(date: $0)
+                    }
                     if showAll {
                         Text("운동은 기본 글씨, 일상은 청록색으로 표시해요.").font(.caption).foregroundStyle(.secondary)
                     }
@@ -200,13 +203,31 @@ struct DailyPlansView: View {
             }
             .navigationTitle("일상 계획")
             .sheet(item: $editing) { DailyItemEditor(item: $0) }
+            .sheet(item: $calendarDay) { day in
+                if model.data.workouts(on: day.date).isEmpty {
+                    DailyItemEditor(item: DailyItem(title: "", scheduledDate: day.date, startDate: day.date))
+                } else {
+                    NavigationStack { WorkoutJournalDayDetail(date: day.date) }
+                }
+            }
+            .onAppear { openRequestedDailyPlan() }
+            .onChange(of: model.requestedDailyPlanDate) { _, _ in openRequestedDailyPlan() }
         }
+    }
+
+    private func openRequestedDailyPlan() {
+        guard let date = model.requestedDailyPlanDate else { return }
+        selectedDate = date
+        editing = DailyItem(title: "", scheduledDate: date, startDate: date)
+        model.requestedDailyPlanDate = nil
     }
 }
 
 /// Both planning workspaces render exactly the same combined date contents.
 struct TogetherPlanDaySection: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openDailyPlan) private var openDailyPlan
+    @AppStorage("selectedWorkspace") private var workspace = "운동"
     let date: Date
     @State private var editing: DailyItem?
 
@@ -216,16 +237,22 @@ struct TogetherPlanDaySection: View {
             NavigationLink { ScheduledDayEditor(date: date) } label: {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("운동 · \(plan.isRestDay ? "휴식" : plan.title)", systemImage: "figure.strengthtraining.traditional")
-                    ForEach(plan.exercises) { exercise in ExerciseSummary(exercise: exercise) }
+                    ForEach(plan.exercises) { exercise in
+                        Text(exercise.name).foregroundStyle(.white)
+                        Text("\(exercise.sets)세트 · \(exercise.detail)").font(.caption).foregroundStyle(.white)
+                    }
                     Text("이 날짜의 운동 계획 설정").font(.caption).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading)
-            }.foregroundStyle(.primary)
+            }.foregroundStyle(.white)
             Divider()
             Text("일상").font(.subheadline.bold()).foregroundStyle(.teal)
             let items = model.data.dailyItems(on: date)
             if items.isEmpty { Text("이 날짜에 예정된 일상이 없어요.").foregroundStyle(.secondary) }
             ForEach(items) { item in DailyItemRow(item: item, date: date) { editing = item } }
-            Button { editing = DailyItem(title: "", scheduledDate: date, startDate: date) } label: {
+            Button {
+                if workspace == "운동" { openDailyPlan(date) }
+                else { editing = DailyItem(title: "", scheduledDate: date, startDate: date) }
+            } label: {
                 Label("이 날짜에 일상 추가", systemImage: "plus")
             }
         }
@@ -250,6 +277,7 @@ struct TogetherPlanWeekRows: View {
                     }.frame(width: 32)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("운동 · " + (plan.isRestDay ? "휴식" : plan.exercises.map(\.name).joined(separator: ", ")))
+                            .foregroundStyle(.white)
                         Text("일상 · " + (items.isEmpty ? "예정 없음" : items.map(\.title).joined(separator: ", ")))
                             .foregroundStyle(.teal)
                     }.frame(maxWidth: .infinity, alignment: .leading)

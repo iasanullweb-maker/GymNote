@@ -12,13 +12,14 @@ final class AppModel {
     @ObservationIgnored lazy var social = SocialModel(model: self)
     private(set) var selection = StoreSelection(userID: nil)
     var storageError: String?
+    var requestedDailyPlanDate: Date?
     var data: AppData = .empty {
         didSet {
             if !previewOnly, oldValue.dailyItems != data.dailyItems || oldValue.dailyCompletions != data.dailyCompletions
                 || oldValue.dailyReminders != data.dailyReminders {
                 refreshReminders()
             }
-            // 공통 종목 최고기록이 바뀔 수 있는 변경이면 친구 공개를 예약(공개를 켠 계정만 실제로 올림)
+            // 운동 종목 최고기록이 바뀔 수 있는 변경이면 친구 공개를 예약(공개를 켠 계정만 실제로 올림)
             if !previewOnly, !replacingData, oldValue.records != data.records || oldValue.workouts != data.workouts {
                 social.schedulePublish()
             }
@@ -77,7 +78,11 @@ final class AppModel {
     }
     var savedToday: Bool { data.hasSavedWorkout(on: currentDate) }
 
-    func startWorkout() {
+    func startWorkout(catalog: [CatalogRecordType]? = nil) {
+        if let catalog, !todayPlan.exercises.allSatisfy({ data.isRegisteredExercise($0, catalog: catalog) }) {
+            storageError = "등록된 운동 종목으로 계획을 다시 설정해 주세요. 기존 계획과 기록은 보관됩니다."
+            return
+        }
         data.startWorkout()
         if data.activeWorkout != nil { savedWorkout = nil }
     }
@@ -200,12 +205,24 @@ final class AppModel {
 
     /// 세트 완료 → 기록하고 설정한 기본 휴식(모든 운동 공통) 타이머 시작.
     /// 마지막 세트까지 끝나 운동이 일지로 저장되면 휴식은 켜지 않는다.
-    func completeSet(_ exercise: Exercise, actualReps: Int? = nil) {
+    func completeSet(_ exercise: Exercise, actualReps: Int? = nil, measurement: Double? = nil, extraReps: Int = 0) {
         guard let session = data.activeWorkout else { return }
         let date = workoutDate
         let before = data.exerciseRecords()
         let completedBefore = session.done
-        data.changeSets(exercise.id, by: 1, on: date, actualReps: actualReps)
+        var entry: RecordEntry?
+        var next = data
+        if let measurement {
+            guard let type = account.catalogTypes.first(where: { $0.active && AppData.exerciseKey($0.name) == AppData.exerciseKey(exercise.name) }),
+                  type.recordType.acceptsValue(measurement), measurement >= 0, measurement <= 1_000_000,
+                  extraReps >= 0, extraReps <= 1_000_000 else { return }
+            if DayKey.key(date) == DayKey.key(Date()) {
+                entry = RecordEntry(typeID: type.id, date: Date(), value: measurement, extraReps: extraReps)
+                if !next.recordTypes.contains(where: { $0.id == type.id }) { next.recordTypes.append(type.recordType) }
+            }
+        }
+        next.changeSets(exercise.id, by: 1, on: date, actualReps: actualReps, recordEntry: entry)
+        data = next
         // 마지막 세트로 운동이 자동 종료되면 일지가 저장되므로 최고기록도 바로 갱신된다.
         if data.activeWorkout == nil { stopRest(); _ = markSaved(session.id, recordsBefore: before); return }
         let progress = workoutProgress
@@ -246,24 +263,9 @@ final class AppModel {
     @discardableResult
     func addRecord(_ entry: RecordEntry) -> Bool { saveRecord(entry) == .newBest }
 
-    /// 공통 종목(횟수·라운드·측정 단위) 기록 저장. 저장에 실패하면 `.rejected`.
+    /// Kept for compatibility with retained editors; new bests require today's execution.
     func saveRecord(_ entry: RecordEntry) -> RecordSaveResult {
-        guard let definition = account.catalogTypes.first(where: { $0.id == entry.typeID && $0.active }),
-              definition.recordType.acceptsValue(entry.value), entry.value >= 0, entry.value <= 1_000_000,
-              entry.extraReps >= 0, entry.extraReps <= 1_000_000 else {
-            storageError = "입력할 수 없는 종목 또는 기록이에요. 공통 목록과 입력값을 확인해 주세요."
-            return .rejected
-        }
-        var next = data
-        if !next.recordTypes.contains(where: { $0.id == definition.id }) {
-            next.recordTypes.append(definition.recordType)
-        }
-        let previous = next.best(definition.recordType)
-        next.records.append(entry)
-        data = next
-        // 저장 실패 시 data가 되돌려져 기록이 없다.
-        guard data.records.contains(where: { $0.id == entry.id }) else { return .rejected }
-        let better = previous.map { definition.recordType.isBetter(entry, than: $0) } ?? true
-        return better ? .newBest : .saved
+        storageError = "최고기록은 실행 탭에서 오늘 완료한 운동으로만 갱신할 수 있어요."
+        return .rejected
     }
 }

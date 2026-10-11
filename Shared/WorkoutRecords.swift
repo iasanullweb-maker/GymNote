@@ -1,8 +1,8 @@
 import Foundation
 
 // MARK: - 운동 일지로 자동 계산하는 최고기록
-// 저장하지 않고 일지(마친 운동)에서 매번 계산한다. 그래서 일지를 고치거나 지우면 자동으로 다시 계산되고,
-// 저장 형식이 바뀌지 않아 예전 앱·다른 기기와 동기화에도 영향이 없다.
+// 기존 일지의 최고값은 한 번 보존하고, 이후 오늘 실행 화면에서 완료한 세트만 추가한다.
+// 별도 성취 스냅샷을 사용하므로 과거 일지 수정·삭제가 최고기록을 바꾸지 않는다.
 // 계획 횟수는 쓰지 않고, 세트마다 실제로 기록한 횟수(actualReps)만 사용한다.
 
 struct AutoRecord: Equatable {
@@ -37,7 +37,7 @@ extension AppData {
     func exerciseRecords() -> [String: ExerciseRecords] {
         var result: [String: ExerciseRecords] = [:]
         var dayTotals: [String: [String: (value: Int, date: Date)]] = [:] // key → day → 합계
-        for session in workouts.sorted(by: { $0.startedAt < $1.startedAt }) {
+        for session in (recordWorkouts ?? workouts).sorted(by: { $0.startedAt < $1.startedAt }) {
             for exercise in session.plan.exercises {
                 let key = Self.exerciseKey(exercise.name)
                 guard !key.isEmpty else { continue }
@@ -49,7 +49,7 @@ extension AppData {
                 result[key] = record
                 let previous = dayTotals[key, default: [:]][session.day]
                 dayTotals[key, default: [:]][session.day] =
-                    ((previous?.value ?? 0) + values.reduce(0, +), previous?.date ?? session.startedAt)
+                    ((previous?.value ?? 0) + (session.recordTotals[exercise.id.uuidString] ?? values.reduce(0, +)), previous?.date ?? session.startedAt)
             }
         }
         for (key, days) in dayTotals {

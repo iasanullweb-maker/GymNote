@@ -4,6 +4,7 @@ struct RoutineView: View {
     @Environment(AppModel.self) private var model
     @Binding var selectedDate: Date
     @State private var confirmingRepeat = false
+    @State private var calendarDay: PlanningDay?
     @AppStorage("planShowWorkoutAndDaily") private var showAll = false
 
     var body: some View {
@@ -12,7 +13,9 @@ struct RoutineView: View {
             CalendarScrollView {
                 CalendarSection("캘린더") {
                     Toggle("운동·일상 함께 보기", isOn: $showAll)
-                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout)
+                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout) {
+                        calendarDay = PlanningDay(date: $0)
+                    }
                     Divider()
                     NavigationLink {
                         ScheduledDayEditor(date: selectedDate)
@@ -67,21 +70,18 @@ struct RoutineView: View {
                     Text("반복하면 이후 주의 같은 요일 계획을 덮어써. 오늘과 지난 날짜는 바뀌지 않아.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                CalendarSection("운동 목록") {
-                    NavigationLink {
-                        ExerciseLibraryView()
-                    } label: {
-                        HStack {
-                            Label("운동 목록", systemImage: "list.bullet.rectangle")
-                            Spacer()
-                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
-                        }
-                    }
-                    Text("운동을 미리 만들어 두고 날짜별 계획에 가져올 수 있어. 일정은 자동으로 반복되지 않으니 '다음 주에도 반복'을 써 줘.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                }
             }
             .navigationTitle("계획")
+            .sheet(item: $calendarDay) { day in
+                NavigationStack {
+                    if model.data.workouts(on: day.date).isEmpty {
+                        ScheduledDayEditor(date: day.date)
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { calendarDay = nil } } }
+                    } else {
+                        WorkoutJournalDayDetail(date: day.date)
+                    }
+                }
+            }
             .confirmationDialog("이 주 계획을 몇 주 동안 반복할까?", isPresented: $confirmingRepeat, titleVisibility: .visible) {
                 ForEach([1, 2, 4, 8], id: \.self) { weeks in
                     Button("다음 \(weeks)주") { model.data.repeatWeek(containing: selectedDate, weeks: weeks) }
@@ -93,8 +93,14 @@ struct RoutineView: View {
     }
 }
 
+struct PlanningDay: Identifiable {
+    let date: Date
+    var id: String { DayKey.key(date) }
+}
+
 struct ScheduledDayEditor: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     let date: Date
     @State private var showingAdd = false
     @State private var showingCopy = false
@@ -132,7 +138,7 @@ struct ScheduledDayEditor: View {
             } header: {
                 Text("운동")
             } footer: {
-                Text("운동을 모두 지우면 휴식일이 돼. 가져온 운동의 세트·횟수를 바꿔도 운동 목록은 그대로야.")
+                Text("운동 종목을 선택하고 이 날짜의 세트·횟수를 정하세요. 실행할 때 계획한 횟수로 시작해요.")
             }
             Section {
                 Button("기본 루틴 선택해서 추가") { showingStarter = true }
@@ -169,6 +175,7 @@ struct ScheduledDayEditor: View {
         }
         .sheet(isPresented: $showingCopy) {
             PlanCopyView(targetDate: date) { source in
+                guard source.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) else { return false }
                 var copy = source
                 copy.exercises = source.exercises.map { exercise in
                     var next = exercise
@@ -251,7 +258,7 @@ struct ExerciseLibraryView: View {
                 EditButton()
             }
             ToolbarItem(placement: .primaryAction) {
-                Button(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내") { showingCatalog = true }
+                Button(account.canManageCatalog ? "운동 종목 관리" : "운동 종목 안내") { showingCatalog = true }
             }
         }
         .task { await account.refreshRecordCatalog() }
@@ -286,23 +293,6 @@ struct ExercisePicker: View {
                     saveToLibrary = false
                     draft = type.makeExercise()
                 }
-                Section("운동 목록에서 가져오기") {
-                    ForEach(model.data.exerciseLibrary) { exercise in
-                        Button {
-                            var copy = exercise
-                            copy.id = UUID()
-                            saveToLibrary = false
-                            draft = copy
-                        } label: { ExerciseSummary(exercise: exercise) }.foregroundStyle(.primary)
-                    }
-                    if model.data.exerciseLibrary.isEmpty {
-                        Text("아래에서 첫 운동을 만들어 줘.").foregroundStyle(.secondary)
-                    }
-                }
-                Button {
-                    saveToLibrary = true
-                    draft = Exercise(name: "", sets: 3, detail: "10회")
-                } label: { Label("새 운동 만들기", systemImage: "plus") }
             }
             .navigationTitle("운동 추가")
             .task { await account.refreshRecordCatalog() }
@@ -338,13 +328,13 @@ struct CatalogExerciseSection: View {
                 }.foregroundStyle(.primary)
             }
             if !account.catalogTypes.contains(where: \.active) {
-                Text("현재 사용할 수 있는 공통 종목이 없어요.").foregroundStyle(.secondary)
+                Text("현재 사용할 수 있는 운동 종목이 없어요.").foregroundStyle(.secondary)
             }
             if let message = account.catalogMessage {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
             }
-        } header: { Text("공통 운동 종목") } footer: {
-            Text("관리자가 등록한 운동이에요. 선택 후 내 세트·횟수·시간을 설정할 수 있어요. 공통 목록이 바뀌어도 저장한 계획과 기록은 유지돼요.")
+        } header: { Text("운동 종목") } footer: {
+            Text("관리자가 등록한 운동이에요. 선택 후 내 세트·횟수·시간을 설정할 수 있어요. 운동 목록이 바뀌어도 저장한 계획과 기록은 유지돼요.")
         }
     }
 }
@@ -388,9 +378,16 @@ struct ExerciseDraftForm: View {
     var body: some View {
         Form {
             if saveFailed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
-            TextField("운동 이름", text: $exercise.name).focused($nameFocused)
+            LabeledContent("운동 종목", value: exercise.name)
             Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
-            TextField("횟수·시간 (예: 10회, 1분)", text: $exercise.detail)
+            if let reps = exercise.plannedReps {
+                Stepper("목표 횟수: \(reps)회", value: Binding(
+                    get: { exercise.plannedReps ?? reps },
+                    set: { exercise.detail = "\($0)회" }
+                ), in: 1...9999)
+            } else {
+                TextField("시간·수행 조건", text: $exercise.detail)
+            }
             if exercise.hasPercentageTarget {
                 Text("비율 대신 횟수를 입력해 주세요. 예: 10회")
                     .font(.footnote).foregroundStyle(.secondary)

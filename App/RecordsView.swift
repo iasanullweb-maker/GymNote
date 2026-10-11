@@ -30,41 +30,22 @@ struct RecordsView: View {
                         }
                         let autoRecords = model.data.exerciseRecords()
                         if account.catalogTypes.filter(\.active).isEmpty {
-                            Text("현재 사용할 수 있는 공통 종목이 없어요.").foregroundStyle(.secondary)
+                            Text("현재 사용할 수 있는 운동 종목이 없어요.").foregroundStyle(.secondary)
                         }
                         ForEach(account.catalogTypes.filter(\.active)) { definition in
                             RecordSection(type: definition.recordType,
                                           auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords))
                         }
-                        ForEach(account.catalogTypes.filter { !$0.active && !model.data.entries($0.recordType).isEmpty }) { definition in
+                        ForEach(account.catalogTypes.filter { !$0.active && (!model.data.recordProjection(catalog: account.catalogTypes).entries($0.recordType).isEmpty || model.data.exerciseRecords(for: $0.recordType, in: autoRecords) != nil) }) { definition in
                             RecordSection(type: definition.recordType,
                                           auto: model.data.exerciseRecords(for: definition.recordType, in: autoRecords))
                         }
-                        if !legacyTypes.isEmpty {
-                            Section {
-                                ForEach(legacyTypes) { type in
-                                    NavigationLink(type.name) { RecordHistoryView(typeID: type.id) }
-                                }
-                            } header: { Text("이전 개인 기록") } footer: {
-                                Text("기존 기록은 보존됩니다. 새 기록은 실행 탭 또는 지난 운동 기록에서 남겨 주세요.")
-                            }
-                        }
-                        let unlinked = unlinkedAutoRecords(autoRecords)
-                        if !unlinked.isEmpty {
-                            Section {
-                                ForEach(unlinked) { record in AutoRecordRow(record: record) }
-                            } header: {
-                                Text("운동 일지 자동 기록").font(.title3.bold()).textCase(nil)
-                            } footer: {
-                                Text("개인 운동 일지에서 계산한 기록이에요. 공통 종목과 같은 이름의 횟수 운동은 해당 종목에 함께 표시됩니다.")
-                            }
-                        }
                         Section {
                             Button { showingTypes = true } label: {
-                                Label(account.canManageCatalog ? "공통 종목 관리" : "공통 종목 안내", systemImage: "list.bullet")
+                                Label(account.canManageCatalog ? "운동 종목 관리" : "운동 종목 안내", systemImage: "list.bullet")
                             }
                         } footer: {
-                            Text("운동 일지의 실제 횟수로 한 세트·하루 총량 최고 기록을 자동 계산해요. 위젯은 그날 계획한 운동을 표시하고, 운동이 없는 날에는 사용 중인 공통 종목의 앞 3개를 표시해요.")
+                            Text("모든 기록 중 최고값을 보관해요. 최고기록 갱신은 실행 탭에서 오늘 완료한 운동으로만 할 수 있어요.")
                         }
                     }
                 }
@@ -97,17 +78,19 @@ struct RecordsView: View {
 struct RecordSection: View {
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     let type: RecordType
     var auto: ExerciseRecords? = nil
 
     var body: some View {
-        let entries = model.data.entries(type)
-        let best = model.data.best(type)
+        let display = model.data.recordProjection(catalog: account.catalogTypes)
+        let entries = display.entries(type)
+        let best = display.best(type)
 
         Section {
             if let auto {
                 // 수동 기록과 운동 일지 중 더 높은 한 세트 + 운동 일지의 하루 총량
-                let combined = model.data.combinedBestSet(for: type, auto: auto)
+                let combined = display.combinedBestSet(for: type, auto: auto)
                 let unit = type.unit.isEmpty ? "회" : type.unit
                 RecordValueRow(title: "한 세트 최고",
                                value: combined.map { RecordType.number($0.value) + unit },
@@ -121,7 +104,7 @@ struct RecordSection: View {
                         Text("최고 기록")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(best.map { type.display($0) } ?? "아직 없음")
+                        Text(best.map { type.display($0) } ?? "기록 없음")
                             .font(.title2)
                             .bold()
                     }
@@ -134,7 +117,7 @@ struct RecordSection: View {
             }
 
             if entries.isEmpty, auto != nil {
-                Text("운동 일지 기록은 위 최고 기록에 자동으로 반영돼요. 종목별 기록은 실행 탭에서 남길 수 있어요.")
+                Text("최고기록은 실행 탭에서 오늘 완료한 운동으로 갱신해요.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if !entries.isEmpty {
@@ -162,7 +145,7 @@ struct RecordSection: View {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.xyaxis.line")
                         .font(.title2)
-                    Text("실행 탭에서 종목 기록을 남기면 변화가 그래프로 보여요")
+                    Text("실행 탭에서 오늘 운동을 완료하면 최고기록이 반영돼요")
                         .font(.callout)
                         .multilineTextAlignment(.center)
                 }
@@ -218,8 +201,9 @@ struct RecordHistoryView: View {
 
     var body: some View {
         let type = model.data.recordDisplayTypes(catalog: account.catalogTypes).first { $0.id == typeID }
-        let entries: [RecordEntry] = type.map { Array(model.data.entries($0).reversed()) } ?? []
-        let best = type.flatMap { model.data.best($0) }
+        let display = model.data.recordProjection(catalog: account.catalogTypes)
+        let entries: [RecordEntry] = type.map { Array(display.entries($0).reversed()) } ?? []
+        let best = type.flatMap { display.best($0) }
 
         List {
             if let type = type {
@@ -228,14 +212,14 @@ struct RecordHistoryView: View {
                         RecordRow(type: type, entry: entry, isBest: entry.id == best?.id)
                     }
                 } footer: {
-                    Text("기록 갱신은 실행 탭 또는 지난 운동 기록에서 할 수 있어요.")
+                    Text("최고기록 갱신은 실행 탭에서 오늘 완료한 운동으로만 할 수 있어요.")
                 }
             }
         }
         .navigationTitle(type?.name ?? "기록")
         .overlay {
             if entries.isEmpty {
-                Text("기록이 없어").foregroundStyle(.secondary)
+                Text("기록 없음").foregroundStyle(.secondary)
             }
         }
     }
@@ -354,7 +338,7 @@ struct RecordValueRow: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.caption).foregroundStyle(.secondary)
-                Text(value ?? "아직 없음").font(.title2).bold()
+                Text(value ?? "기록 없음").font(.title2).bold()
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {

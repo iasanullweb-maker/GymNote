@@ -299,6 +299,33 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
     // Missing entries mean the actual count was not recorded (older journals).
     var actualReps: [String: [Int?]] = [:]
     var actualWeights: [String: [Double?]] = [:] // 세트별 kg. 이전 일지는 미기록.
+    /// Only counts completed in today's execution screen can establish a new best.
+    var recordReps: [String: [Int?]] = [:]
+    var recordEntries: [String: [RecordEntry?]] = [:]
+    /// Compact achievement snapshots retain a maximum and a total, rather than every set.
+    var recordTotals: [String: Int] = [:]
+
+    var bestRecordSnapshot: WorkoutSession {
+        var result = self
+        result.plan.title = ""
+        result.plan.exercises = []
+        result.completedSets = [:]; result.actualReps = [:]
+        result.actualWeights = [:]; result.recordEntries = [:]
+        result.recordReps = [:]; result.recordTotals = [:]; result.endedAt = nil
+        for original in plan.exercises {
+            let values = (0..<doneSets(original)).compactMap { repetitions(original, set: $0) }
+            guard let best = values.max() else { continue }
+            var exercise = original
+            exercise.sets = 1; exercise.detail = ""; exercise.restSeconds = 0
+            result.plan.exercises.append(exercise)
+            let key = exercise.id.uuidString
+            result.completedSets[key] = 1
+            result.actualReps[key] = [best]
+            result.recordTotals[key] = recordTotals[key] ?? values.reduce(0, +)
+            if !recordReps.isEmpty { result.recordReps[key] = [best] }
+        }
+        return result
+    }
 
     var day: String { DayKey.key(startedAt) }
     var done: Int { plan.exercises.reduce(0) { $0 + doneSets($1) } }
@@ -315,7 +342,7 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
 }
 
 extension WorkoutSession {
-    private enum CodingKeys: String, CodingKey { case id, startedAt, endedAt, plan, completedSets, actualReps, actualWeights }
+    private enum CodingKeys: String, CodingKey { case id, startedAt, endedAt, plan, completedSets, actualReps, actualWeights, recordReps, recordEntries, recordTotals }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -326,6 +353,9 @@ extension WorkoutSession {
         completedSets = try c.decodeIfPresent([String: Int].self, forKey: .completedSets) ?? [:]
         actualReps = try c.decodeIfPresent([String: [Int?]].self, forKey: .actualReps) ?? [:]
         actualWeights = try c.decodeIfPresent([String: [Double?]].self, forKey: .actualWeights) ?? [:]
+        recordReps = try c.decodeIfPresent([String: [Int?]].self, forKey: .recordReps) ?? [:]
+        recordEntries = try c.decodeIfPresent([String: [RecordEntry?]].self, forKey: .recordEntries) ?? [:]
+        recordTotals = try c.decodeIfPresent([String: Int].self, forKey: .recordTotals) ?? [:]
     }
 }
 
@@ -343,12 +373,14 @@ struct AppData: Codable, Equatable {
     var exerciseLibrary: [Exercise] = []
     var activeWorkout: WorkoutSession?
     var workouts: [WorkoutSession] = []
+    /// Frozen achievements survive journal edits/deletions. Nil marks pre-policy data.
+    var recordWorkouts: [WorkoutSession]?
     var dailyItems: [DailyItem] = []
     var dailyCompletions: [DailyCompletion] = []
     var dailyReminders = DailyReminderSettings()
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, dailyItems, dailyCompletions, dailyReminders
+        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, recordWorkouts, dailyItems, dailyCompletions, dailyReminders
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -377,6 +409,7 @@ struct AppData: Codable, Equatable {
         restStep = try c.decodeIfPresent(Int.self, forKey: .restStep) ?? 15
         activeWorkout = try c.decodeIfPresent(WorkoutSession.self, forKey: .activeWorkout)
         workouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .workouts) ?? []
+        recordWorkouts = try c.decodeIfPresent([WorkoutSession].self, forKey: .recordWorkouts)
         dailyItems = try c.decodeIfPresent([DailyItem].self, forKey: .dailyItems) ?? []
         dailyCompletions = try c.decodeIfPresent([DailyCompletion].self, forKey: .dailyCompletions) ?? []
         dailyReminders = try c.decodeIfPresent(DailyReminderSettings.self, forKey: .dailyReminders) ?? DailyReminderSettings()
@@ -564,7 +597,7 @@ extension AppData {
     }
 
     /// 세트 수를 delta만큼 바꿈. wrap이 true면 다 채운 상태에서 +1 할 때 0으로 돌아감 (위젯에서 되돌리기용)
-    mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date(), actualReps: Int? = nil, at completedAt: Date = Date()) {
+    mutating func changeSets(_ exerciseID: UUID, by delta: Int, wrap: Bool = false, on date: Date = Date(), actualReps: Int? = nil, at completedAt: Date = Date(), creditRecords: Bool = true, recordEntry: RecordEntry? = nil) {
         let currentPlan = activeWorkout.flatMap { $0.day == DayKey.key(date) ? $0.plan : nil } ?? plan(for: date)
         guard let exercise = currentPlan.exercises.first(where: { $0.id == exerciseID }) else { return }
         let key = DayKey.key(date)
@@ -587,6 +620,18 @@ extension AppData {
                 values.append((actualReps ?? exercise.plannedReps).map { min(max($0, 0), 9999) })
             }
             activeWorkout?.actualReps[exerciseID.uuidString] = values
+            var credited = Array((activeWorkout?.recordReps[exerciseID.uuidString] ?? []).prefix(count))
+            while credited.count < count {
+                let index = credited.count
+                credited.append(creditRecords && index >= current && key == DayKey.key(completedAt) ? values[index] : nil)
+            }
+            activeWorkout?.recordReps[exerciseID.uuidString] = credited
+            var entries = Array((activeWorkout?.recordEntries[exerciseID.uuidString] ?? []).prefix(count))
+            while entries.count < count {
+                let index = entries.count
+                entries.append(creditRecords && index >= current && key == DayKey.key(completedAt) ? recordEntry : nil)
+            }
+            activeWorkout?.recordEntries[exerciseID.uuidString] = entries
             if delta > 0, let session = activeWorkout, session.total > 0, session.done == session.total {
                 finishWorkout(at: completedAt)
             }
@@ -596,7 +641,8 @@ extension AppData {
         if logs.count > 400 { logs.removeFirst(logs.count - 400) }
     }
 
-    mutating func updateRepetitions(sessionID: UUID, exerciseID: UUID, set index: Int, value: Int) {
+    mutating func updateRepetitions(sessionID: UUID, exerciseID: UUID, set index: Int, value: Int, creditRecords: Bool = false, at now: Date = Date()) {
+        preserveExistingBestRecords()
         func updated(_ session: WorkoutSession) -> WorkoutSession {
             guard let exercise = session.plan.exercises.first(where: { $0.id == exerciseID }),
                   index >= 0, index < session.doneSets(exercise) else { return session }
@@ -607,7 +653,13 @@ extension AppData {
             copy.actualReps[exerciseID.uuidString] = values
             return copy
         }
-        if let session = activeWorkout, session.id == sessionID { activeWorkout = updated(session) }
+        if let session = activeWorkout, session.id == sessionID {
+            activeWorkout = updated(session)
+            if creditRecords, session.day == DayKey.key(now), index >= 0, index < session.recordReps[exerciseID.uuidString, default: []].count,
+               session.recordReps[exerciseID.uuidString]?[index] != nil {
+                activeWorkout?.recordReps[exerciseID.uuidString]?[index] = min(max(value, 0), 9999)
+            }
+        }
         if let i = workouts.firstIndex(where: { $0.id == sessionID }) { workouts[i] = updated(workouts[i]) }
     }
 
@@ -636,10 +688,23 @@ extension AppData {
         return true
     }
 
+    /// One-time baseline: later journal edits cannot rewrite historical achievements.
+    mutating func preserveExistingBestRecords() {
+        if recordWorkouts == nil { recordWorkouts = workouts.map(\.bestRecordSnapshot).filter { !$0.plan.exercises.isEmpty } }
+    }
+
     @discardableResult
     mutating func finishWorkout(at date: Date = Date()) -> Bool {
         guard var session = activeWorkout, session.done > 0 else { return false }
+        preserveExistingBestRecords()
         session.endedAt = max(date, session.startedAt)
+        for entry in session.recordEntries.values.flatMap({ $0 }).compactMap({ $0 })
+        where !records.contains(where: { $0.id == entry.id }) { records.append(entry) }
+        if session.recordReps.values.contains(where: { $0.contains(where: { $0 != nil }) }) {
+            var achievement = session
+            achievement.actualReps = session.recordReps
+            if !recordWorkouts!.contains(where: { $0.id == session.id }) { recordWorkouts!.append(achievement.bestRecordSnapshot) }
+        }
         if let index = workouts.firstIndex(where: { $0.id == session.id }) {
             workouts[index] = session
         } else {
@@ -657,7 +722,7 @@ extension AppData {
         }
         // 자정 이후에도 시작한 날의 진행 중 운동을 체크한다.
         let workoutDate = activeWorkout?.startedAt ?? now
-        changeSets(exerciseID, by: 1, wrap: true, on: workoutDate, at: now)
+        changeSets(exerciseID, by: 1, wrap: true, on: workoutDate, at: now, creditRecords: false)
     }
 
     /// 선택한 주(월~일)의 계획을 이후 몇 주에 복사. 오늘 이후 날짜만 바꾸고, 지난 날짜·오늘은 건드리지 않음.

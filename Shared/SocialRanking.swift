@@ -104,7 +104,7 @@ extension AppData {
         return CatalogRecordType.sorted(catalog).filter(\.active).compactMap { definition in
             let type = definition.recordType
             // 기존 백업의 소수 기록은 보존하되 경쟁 후보에서 제외한 뒤 최고기록을 고른다.
-            var eligible = self
+            var eligible = recordProjection(catalog: catalog)
             eligible.records.removeAll { $0.typeID == type.id && !type.acceptsCompetitiveRecord($0) }
             if Self.acceptsWorkoutRepetitions(type),
                let combined = eligible.combinedBestSet(for: type, auto: exerciseRecords(for: type, in: all)),

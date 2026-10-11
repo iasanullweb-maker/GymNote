@@ -88,6 +88,11 @@ extension AppData {
     /// Import without replacing existing account records or settings. IDs make re-import idempotent.
     func importingGuest(_ guest: AppData) -> AppData {
         var result = self
+        result.preserveExistingBestRecords()
+        for achievement in guest.recordWorkouts ?? guest.workouts
+        where !result.recordWorkouts!.contains(where: { $0.id == achievement.id }) {
+            result.recordWorkouts!.append(achievement.bestRecordSnapshot)
+        }
         if result.week.allSatisfy(\.isRestDay) { result.week = guest.week }
         var typeIDs: [String: String] = [:]
         for type in guest.recordTypes {
@@ -152,6 +157,11 @@ extension AppData {
     /// Apply only the app's edits to the latest disk snapshot, preserving concurrent widget checks.
     func applyingEdits(from base: AppData, to edited: AppData) -> AppData {
         var result = self
+        if result.recordWorkouts == nil { result.recordWorkouts = base.recordWorkouts ?? edited.recordWorkouts }
+        result.preserveExistingBestRecords()
+        result.recordWorkouts = mergeByID(latest: result.recordWorkouts!,
+                                         base: base.recordWorkouts ?? base.workouts,
+                                         edited: edited.recordWorkouts ?? base.recordWorkouts ?? base.workouts)
         // Lists merge by ID so items another device (or the widget) added in the meantime are kept.
         result.dailyItems = mergeByID(latest: result.dailyItems, base: base.dailyItems, edited: edited.dailyItems)
         result.dailyCompletions = mergeByID(latest: result.dailyCompletions, base: base.dailyCompletions, edited: edited.dailyCompletions)
@@ -243,6 +253,35 @@ extension AppData {
                         }
                     }
                     copy.actualReps[key] = values
+                    var credited = latestSession.recordReps[key] ?? []
+                    while credited.count < latestCount { credited.append(nil) }
+                    if editedCount > beforeCount {
+                        let incoming = editedSession.recordReps[key] ?? []
+                        for index in beforeCount..<editedCount {
+                            credited.append(index < incoming.count ? incoming[index] : nil)
+                        }
+                    }
+                                        let incoming = editedSession.recordReps[key] ?? []
+                    let original = beforeSession.recordReps[key] ?? []
+                    for index in 0..<min(beforeCount, editedCount) {
+                        let beforeValue = index < original.count ? original[index] : nil
+                        let value = index < incoming.count ? incoming[index] : nil
+                        if value != beforeValue { credited[index] = value }
+                    }
+                    copy.recordReps[key] = Array(credited.prefix(copy.doneSets(exercise)))
+                    var entries = latestSession.recordEntries[key] ?? []
+                    while entries.count < latestCount { entries.append(nil) }
+                    let newEntries = editedSession.recordEntries[key] ?? []
+                    let oldEntries = beforeSession.recordEntries[key] ?? []
+                    if editedCount > beforeCount {
+                        for index in beforeCount..<editedCount { entries.append(index < newEntries.count ? newEntries[index] : nil) }
+                    }
+                    for index in 0..<min(beforeCount, editedCount) {
+                        let value = index < newEntries.count ? newEntries[index] : nil
+                        let previous = index < oldEntries.count ? oldEntries[index] : nil
+                        if value != previous { entries[index] = value }
+                    }
+                    copy.recordEntries[key] = Array(entries.prefix(copy.doneSets(exercise)))
                 }
                 let key = exercise.id.uuidString
                 copy.actualReps[key] = copy.actualReps[key].map { Array($0.prefix(copy.doneSets(exercise))) }
@@ -266,6 +305,17 @@ extension AppData {
         }
         for index in result.workouts.indices where touchedSessionIDs.contains(result.workouts[index].id) {
             result.workouts[index] = withMergedProgress(result.workouts[index])
+            for entry in result.workouts[index].recordEntries.values.flatMap({ $0 }).compactMap({ $0 })
+            where !result.records.contains(where: { $0.id == entry.id }) { result.records.append(entry) }
+            var achievement = result.workouts[index]
+            achievement.actualReps = achievement.recordReps
+            if let achievementIndex = result.recordWorkouts?.firstIndex(where: { $0.id == achievement.id }) {
+                if !result.recordWorkouts![achievementIndex].recordReps.isEmpty {
+                    result.recordWorkouts![achievementIndex] = achievement.bestRecordSnapshot
+                }
+            } else if achievement.recordReps.values.contains(where: { $0.contains(where: { $0 != nil }) }) {
+                result.recordWorkouts!.append(achievement.bestRecordSnapshot)
+            }
         }
         return result
     }
@@ -292,7 +342,8 @@ extension AppData {
 
     /// True when the same item was changed differently here (`local`) and on another device (`self`).
     func hasCloudConflict(local: AppData, base: AppData) -> Bool {
-        let remote = self
+        var remote = self
+        if remote.recordWorkouts == nil { remote.recordWorkouts = base.recordWorkouts ?? local.recordWorkouts }
         if divergent(base.week, local.week, remote.week)
             || divergent(base.defaultRest, local.defaultRest, remote.defaultRest)
             || divergent(base.restSound, local.restSound, remote.restSound)
@@ -300,6 +351,7 @@ extension AppData {
             || divergent(base.dailyReminders, local.dailyReminders, remote.dailyReminders)
             || divergent(base.activeWorkout, local.activeWorkout, remote.activeWorkout) { return true }
         if divergentByID(base.recordTypes, local.recordTypes, remote.recordTypes)
+            || divergentByID(base.recordWorkouts ?? base.workouts, local.recordWorkouts ?? local.workouts, remote.recordWorkouts ?? remote.workouts)
             || divergentByID(base.records, local.records, remote.records)
             || divergentByID(base.exerciseLibrary, local.exerciseLibrary, remote.exerciseLibrary)
             || divergentByID(base.workouts, local.workouts, remote.workouts)

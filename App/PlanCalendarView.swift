@@ -130,11 +130,11 @@ struct PlanCalendarView: View {
             including: onShowDateDetails == nil ? .none : .all
         )
         .accessibilityLabel(date.formatted(.dateTime.year().month().day()) + ", " + summary)
-        .accessibilityHint(onShowDateDetails == nil ? "날짜 선택" : "길게 눌러 이 날짜의 모든 운동 기록 보기")
+        .accessibilityHint(onShowDateDetails == nil ? "날짜 선택" : (content != .journal && workouts.isEmpty ? "길게 눌러 이 날짜의 계획 설정" : "길게 눌러 이 날짜의 모든 운동 기록 보기"))
         .accessibilityAddTraits(selected ? [.isSelected] : [])
         .accessibilityActions {
             if let onShowDateDetails {
-                Button("전체 운동 기록 보기") {
+                Button(content != .journal && workouts.isEmpty ? "계획 설정" : "전체 운동 기록 보기") {
                     selectedDate = date
                     onShowDateDetails(date)
                 }

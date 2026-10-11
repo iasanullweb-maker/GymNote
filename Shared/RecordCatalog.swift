@@ -52,6 +52,27 @@ struct RecordCatalogCache: Codable {
 }
 
 extension AppData {
+    func isRegisteredExercise(_ exercise: Exercise, catalog: [CatalogRecordType]) -> Bool {
+        catalog.contains { $0.active && Self.exerciseKey($0.name) == Self.exerciseKey(exercise.name) }
+    }
+
+    /// Keep old personal records comparable under the matching administrator definition.
+    /// This projection never rewrites historical IDs in the account backup.
+    func recordProjection(catalog: [CatalogRecordType]) -> AppData {
+        var result = self
+        for old in recordTypes {
+            guard let current = catalog.first(where: {
+                Self.exerciseKey($0.name) == Self.exerciseKey(old.name) && $0.unit == old.unit
+                    && $0.style == old.style && $0.repsPerRound == old.repsPerRound
+                    && $0.lowerIsBetter == old.lowerIsBetter
+            }), current.id != old.id else { continue }
+            for index in result.records.indices where result.records[index].typeID == old.id {
+                result.records[index].typeID = current.id
+            }
+        }
+        result.recordTypes = recordDisplayTypes(catalog: catalog)
+        return result
+    }
     /// This is a display projection only. Never replace the private backup's legacy definitions.
     func recordDisplayTypes(catalog: [CatalogRecordType]) -> [RecordType] {
         let common = CatalogRecordType.sorted(catalog).map(\.recordType)

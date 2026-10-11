@@ -240,7 +240,7 @@ final class SocialModel {
         }
     }
 
-    /// 공통 종목 최고기록을 올린다. 마지막으로 올린 내용과 같으면 보내지 않는다.
+    /// 운동 종목 최고기록을 올린다. 마지막으로 올린 내용과 같으면 보내지 않는다.
     /// 닉네임을 정하지 않았거나 공개를 껐으면 서버가 아무것도 저장하지 않는다.
     func publish(force: Bool) async {
         guard signedIn, account.isOnline, !withdrawing, let user = account.user?.id else { return }

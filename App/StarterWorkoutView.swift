@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StarterWorkoutView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
     let date: Date
     @State private var equipment = WorkoutEquipment.bodyweight
@@ -11,6 +12,7 @@ struct StarterWorkoutView: View {
     @State private var owner: UUID?
 
     private var preview: DayPlan { StarterWorkouts.plan(equipment: equipment, experience: experience, minutes: minutes) }
+    private var registered: Bool { preview.exercises.allSatisfy { model.data.isRegisteredExercise($0, catalog: account.catalogTypes) } }
     private var activeOnDate: Bool { model.data.activeWorkout?.day == DayKey.key(date) }
 
     var body: some View {
@@ -48,6 +50,7 @@ struct StarterWorkoutView: View {
                         Text("이 날짜의 운동을 진행 중이에요. 마친 뒤 계획을 추가해 주세요.")
                             .foregroundStyle(.secondary)
                     }
+                    if !registered { Text("이 루틴에는 현재 등록되지 않은 운동이 있어요. 운동 추가에서 종목을 선택해 주세요.").foregroundStyle(.secondary) }
                     if let failure { Text(failure).foregroundStyle(.red) }
                 }
             }
@@ -56,6 +59,7 @@ struct StarterWorkoutView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("계획에 추가") {
+                        guard registered else { return }
                         guard model.selection.generation == owner else {
                             failure = "계정이 바뀌었어요. 취소한 뒤 다시 선택해 주세요."
                             return
@@ -67,7 +71,7 @@ struct StarterWorkoutView: View {
                         let savedIDs = Set(model.data.plan(for: date).exercises.map(\.id))
                         if persisted && ids.allSatisfy({ savedIDs.contains($0) }) { dismiss() }
                         else { failure = "계획을 추가하지 못했어요. 다시 시도해 주세요." }
-                    }.disabled(activeOnDate)
+                    }.disabled(activeOnDate || !registered)
                 }
             }
             .onAppear { if owner == nil { owner = model.selection.generation } }

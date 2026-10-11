@@ -20,7 +20,15 @@ private struct EditingNavigationGuardKey: EnvironmentKey {
     static let defaultValue: EditingNavigationGuard? = nil
 }
 
+private struct OpenDailyPlanKey: EnvironmentKey {
+    static let defaultValue: (Date) -> Void = { _ in }
+}
+
 extension EnvironmentValues {
+    var openDailyPlan: (Date) -> Void {
+        get { self[OpenDailyPlanKey.self] }
+        set { self[OpenDailyPlanKey.self] = newValue }
+    }
     var editingNavigationGuard: EditingNavigationGuard? {
         get { self[EditingNavigationGuardKey.self] }
         set { self[EditingNavigationGuardKey.self] = newValue }
