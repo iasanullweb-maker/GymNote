@@ -32,6 +32,8 @@
 
 ## 0.1.99 후속 정리·최고기록 정책 (2026-10-11)
 
+후속 배포: 사용자의 ‘배포 진행해’ 승인에 따라 **0.1.104/build 104**, SHA `8bb10dc`를 main에 push했다. [배포 run 38116534197](https://github.com/iasanullweb-maker/GymNote/actions/runs/38116534197)의 앱·위젯 Release 빌드·릴리스 게시·AltStore 갱신이 성공했다. 태그 대상·IPA 해시·버전·App Group·소스 크기/URL을 [배포 결과](docs/ux-simulation/results/cleanup-release-20261011.md)에 기록했다. 아래 미배포 기록은 배포 전 검증 이력이다. 현재 설치 대상은 0.1.104이며 사용자 확인 8개와 기존 확인 대기는 미완료로 유지한다.
+
 사용자 추가 답변 ‘앱의 운동 상태 배너에만 표시’, ‘기존 최고 보존 + 오늘 실행만 갱신’을 기준으로 구현했다. 코드 커밋은 `1c1510d`, `5570eb7`, `0accd48`, `3c1dca7`, 최종 검증 코드 `d6897f2`이며 [상세 결과](docs/ux-simulation/results/ux-cleanup-20261011.md)에 요청별 변경, 서브에이전트 검토, 신규 회귀 검사 32개와 계획 편의성 제안을 기록했다. 본인 작업 브랜치는 `.worktrees/ux-coordinator`, `codex/ux-coordinator`다.
 
 공백·문법 검사와 승인된 검증 브랜치 push·CI가 성공했다. 최종 `d6897f2`의 Validate run `38114590885`에서 XCTest 129개 중 124개 통과·기존 UX 캡처 5개 건너뜀·실패 0이고 Swift·DB·권한 검사도 통과했다. Build run `38114590838`의 앱·위젯 Release 빌드도 성공했다. 코드가 통합 잠금으로 로컬 main에 통합됐다. 원격 main push와 새 배포는 하지 않았다. 실제 iPad·iPhone 조작 및 iPhone 시뮬레이터 검증은 남아 있다. [현재 할 일](TODOLIST_HANDOFF.md)에 미배포 사용자 확인 8개를 추가했으며 기존 확인 대기를 보존했다.
