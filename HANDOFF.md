@@ -44,6 +44,14 @@
 - 기록 탭 신디 입력은 ‘완료한 세트 수’ 한 칸, 저장 시 추가 횟수 0. 표시는 새 기록 `N세트`, 예전 추가 횟수 기록은 `NR + x` 유지, 그래프는 세트 기준. 예전 `NR + x` 기록을 수정해 저장하면 추가 횟수가 빠진다. 관리자 종목 편집에서 ‘라운드 + 횟수’ 선택과 라운드당 횟수 입력을 없앴다(기존 라운드형은 ‘세트 수 (기존 라운드형)’으로 표시). 기본 신디 설명은 앱 내장값만 바꿨고 서버 종목 설명은 관리자 화면에서 고쳐야 한다.
 - 검증: Linux Swift 5.10으로 models/manual/daily/accounts/cloud_merge/records/social_ranking 스크립트 통과(`test_social_ranking.swift`에 세트 표시·`한 세트`·`1라운드` 변환 검사 추가, 예전 값으로 되돌리는 변이에서 실패 확인). XCTest `TypedExecutionRecordTests`의 라운드 입력 테스트를 세트 완료·기록 미갱신·`1라운드` 변환 테스트로 교체(미실행). 전체 iOS 빌드·XCTest·실기기·push·배포 미실행. 사용자 확인은 [TODOLIST_HANDOFF.md](TODOLIST_HANDOFF.md).
 
+## 휴리봇 사례 조사와 가상 사용자 개선 과제 (2026-10-11)
+
+사용자 요청으로 토스의 [휴리봇 이야기 #1](https://toss.tech/article/research-platform-ai)·[#2](https://toss.tech/article/ai-prompting)를 조사하고 [첫 직접 화면 파일럿](docs/ux-simulation/results/subagent-live-pilot-20261010.md)·[후속 파일럿](docs/ux-simulation/results/subagent-followup-pilot-20261010.md)과 대조했다. 토스는 화면 이미지와 인터뷰 질문으로 가벼운 사용성 점검을 자주 하도록 만들었으며 역할·상황, OCR와 읽기 주의의 구분, 고정 화면·질문 세트로 프롬프트를 개선했다. 공개 자료에서 내부 전체 프롬프트·모델 학습 방식·정량적인 인간 재현 정확도는 확인하지 못했다.
+
+독립 서브에이전트 `heuribot_pilot_audit`가 기존 프롬프트·페르소나·runner·파일럿 근거를 읽기 전용으로 검토했다. 기존의 독립 사용자 세션·현재 PNG/목표만 전달·사후 기획자 검토·기술 장애 분리는 지켜졌으며 개발지식 누출이 입증됐다고 주장하지 않는다. 부족한 부분은 행동 선택 중심의 짧은 응답, 사용자 근거 없는 합성 조건, 제한된 읽기 전용 수행, 동일 초기 상태/설치 빌드/전체 원문 기록 부족, 수정 후 비교·실제 사용자 대조·범용 live 어댑터 부재다. 후속 카드 입력 미반영은 기술 장애이며 UI 실패로 확정하지 않는다.
+
+사용자가 ‘해야할 일에 기록해둬’로 요청해 [TODOLIST_HANDOFF의 휴리봇 개선 과제](TODOLIST_HANDOFF.md#휴리봇-사례를-반영한-가상-사용자-개선-2026-10-11)에 우선순위·완료 기준을 가진 6개 미완료 항목을 기록했다. 이번 변경은 문서만이며 링크·diff·공백 검사 후 커밋하고 기존 UX 통합 잠금으로 로컬 main에 통합한다. 개선 구현·새 실험·실사용자 인터뷰·전체 iOS 빌드·XCTest·원격 push·배포는 수행하지 않는다. 기존 사용자 확인 대기는 그대로 보존한다.
+
 ## 설정의 앱 버전 표시 (2026-10-11, 미배포)
 
 - 사용자 요청: 설정에서 현재 앱 버전을 아래 작은 글씨로 확인. `SettingsView`의 ‘진단’ 섹션 footer에 `헬스노트 버전 <CFBundleShortVersionString> (<CFBundleVersion>)`을 caption2·가운데·선택 가능 텍스트로 표시한다. 값은 빌드 때 Actions가 넣는 `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`이다. 데이터·서버 변경 없음.
