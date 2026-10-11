@@ -76,6 +76,17 @@ final class RecordPolicyTests: XCTestCase {
         XCTAssertEqual(data.exerciseRecords()[key]?.bestSet?.value, 20)
     }
 
+    func testTodaysExecutionEditorRevisesEligibleCountsButJournalEditorCannot() {
+        var data = started()
+        data.changeSets(move.id, by: 1, on: day, actualReps: 21, at: day)
+        let id = data.activeWorkout!.id
+        data.updateRepetitions(sessionID: id, exerciseID: move.id, set: 0, value: 25, creditRecords: true, at: day)
+        data.finishWorkout(at: day)
+        XCTAssertEqual(data.exerciseRecords()[key]?.bestSet?.value, 25)
+        data.updateRepetitions(sessionID: id, exerciseID: move.id, set: 0, value: 99)
+        XCTAssertEqual(data.exerciseRecords()[key]?.bestSet?.value, 25)
+    }
+
     func testConcurrentWidgetAndExecutionRetainBothCountsAndOnlyAppAchievement() {
         let base = started()
         var widget = base, app = base

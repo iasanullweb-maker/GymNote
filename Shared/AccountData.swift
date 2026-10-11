@@ -261,12 +261,15 @@ extension AppData {
                             credited.append(index < incoming.count ? incoming[index] : nil)
                         }
                     }
-                                        let incoming = editedSession.recordReps[key] ?? []
+                    let incoming = editedSession.recordReps[key] ?? []
                     let original = beforeSession.recordReps[key] ?? []
                     for index in 0..<min(beforeCount, editedCount) {
                         let beforeValue = index < original.count ? original[index] : nil
                         let value = index < incoming.count ? incoming[index] : nil
-                        if value != beforeValue { credited[index] = value }
+                        if value != beforeValue {
+                            while credited.count <= index { credited.append(nil) }
+                            credited[index] = value
+                        }
                     }
                     copy.recordReps[key] = Array(credited.prefix(copy.doneSets(exercise)))
                     var entries = latestSession.recordEntries[key] ?? []
@@ -279,7 +282,10 @@ extension AppData {
                     for index in 0..<min(beforeCount, editedCount) {
                         let value = index < newEntries.count ? newEntries[index] : nil
                         let previous = index < oldEntries.count ? oldEntries[index] : nil
-                        if value != previous { entries[index] = value }
+                        if value != previous {
+                            while entries.count <= index { entries.append(nil) }
+                            entries[index] = value
+                        }
                     }
                     copy.recordEntries[key] = Array(entries.prefix(copy.doneSets(exercise)))
                 }
@@ -305,6 +311,13 @@ extension AppData {
         }
         for index in result.workouts.indices where touchedSessionIDs.contains(result.workouts[index].id) {
             result.workouts[index] = withMergedProgress(result.workouts[index])
+            let session = result.workouts[index]
+            let candidate = edited.workouts.first { $0.id == session.id }
+            let candidateIDs = Set((candidate?.recordEntries.values.flatMap({ $0 }).compactMap({ $0 }) ?? []).map(\.id))
+            let keptIDs = Set(session.recordEntries.values.flatMap({ $0 }).compactMap({ $0 }).map(\.id))
+            let preservedIDs = Set((records + base.records).map(\.id))
+            let cancelledIDs = candidateIDs.subtracting(keptIDs).subtracting(preservedIDs)
+            result.records.removeAll { cancelledIDs.contains($0.id) }
             for entry in result.workouts[index].recordEntries.values.flatMap({ $0 }).compactMap({ $0 })
             where !result.records.contains(where: { $0.id == entry.id }) { result.records.append(entry) }
             var achievement = result.workouts[index]

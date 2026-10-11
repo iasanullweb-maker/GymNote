@@ -120,7 +120,7 @@ enum SharedStore {
         if !FileManager.default.fileExists(atPath: backup.path) { try write(legacy, to: backup) }
         var migrated = StoredWorkout(data: legacy)
         migrated.data.preserveExistingBestRecords()
-        try write(migrated, to: file)
+        if try JSONEncoder().encode(migrated).count <= 2_000_000 { try write(migrated, to: file) }
         return migrated
     }
 
