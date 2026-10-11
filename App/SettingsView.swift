@@ -5,6 +5,13 @@ import UserNotifications
 struct SettingsView: View {
     static let restRange = 5...600
     static let stepRange = 5...120
+    /// 예: "버전 0.1.104 (104)". Info.plist의 CFBundleShortVersionString·CFBundleVersion(빌드 때 Actions가 채움).
+    static let appVersion: String = {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String
+        return build.map { "버전 \(version) (\($0))" } ?? "버전 \(version)"
+    }()
 
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
@@ -53,9 +60,19 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("진단") {
+                Section {
                     LabeledContent("위젯 공유 저장소", value: SharedStore.diagnostics)
                         .font(.caption)
+                } header: {
+                    Text("진단")
+                } footer: {
+                    // 설정 맨 아래 작은 글씨: 설치된 앱 버전(빌드 번호). AltStore 버전과 비교할 때 쓴다.
+                    Text("헬스노트 \(Self.appVersion)")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 8)
+                        .textSelection(.enabled)
                 }
             }
             .navigationTitle("설정")

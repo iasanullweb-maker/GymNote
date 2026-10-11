@@ -30,6 +30,11 @@
 
 현재 사용자 확인 대기·선행 기술 과제·개발 백로그·보류 항목은 [TODOLIST_HANDOFF.md](TODOLIST_HANDOFF.md)에서 관리한다. 작업 시작·완료 보고 전에 두 문서를 함께 읽고, 확인 결과는 상세 점검표와 할 일 문서의 해당 범위를 함께 갱신한다. 이 문서의 날짜별 미실행/할 일 기록은 당시 이력이며 현재 상태 판단은 할 일 문서와 최신 검증·배포 근거를 따른다.
 
+## 설정의 앱 버전 표시 (2026-10-11, 미배포)
+
+- 사용자 요청: 설정에서 현재 앱 버전을 아래 작은 글씨로 확인. `SettingsView`의 ‘진단’ 섹션 footer에 `헬스노트 버전 <CFBundleShortVersionString> (<CFBundleVersion>)`을 caption2·가운데·선택 가능 텍스트로 표시한다. 값은 빌드 때 Actions가 넣는 `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`이다. 데이터·서버 변경 없음.
+- 작은 UI 변경이라 코드 검토·`git diff --check`만 수행했다. 전체 iOS 빌드·XCTest·실기기 확인·push·배포는 미실행. 사용자 확인 항목은 [TODOLIST_HANDOFF.md](TODOLIST_HANDOFF.md)에 추가했다.
+
 ## 0.1.99 후속 정리·최고기록 정책 (2026-10-11)
 
 후속 배포: 사용자의 ‘배포 진행해’ 승인에 따라 **0.1.104/build 104**, SHA `8bb10dc`를 main에 push했다. [배포 run 38116534197](https://github.com/iasanullweb-maker/GymNote/actions/runs/38116534197)의 앱·위젯 Release 빌드·릴리스 게시·AltStore 갱신이 성공했다. 태그 대상·IPA 해시·버전·App Group·소스 크기/URL을 [배포 결과](docs/ux-simulation/results/cleanup-release-20261011.md)에 기록했다. 아래 미배포 기록은 배포 전 검증 이력이다. 현재 설치 대상은 0.1.104이며 사용자 확인 8개와 기존 확인 대기는 미완료로 유지한다.
