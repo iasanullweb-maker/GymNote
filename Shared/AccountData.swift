@@ -279,7 +279,9 @@ extension AppData {
                             credited[index] = value
                         }
                     }
-                    copy.recordReps[key] = Array(credited.prefix(copy.doneSets(exercise)))
+                    if credited.contains(where: { $0 != nil }) || latestSession.recordReps[key] != nil || editedSession.recordReps[key] != nil {
+                        copy.recordReps[key] = Array(credited.prefix(copy.doneSets(exercise)))
+                    }
                     var entries = latestSession.recordEntries[key] ?? []
                     while entries.count < latestCount { entries.append(nil) }
                     let newEntries = editedSession.recordEntries[key] ?? []
@@ -295,7 +297,9 @@ extension AppData {
                             entries[index] = value
                         }
                     }
-                    copy.recordEntries[key] = Array(entries.prefix(copy.doneSets(exercise)))
+                    if entries.contains(where: { $0 != nil }) || latestSession.recordEntries[key] != nil || editedSession.recordEntries[key] != nil {
+                        copy.recordEntries[key] = Array(entries.prefix(copy.doneSets(exercise)))
+                    }
                 }
                 let key = exercise.id.uuidString
                 copy.actualReps[key] = copy.actualReps[key].map { Array($0.prefix(copy.doneSets(exercise))) }

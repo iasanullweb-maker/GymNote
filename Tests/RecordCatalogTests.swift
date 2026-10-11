@@ -211,18 +211,31 @@ final class RecordCatalogTests: XCTestCase {
         XCTAssertEqual(try SharedStore.snapshot(userID: nil).data, original)
     }
 
-    func testNewRecordsRequireActiveCommonDefinition() {
+    func testDirectRecordsAreBlockedAndRegisteredTodayExecutionCanUpdateBest() {
         let model = AppModel(previewData: .empty)
         let legacy = RecordEntry(typeID: "custom", date: Date(), value: 5)
         XCTAssertFalse(model.addRecord(legacy))
         XCTAssertTrue(model.data.records.isEmpty)
         let common = RecordEntry(typeID: CatalogRecordType.defaults[0].id, date: Date(), value: 5)
-        XCTAssertTrue(model.addRecord(common))
-        XCTAssertEqual(model.data.records, [common])
-        XCTAssertNotNil(model.data.recordType(common.typeID))
+        XCTAssertFalse(model.addRecord(common), "등록된 종목도 직접 기록으로 최고를 바꿀 수 없음")
+        XCTAssertTrue(model.data.records.isEmpty)
         XCTAssertFalse(model.addRecord(RecordEntry(typeID: common.typeID, date: Date(), value: .infinity)))
         XCTAssertFalse(model.addRecord(RecordEntry(typeID: common.typeID, date: Date(), value: 5.004)))
         XCTAssertFalse(model.addRecord(RecordEntry(typeID: CatalogRecordType.defaults[2].id, date: Date(), value: 12.9)))
-        XCTAssertEqual(model.data.records.count, 1)
+        XCTAssertTrue(model.data.records.isEmpty)
+        let definition = CatalogRecordType.defaults[0]
+        var exercise = definition.makeExercise()
+        exercise.sets = 1
+        model.data.scheduledPlans[DayKey.key()] = DayPlan(title: "오늘 실행", exercises: [exercise])
+        model.startWorkout(catalog: model.account.catalogTypes)
+        XCTAssertNotNil(model.data.activeWorkout)
+        model.completeSet(exercise, actualReps: 5)
+        XCTAssertNil(model.data.activeWorkout)
+        XCTAssertEqual(model.data.exerciseRecords(for: definition.recordType)?.bestSet?.value, 5)
+        model.startWorkout(catalog: model.account.catalogTypes)
+        model.completeSet(exercise, measurement: .infinity)
+        model.completeSet(exercise, measurement: 5.004)
+        XCTAssertEqual(model.data.activeWorkout?.done, 0, "잘못된 측정값은 세트를 완료하지 않음")
+        XCTAssertEqual(model.data.workouts.count, 1)
     }
 }
