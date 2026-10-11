@@ -40,6 +40,9 @@ final class TypedExecutionRecordTests: XCTestCase {
         model.data = data
 
         model.startWorkout(catalog: model.account.catalogTypes)
+        model.completeSet(exercise, measurement: 5, extraReps: definition.repsPerRound)
+        XCTAssertEqual(model.data.activeWorkout?.done, 0, "추가 횟수로 한 라운드 이상을 입력하면 완료하지 않음")
+        XCTAssertEqual(model.data.records, [previous])
         model.completeSet(exercise, measurement: 5, extraReps: 3)
 
         XCTAssertNil(model.data.activeWorkout)

@@ -215,7 +215,8 @@ final class AppModel {
         if let measurement {
             guard let type = account.catalogTypes.first(where: { $0.active && AppData.exerciseKey($0.name) == AppData.exerciseKey(exercise.name) }),
                   type.recordType.acceptsValue(measurement), measurement >= 0, measurement <= 1_000_000,
-                  extraReps >= 0, extraReps <= 1_000_000 else { return }
+                  extraReps >= 0, extraReps <= 1_000_000,
+                  type.recordType.acceptsCompetitiveRecord(RecordEntry(typeID: type.id, date: Date(), value: measurement, extraReps: extraReps)) else { return }
             if DayKey.key(date) == DayKey.key(Date()) {
                 entry = RecordEntry(typeID: type.id, date: Date(), value: measurement, extraReps: extraReps)
                 if !next.recordTypes.contains(where: { $0.id == type.id }) { next.recordTypes.append(type.recordType) }

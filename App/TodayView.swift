@@ -147,7 +147,8 @@ struct ExerciseRow: View {
     private var requiresMeasurement: Bool { recordType.map { !AppData.acceptsWorkoutRepetitions($0) } ?? false }
     private var measuredValue: Double? {
         guard let type = recordType, let value = Double(measurement), value >= 0, value <= 1_000_000,
-              type.acceptsValue(value), let extra = Int(extraReps), (0...1_000_000).contains(extra) else { return nil }
+              type.acceptsValue(value), let extra = Int(extraReps), (0...1_000_000).contains(extra),
+              type.acceptsCompetitiveRecord(RecordEntry(typeID: type.id, date: Date(), value: value, extraReps: extra)) else { return nil }
         return value
     }
     var previous: PreviousExercise? = nil
@@ -196,6 +197,10 @@ struct ExerciseRow: View {
                     if type.style == .rounds {
                         TextField("추가 횟수", text: $extraReps).keyboardType(.numberPad)
                     }
+                }
+                if type.style == .rounds {
+                    Text("추가 횟수는 0~\(max(type.repsPerRound - 1, 0))회예요. 한 라운드를 채우면 완료 라운드를 늘려 주세요.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             HStack(spacing: 12) {
