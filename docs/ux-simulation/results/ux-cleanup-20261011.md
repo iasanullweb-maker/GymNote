@@ -6,9 +6,9 @@
 
 - 작업 경로: `C:/Users/Donghyun/Documents/2026_IASA/GymNote/.worktrees/ux-coordinator`
 - 작업 브랜치: `codex/ux-coordinator`
-- 구현 커밋: `1c1510d`, 병합·마이그레이션 보완 `5570eb7`, 측정값 일지 표시 `0accd48`
+- 구현 커밋: `1c1510d`, 병합·마이그레이션 보완 `5570eb7`, 측정값 일지 표시 `0accd48`, 수동 최고 기준 보존 `3c1dca7`, 마지막 검증 코드 `d6897f2`
 - 기존 main의 다른 대화 문서 변경 `72b04c9`까지 작업 브랜치에 반영했다.
-- 코드 검토·커밋과 로컬 문법 검사를 마쳤다. Swift/Xcode 실행 검증, 최종 로컬 main 통합은 아직 하지 않았다.
+- 코드·독립 검토·CI 검증을 마쳤으며 `d6897f2`까지 통합 잠금으로 로컬 main에 병합했다. 이 결과 문서 갱신도 같은 잠금으로 후속 통합한다. 원격 main push·새 릴리스·AltStore 배포는 하지 않았다.
 
 ## 반영한 동작
 
@@ -29,7 +29,7 @@
 
 ## 최고기록 저장과 동기화
 
-기존 일지 성취는 `recordWorkouts`에 보존한다. 성취 사본은 세트 최대값과 합계(`recordTotals`)만 남겨 전체 세트 배열·무게·계획 상세의 중복을 줄인다. 일지 추가·수정·삭제는 이 보존 사본을 다시 계산하지 않는다. 기존 수동 최고기록도 유지한다.
+기존 일지 성취는 `recordWorkouts`에 보존한다. 성취 사본은 세트 최대값과 합계(`recordTotals`)만 남겨 전체 세트 배열·무게·계획 상세의 중복을 줄인다. 일지 추가·수정·삭제는 이 보존 사본을 다시 계산하지 않는다. 기존 수동 최고는 `bestRecordEntries`에 따로 보존한다. 구버전 클라이언트의 수동 기록 추가·수정은 원본 `records`에 남기되 보존된 최고를 올리지 않는다. 오늘 실행에서 자격을 얻은 측정 후보만 이 최고 기준에 추가한다.
 
 실행 중 오늘 완료한 세트는 `recordReps`, 라운드·측정 종목은 `recordEntries`에 자격 있는 후보를 남기고 운동 저장 시 반영한다. 오늘 진행 중 실행 화면에서 수정한 횟수는 후보도 수정한다. 과거 일지 편집과 위젯 완료는 새 최고 후보로 인정하지 않는다. 세트 되돌리기와 동시 위젯 입력 병합에서 취소된 신규 후보를 제외하며 기존 저장 기록은 제거하지 않는다.
 
@@ -41,11 +41,15 @@
 
 - 서브에이전트 `record_policy_review`: 저장·동시 병합 독립 검토 및 `RecordPolicyMergeTests.swift` 6개 작성. 발견한 동일 count 자격 복원, 배열 경계, 구버전 기준 덮어쓰기, 취소된 측정 기록, 마이그레이션 읽기 문제를 보완했다.
 - 서브에이전트 `ux_cleanup_review`: UI 요구와 기록 경로 독립 검토 및 `TypedExecutionRecordTests.swift` 7개 작성. 발견한 라운드·측정 종목 경로, 오늘 실행 수정, 비활성 종목의 성취 표시를 보완했다.
-- 신규 XCTest 28개 작성: `RecordPolicyTests` 12개, `TypedExecutionRecordTests` 7개, `RecordPolicyMergeTests` 6개, `RecordPolicyStoreTests` 3개. 작성과 실행 성공을 구분한다.
+- 신규 XCTest 32개 실행 통과: `RecordPolicyTests` 12개, `TypedExecutionRecordTests` 7개, `RecordPolicyMergeTests` 6개, `RecordPolicyStoreTests` 3개, `LegacyRecordBaselineTests` 4개.
 - `git diff --check main...HEAD`: 통과.
 - 변경 Swift 파일 tree-sitter 문법 검사: 통과. 기존 `DailyViews.swift:41`의 다중 trailing closure 문법은 파서가 해석하지 못하며 원래 코드에도 있는 제한으로 구분했다. 컴파일 검증을 대체하지 않는다.
-- **미실행:** 전체 iOS 앱·위젯 빌드, Swift 스크립트, XCTest, 새 코드의 시뮬레이터/실기기 조작.
-- **원격 검증 차단:** `codex/ux-cleanup-20261011` push를 자동 승인 검토가 ‘현재 변경의 명시적 원격 전송 승인 없음, 소스 코드 전송 가능성’으로 거부했다. 우회하지 않았으며 이후 사용자가 ‘실행해’로 검증 브랜치 push·CI 실행을 승인했다. 검증 브랜치 전송은 성공했고 새 CI를 실행한다. 실제 결과 확인 전에는 검증 성공으로 보고하지 않는다. 앱 배포는 승인 범위에 포함되지 않는다.
+- **최종 검증 SHA:** `d6897f2`. [Validate GymNote](https://github.com/iasanullweb-maker/GymNote/actions/runs/38114590885) 성공. iPad 시뮬레이터 XCTest 129개 중 124개 통과, 기존 UX 캡처 5개 건너뜀, 실패 0. 모델·계정·클라우드 병합·일상·기록·친구 공개 Swift 검사, 계정 삭제 권한 Node 검사, 격리 PostgreSQL 권한·백업 검사도 성공.
+- **Release 빌드:** 같은 SHA의 [Build IPA](https://github.com/iasanullweb-maker/GymNote/actions/runs/38114590838) 성공. 앱·위젯의 전체 Release 빌드를 실행했다. 검증 브랜치 산출물이며 정식 릴리스·AltStore에 배포하지 않았다.
+- 첫 실행은 이전 개인 최고를 제외하던 친구 공개 테스트 기대값에서 실패했다. 두 번째 실행은 기존 직접 기록 저장 기대값과 대체 운동 병합의 빈 메타데이터 생성에서 실패했다. 정책을 반영한 입력/기대값과 병합 구현을 보완하고 같은 전체 검증을 다시 통과했다. 검사를 삭제하지 않았다.
+- 이후 라운드 추가 횟수의 입력 범위를 보완하고 기존 라운드 실행 검사에 범위 초과 거부를 추가했다. 최종 SHA에서 전체 XCTest와 Release 빌드를 다시 통과했다.
+- **미실행:** 새 코드의 실제 iPad·iPhone 조작, iPhone 시뮬레이터 검증. XCTest 캡처와 실기기 사용 흐름 확인은 구분한다.
+- **원격 검증 차단:** `codex/ux-cleanup-20261011` push를 자동 승인 검토가 ‘현재 변경의 명시적 원격 전송 승인 없음, 소스 코드 전송 가능성’으로 거부했다. 우회하지 않았으며 이후 사용자가 ‘실행해’로 검증 브랜치 push·CI 실행을 승인했다. 검증 브랜치 전송과 위 최종 CI 검증은 성공했다. 앱 배포는 승인 범위에 포함되지 않는다.
 
 ## 계획 추가 편의성 제안
 
@@ -59,4 +63,4 @@ iPad에서 iPhone과 같은 가로 폭·비율로 제한하면 좁은 레이아�
 
 ## 다음 단계
 
-승인된 원격 검증에서 커밋 SHA가 일치하는 iOS·모델·동기화 회귀 검사를 실행하고 실패를 수정한다. 통과 후 통합 잠금으로 로컬 main에 병합한다. 앱 배포는 이번 검증 승인과 별도다. 사용자 확인 항목은 `TODOLIST_HANDOFF.md`에 미완료로 보존한다.
+검증과 로컬 코드 통합은 완료했다. 다음은 앱 배포 승인·배포와 설치 후 사용자 확인이다. 앱 배포는 이번 검증 승인과 별도다. 사용자 확인 항목은 `TODOLIST_HANDOFF.md`에 미완료로 보존한다.
