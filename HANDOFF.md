@@ -2,6 +2,14 @@
 
 마지막 업데이트: 2026-10-12
 
+## 휴리봇 UI 개선 0.1.109 배포 (2026-10-12)
+
+사용자의 ‘빌드 배포 업데이트 먼저 진행해’ 승인으로 제품 커밋 `c78511c`를 검증했다. [Validate 38202458082](https://github.com/iasanullweb-maker/GymNote/actions/runs/38202458082): XCTest 140개 통과·기존 캡처 4개 건너뜀·실패 0, 모델·계정·DB 검사 성공. [브랜치 Build 38202458083](https://github.com/iasanullweb-maker/GymNote/actions/runs/38202458083)의 앱/위젯 Release 빌드도 성공했다.
+
+다른 대화의 운영 DB 적용·작업 규칙 문서를 보존한 최신 main `35ed596`을 배포했다. 검증 SHA와 차이는 Markdown 문서뿐이며 제품·테스트·설정·서버·빌드/CI 입력 동일성을 확인했다. `[skip ci]` 문서 커밋이므로 main push 후 지원되는 workflow_dispatch로 [정식 Build 38203068870](https://github.com/iasanullweb-maker/GymNote/actions/runs/38203068870)을 실행했고 빌드·릴리스 게시·AltStore 갱신이 성공했다. **0.1.109/build 109**의 고정/latest 태그·IPA 해시·앱/위젯 버전·서명 App Group·소스 대조 결과는 [개선·배포 결과](docs/ux-simulation/results/heuribot-ui-improvements-20261012.md)에 기록했다. 운영 SQL은 이번 작업에서 실행하지 않았다.
+
+기기 설치는 미확인이다. USB 설치 조회가 NoDeviceConnectedError로 실패해 연결·잠금 해제와 AltStore UPDATE를 요청했다. 사용자 확인·수정 후 가상 사용자 비교·큰 글자/작은 화면 조작은 미완료로 유지한다. 아래 ‘미배포’ 기록은 구현 당시 상태다.
+
 ## 병행 작업 규칙 검토·정리 (2026-10-12)
 
 사용자의 규칙 재검토·커밋 요청으로 고정 A/B/C/D 배정을 일반 작업과 분리했다. 각 채팅이 본인 검증·기록·통합을 책임지고, 최신 대상 반영과 관련 검사 후 공통 잠금 안에서 기준 불변을 확인해 fast-forward로 통합하도록 AGENTS·GUIDE·관련 스킬 지침을 맞췄다. 제품 변경의 전체 검사 유예는 현재 할 일에 남기며 문서만 변경된 경우 앱 검사 대기를 만들지 않는다.

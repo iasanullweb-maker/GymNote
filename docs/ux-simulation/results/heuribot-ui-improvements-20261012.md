@@ -1,6 +1,6 @@
 # 휴리봇 화면 검증 후 UI 개선 — 2026-10-12
 
-사용자가 [0.1.107 가상 사용자 검증](heuribot-107-pilot-20261012.md)의 개선 후보 구현을 요청했다. 작업 폴더 `.worktrees/heuribot-ui`, 브랜치 `codex/heuribot-ui-20261012`, 시작 main `35a7a97`. 이번 변경은 미배포이며 설치 107 화면에 반영됐다고 보고하지 않는다.
+사용자가 [0.1.107 가상 사용자 검증](heuribot-107-pilot-20261012.md)의 개선 후보 구현을 요청했다. 작업 폴더 `.worktrees/heuribot-ui`, 브랜치 `codex/heuribot-ui-20261012`, 시작 main `35a7a97`에서 제품 커밋 `c78511c`를 만들고 로컬 main에 통합했다. 후속 사용자 승인으로 0.1.109/build 109 배포까지 완료했다. 아래 구현 시점의 미실행·미배포 기록은 당시 상태이며 후속 결과는 배포 절을 따른다. 109 기기 설치와 화면 재검증은 미확인이다.
 
 ## 변경
 
@@ -25,3 +25,15 @@
 ## 후속 확인
 
 수정 앱 배포 후 같은 기기·방향·화면 상태에서 첫인상/다음 행동을 먼저 묻고, 그 뒤 ±·완료 의미를 묻는 순서로 비교한다. 계획 첫 화면에서 진입점·대상 날짜를 식별하는지, 일지 ‘개’와 종목 반복 횟수 ‘회’·최고값/그래프를 구분하는지 확인한다. 사용자 확인은 [TODOLIST_HANDOFF](../../../TODOLIST_HANDOFF.md)에 미완료로 유지하며 기존 확인 항목도 보존한다.
+
+## 전체 검증·정식 배포 — 2026-10-12
+
+- 사용자 승인: ‘그럼 빌드 배포 업데이트 먼저 진행해’. 검증 브랜치에 제품 SHA `c78511c614e82551ef0413ee4fcb4c159bd4c743`를 push했다.
+- [Validate 38202458082](https://github.com/iasanullweb-maker/GymNote/actions/runs/38202458082) 전체 성공. XCTest 144개 중 140개 통과·기존 UX 캡처 4개 건너뜀·실패 0. Swift 모델·계정·클라우드·일상·기록·순위와 격리 DB 권한·동시 백업·계정 삭제 검사 성공. [Build 38202458083](https://github.com/iasanullweb-maker/GymNote/actions/runs/38202458083) 앱/위젯 Release 빌드 성공(108은 브랜치 artifact이며 정식 설치 대상이 아님).
+- 배포 SHA `35ed59652e9edc60e79c0cadd7c158b374f3a53f`. 다른 대화의 `cf21103` 운영 DB 적용 문서·`35ed596` 작업 규칙 문서를 보존했다. `git diff --name-only c78511c 35ed596`의 차이는 Markdown 문서 12개뿐이며 전체 diff와 제품·검사·빌드 경로 diff를 대조해 제품 입력 동일성을 확인했다. 운영 SQL·앱/서버 데이터 변경은 이번 배포 작업에서 실행하지 않았다.
+- 자동 승인 검토가 후속 문서를 제외한 `c78511c` main push를 거부해 최신 문서를 포함했다. 이후 HEAD 변경을 감지한 잠금 검사도 push를 중단했으며 최신 기준을 재확인했다. 공통 잠금 아래 전체 최신 main을 fast-forward push했고, `[skip ci]` 때문에 지원되는 workflow_dispatch로 정식 빌드를 실행했다. 강제 push·reset·stash 없이 타 작업을 보존했다.
+- [정식 Build 38203068870](https://github.com/iasanullweb-maker/GymNote/actions/runs/38203068870), main, 위 배포 SHA: 모델 검사·앱/위젯 Release 빌드·IPA·릴리스 게시·AltStore 갱신 성공. **0.1.109/build 109**. [build-109](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-109)와 latest 태그 모두 배포 SHA이며 두 IPA asset의 크기·해시가 일치한다.
+- 실제 다운로드 IPA: 2,179,504바이트, SHA-256 `dc2cef670ac4ab2db6cda891fcb41ecc687a336f29f79522ba7d53ff29c73809`. 앱 `com.gymnote.app`와 위젯 `com.gymnote.app.widget` Info.plist 모두 버전 `0.1.109`, 빌드 `109`. 두 Mach-O LC_CODE_SIGNATURE의 XML entitlements에서 `group.com.gymnote.app` 확인.
+- AltStore 브랜치 `a9bc3507588b8b02d0faea1670513a7d32c28231`의 source.json: bundle ID `com.gymnote.app`, 버전 `0.1.109`, buildVersion `109`, 고정 build-109 다운로드 URL·size 2179504 일치. Git 제외 `.validation-tools/GymNote-build-109.ipa`에 확인한 파일 보관.
+- 기기 업데이트는 별도 미완료다. 배포 중 USB 설치 조회가 일반/기기 접근 실행 모두 NoDeviceConnectedError로 실패했다. 연결·잠금 해제와 AltStore 소스 새로고침→헬스노트 UPDATE→앱 설정 `0.1.109 (109)` 확인을 요청했다. 앞선 107 설치 확인을 109 설치로 재사용하지 않는다.
+- 전체 iOS 검사 유예는 이번 CI로 해소했다. 109 실기기 화면·큰 글자/작은 화면 조작·변경 후 가상 사용자 비교·사용자 직접 확인은 실행하지 않았으며 체크리스트에 남겼다. 후속 문서는 diff·링크 검사 후 본인 파일만 `[skip ci]`로 커밋하고 최신 대상 기준 확인·fast-forward·공통 잠금으로 로컬 통합한다.
