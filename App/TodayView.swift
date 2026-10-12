@@ -12,6 +12,7 @@ struct TodayView: View {
         let plan = model.todayPlan
         let progress = model.workoutProgress
         let isWorkingOut = model.data.activeWorkout != nil
+        let startTitle = model.savedToday ? "새 운동 시작" : "운동 시작"
         NavigationStack {
             List {
                 Section {
@@ -24,13 +25,13 @@ struct TodayView: View {
                             ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
                                 .tint(.orange)
                         } else if !plan.isRestDay {
-                            Text("진행 중인 운동은 없어요. 운동을 시작하면 진행 상황이 표시돼요.")
+                            Text("진행 중인 운동은 없어요. ‘\(startTitle)’을 누른 뒤 세트를 완료할 수 있어요.")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 4)
                     if !isWorkingOut {
                         Button { model.startWorkout(catalog: account.catalogTypes) } label: {
-                            Label(model.savedToday ? "새 운동 시작" : "운동 시작", systemImage: "play.fill")
+                            Label(startTitle, systemImage: "play.fill")
                         }.disabled(plan.isRestDay || !plan.exercises.allSatisfy { model.data.isRegisteredExercise($0, catalog: account.catalogTypes) })
                         if !plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) {
                             Text("운동 종목을 불러오면 미등록 운동을 계획과 기록에서 정리해요. 인터넷 연결 후 다시 확인해 주세요.")
@@ -131,6 +132,7 @@ extension ExecutionMove {
 }
 
 struct ExerciseRow: View {
+    @Environment(\.isEnabled) private var isEnabled
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.dynamicTypeSize) private var textSize
     let exercise: Exercise
@@ -159,6 +161,7 @@ struct ExerciseRow: View {
     @State private var editingReps = false
 
     private var finished: Bool { done >= exercise.sets }
+    private var canComplete: Bool { isEnabled && session != nil && !finished && (!requiresMeasurement || measuredValue != nil) }
     private var actualReps: Int? { draftReps ?? exercise.plannedReps ?? (recordType.map { AppData.acceptsWorkoutRepetitions($0) } == true ? 0 : nil) }
 
     var body: some View {
@@ -176,6 +179,9 @@ struct ExerciseRow: View {
                     }
                 }
 
+            Text("완료 \(done) / \(exercise.sets)세트")
+                .font(.caption).foregroundStyle(.secondary)
+                .accessibilityHidden(true) // The circles already announce the same progress.
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 24, maximum: 24), spacing: 10)],
                       alignment: .leading, spacing: 10) {
                 ForEach(0..<max(exercise.sets, 0), id: \.self) { i in
@@ -195,6 +201,7 @@ struct ExerciseRow: View {
             if requiresMeasurement, !finished, let type = recordType {
                 TextField("실제 측정값 (\(type.unit))", text: $measurement)
                     .keyboardType(.decimalPad)
+                    .disabled(session == nil)
             }
             HStack(spacing: 12) {
                 Button(action: onUndo) {
@@ -212,6 +219,7 @@ struct ExerciseRow: View {
                             Image(systemName: "minus").frame(width: 48, height: 48)
                         }
                         .disabled(session == nil || value == 0)
+                        .foregroundStyle(!isEnabled || session == nil || value == 0 ? Color.secondary : Color.white)
                         .accessibilityLabel("완료할 횟수 1회 줄이기")
                         Divider().frame(height: 28)
                     }
@@ -221,19 +229,25 @@ struct ExerciseRow: View {
                     } label: {
                         Text(finished ? "완료" : requiresMeasurement ? "세트 완료" : actualReps.map { "\($0)회로 세트 완료" } ?? "세트 완료")
                             .font(.headline).frame(maxWidth: .infinity, minHeight: 48)
-                    }.disabled(session == nil || finished || (requiresMeasurement && measuredValue == nil))
+                    }.disabled(!canComplete)
+                        .foregroundStyle(canComplete ? Color.white : Color.secondary)
                     if !finished, !requiresMeasurement, let value = actualReps {
                         Divider().frame(height: 28)
                         Button { draftReps = min(9999, value + 1) } label: {
                             Image(systemName: "plus").frame(width: 48, height: 48)
                         }
                         .disabled(session == nil || value == 9999)
+                        .foregroundStyle(!isEnabled || session == nil || value == 9999 ? Color.secondary : Color.white)
                         .accessibilityLabel("완료할 횟수 1회 늘리기")
                     }
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(.white)
-                .background(Color.orange, in: RoundedRectangle(cornerRadius: 12))
+                .background(canComplete ? Color.orange : Color.secondary.opacity(0.15),
+                            in: RoundedRectangle(cornerRadius: 12))
+            }
+            if session != nil, !finished, !requiresMeasurement, actualReps != nil {
+                Text("− / +로 이번 세트 횟수를 조절해요.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 10)

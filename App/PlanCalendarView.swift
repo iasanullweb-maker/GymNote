@@ -147,7 +147,9 @@ struct PlanCalendarView: View {
         VStack(spacing: 2) {
             if content == .journal {
                 if !workouts.isEmpty {
-                    Text("\(workouts.count)회").foregroundStyle(.orange)
+                    Text("일지 \(workouts.count)개")
+                        .foregroundStyle(.orange)
+                        .lineLimit(2)
                 }
             } else {
                 if !exercises.isEmpty {
@@ -171,7 +173,7 @@ struct PlanCalendarView: View {
             Text("기록 없음").font(.system(size: 14)).foregroundStyle(.secondary)
         } else {
             let done = workouts.reduce(0) { $0 + $1.done }
-            Text("\(workouts.count)회 · \(done)세트")
+            Text("일지 \(workouts.count)개 · \(done)세트")
                 .font(.system(size: 14, weight: .semibold)).foregroundStyle(.orange)
             ForEach(names.prefix(3), id: \.self) { name in
                 Text(name).font(.system(size: 14)).lineLimit(2)

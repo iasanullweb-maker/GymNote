@@ -12,19 +12,24 @@ struct RoutineView: View {
         NavigationStack {
             CalendarScrollView {
                 CalendarSection("캘린더") {
-                    Toggle("운동·일상 함께 보기", isOn: $showAll)
-                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout) {
-                        calendarDay = PlanningDay(date: $0)
-                    }
-                    Divider()
                     NavigationLink {
                         ScheduledDayEditor(date: selectedDate)
                     } label: {
                         HStack {
-                            Label("선택한 날짜 계획 설정", systemImage: "calendar.badge.plus")
+                            VStack(alignment: .leading, spacing: 3) {
+                                Label("선택한 날짜 계획 설정", systemImage: "calendar.badge.plus")
+                                Text(selectedDate, format: .dateTime.year().month().day().weekday())
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                             Spacer()
                             Image(systemName: "chevron.right").foregroundStyle(.secondary)
                         }
+                    }
+                    Divider()
+                    Toggle("운동·일상 함께 보기", isOn: $showAll)
+                    PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout) {
+                        calendarDay = PlanningDay(date: $0)
                     }
                 }
                 if showAll {

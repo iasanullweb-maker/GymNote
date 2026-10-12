@@ -25,6 +25,12 @@ struct RecordsView: View {
                     FriendRankingView()
                 } else {
                     List {
+                        Section {
+                            Text("기존 최고값은 보관해요. 새 최고기록은 오늘 실행에서 반영 가능한 종목만 갱신해요.")
+                            Text("과거 일지의 수정·삭제는 최고기록을 바꾸지 않아요.")
+                        } header: {
+                            Text("최고기록 기준")
+                        }
                         if let message = account.catalogMessage {
                             Text(message).font(.footnote).foregroundStyle(.secondary)
                         }
@@ -45,7 +51,7 @@ struct RecordsView: View {
                                 Label(account.canManageCatalog ? "운동 종목 관리" : "운동 종목 안내", systemImage: "list.bullet")
                             }
                         } footer: {
-                            Text("모든 기록 중 최고값을 보관해요. 최고기록 갱신은 실행 탭에서 오늘 완료한 운동으로만 할 수 있어요.")
+                            Text("운동 종목별 기록 방식과 단위를 확인할 수 있어요.")
                         }
                     }
                 }
@@ -77,6 +83,7 @@ struct RecordsView: View {
 
 struct RecordSection: View {
     @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     let type: RecordType
@@ -98,8 +105,11 @@ struct RecordSection: View {
                                source: combined?.fromJournal == true ? "운동 일지" : "직접 기록")
                 RecordValueRow(title: "하루 총량 최고", value: auto.bestDay.map { "\($0.value)\(unit)" },
                                date: auto.bestDay?.date, source: "운동 일지")
+                Text("한 세트 최고는 보관된 직접 기록과 완료 세트 중 최고값이에요. 하루 총량은 같은 날 완료한 이 종목의 반복 횟수 합계예요.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
-                (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout())) {
+                (compact || dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout())) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("최고 기록")
                             .font(.caption)
@@ -108,7 +118,7 @@ struct RecordSection: View {
                             .font(.title2)
                             .bold()
                     }
-                    if !compact { Spacer() }
+                    if !compact && !dynamicTypeSize.isAccessibilitySize { Spacer() }
                     if let best = best {
                         Text(best.date, format: .dateTime.year().month().day())
                             .foregroundStyle(.secondary)
@@ -117,10 +127,20 @@ struct RecordSection: View {
             }
 
             if entries.isEmpty, auto != nil {
-                Text("최고기록은 실행 탭에서 오늘 완료한 운동으로 갱신해요.")
+                Text("그래프로 표시할 종목 기록이 없어요. 일지에서 계산한 횟수와 하루 총량은 그래프에 포함되지 않아요.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if !entries.isEmpty {
+                Text("저장된 종목 기록 추이")
+                    .font(.subheadline.weight(.semibold))
+                Text("종목별로 저장된 기록을 날짜순으로 표시해요. 일지의 세트별 횟수와 하루 총량은 포함되지 않아요.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if type.style == .rounds {
+                    Text("세트 수 기준이에요. 예전 기록의 추가 횟수는 세트의 일부로 표시해요.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Chart(entries) { entry in
                     if entries.count >= 2 {
                         LineMark(
@@ -135,7 +155,7 @@ struct RecordSection: View {
                 }
                 .foregroundStyle(.orange)
                 .frame(height: 140)
-                .accessibilityLabel("\(type.name) 기록 추이")
+                .accessibilityLabel("\(type.name) 저장된 종목 기록 추이")
                 if entries.count == 1 {
                     Text("첫 기록이에요. 다음 기록부터 변화가 선으로 이어져요.")
                         .font(.caption)
@@ -145,13 +165,13 @@ struct RecordSection: View {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.xyaxis.line")
                         .font(.title2)
-                    Text("실행 탭에서 오늘 운동을 완료하면 최고기록이 반영돼요")
+                    Text("저장된 종목 기록이 없어요")
                         .font(.callout)
                         .multilineTextAlignment(.center)
                 }
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 140)
+                .frame(minHeight: 140)
             }
 
             NavigationLink {
@@ -212,7 +232,7 @@ struct RecordHistoryView: View {
                         RecordRow(type: type, entry: entry, isBest: entry.id == best?.id)
                     }
                 } footer: {
-                    Text("최고기록 갱신은 실행 탭에서 오늘 완료한 운동으로만 할 수 있어요.")
+                    Text("보관된 종목 기록이에요. 과거 일지의 수정·삭제는 이 기록을 바꾸지 않아요.")
                 }
             }
         }
@@ -325,19 +345,22 @@ struct AddRecordView: View {
 
 /// 최고 기록 한 줄: 제목, 값, 달성 날짜, 출처
 struct RecordValueRow: View {
+    @Environment(\.gymnoteCompactLayout) private var compact
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let title: String
     let value: String?
     let date: Date?
     var source: String? = nil
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        let stacked = compact || dynamicTypeSize.isAccessibilitySize
+        (stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(alignment: .firstTextBaseline))) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.caption).foregroundStyle(.secondary)
                 Text(value ?? "기록 없음").font(.title2).bold()
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
+            if !stacked { Spacer() }
+            VStack(alignment: stacked ? .leading : .trailing, spacing: 2) {
                 if let date { Text(date, format: .dateTime.year().month().day()).foregroundStyle(.secondary) }
                 if value != nil, let source { Text(source).font(.caption2).foregroundStyle(.tertiary) }
             }
