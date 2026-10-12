@@ -1,8 +1,9 @@
 name: Validate GymNote
+# 단독 실행은 PR에서만 한다. main·codex/** push의 검사는 build.yml이 이 워크플로를
+# 같은 커밋으로 호출하고, 검사 전체가 성공해야만 릴리스·AltStore 게시가 진행된다.
 on:
   pull_request:
-  push:
-    branches: ['codex/**']
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -33,6 +34,8 @@ jobs:
           /tmp/model-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/account-checks
           /tmp/account-checks
+          swiftc Shared/Models.swift Shared/AccountData.swift Shared/ManualWorkout.swift scripts/test_manual_workout.swift -o /tmp/manual-checks
+          /tmp/manual-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_cloud_merge.swift -o /tmp/cloud-merge-checks
           /tmp/cloud-merge-checks
           swiftc Shared/Models.swift Shared/AccountData.swift Shared/DailyReminderPlan.swift scripts/test_daily.swift -o /tmp/daily-checks
@@ -77,6 +80,42 @@ jobs:
           path: |
             build/TestResults.xcresult
             build/test-attachments
+  tooling:
+    # 앱 밖 영역(텔레그램 자동화, 웹 프로토타입, UX 규격·실행기, USB 뷰어 순수 로직, IPA 사전 검사).
+    # 모두 합성 입력·격리 환경만 쓰며 실제 Telegram/모델/기기에 접속하지 않는다.
+    # USB 뷰어의 Python 검사는 로컬 고정 pymobiledevice3 환경(실기기 관찰용)이 필요해 여기서 돌리지 않는다.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Automation (Telegram ingress, worker, admin, store)
+        run: python -m unittest discover -s automation/tests -v
+      - name: IPA preflight
+        run: python -m unittest discover -s simulation/cloud -p "test_*.py" -v
+      - name: Web prototype
+        run: |
+          node simulation/web/tests.mjs
+          node simulation/web/test-ui.mjs
+      - name: UX contracts, scenarios, capture and runner
+        run: |
+          node simulation/contracts/test_validate.mjs
+          node simulation/contracts/audit.mjs --require-panel
+          node simulation/scenarios/tests/validate.mjs
+          node simulation/capture/test-collect.mjs
+          node --test "simulation/runner/tests/*.test.mjs"
+          node scripts/ux-sim/run.mjs --validate-only
+      - name: USB viewer pure logic
+        run: |
+          node simulation/usb/test_viewer_coordinates.mjs
+          node simulation/usb/test_viewer_lifecycle.mjs
+          node simulation/usb/test_viewer_idle.mjs
+          node simulation/usb/test_viewer_reconnect.mjs
   database:
     runs-on: ubuntu-latest
     services:
