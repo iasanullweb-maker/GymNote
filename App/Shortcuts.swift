@@ -1,10 +1,10 @@
 import AppIntents
 
-/// 단축어 앱과 Siri에 "휴식 타이머 시작"을 등록
+/// Siri가 휴식 시간을 물은 뒤 타이머를 시작한다.
 struct GymNoteShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: StartRestIntent(),
+            intent: StartSpokenRestIntent(),
             phrases: ["\(.applicationName) 휴식 시작"],
             shortTitle: "휴식 타이머",
             systemImageName: "timer"
