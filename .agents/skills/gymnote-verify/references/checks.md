@@ -35,4 +35,4 @@ node scripts/ux-sim/run.mjs --validate-only
 
 ## CI와 외부 실행
 
-`.github/workflows/check.yml`은 검증, `build.yml`은 IPA 생성과 main의 릴리스·AltStore 소스 갱신을 담당한다. 독립 워크플로라 main push가 XCTest 성공을 기다리는 장치라고 가정하지 않는다. 현재 CI는 automation·웹·UX 실행기 검사를 포함하지 않으므로 해당 영역 변경은 위 로컬 검사도 수행한다. 연결 전 미실행은 명시하고 CI 전체 성공과 구분한다. 원격 실행 전 대상 브랜치·트리거·승인 범위를 확인한다. 이미 승인된 검사는 재승인을 요구하지 않되 승인되지 않은 push·배포를 검증의 부수 작업으로 수행하지 않는다.
+`.github/workflows/check.yml`은 필수 검사 정의, `build.yml`은 같은 커밋으로 그 검사를 호출하고 IPA 생성·`release-gate`·main 게시를 담당한다. push 검사 결과는 Build IPA run의 `checks / ios|database|account-deletion|tooling` job에서 확인한다. `tooling` job은 위 표의 automation 회귀, 웹 프로토타입, UX Node 명령, USB 뷰어 JS 검사, IPA 사전 검사를 실행한다. USB 뷰어 Python 검사(`simulation/usb/test_viewer_*.py`)는 로컬 고정 pymobiledevice3 환경이 필요해 CI에 없으므로 해당 영역 변경 시 로컬에서 실행하고 미실행을 명시한다. 원격 실행 전 대상 브랜치·트리거·승인 범위를 확인한다. 이미 승인된 검사는 재승인을 요구하지 않되 승인되지 않은 push·배포를 검증의 부수 작업으로 수행하지 않는다.

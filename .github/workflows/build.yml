@@ -19,6 +19,13 @@ env:
   BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
+  # 같은 커밋의 필수 검사(check.yml 전체: iPad XCTest·Swift 회귀·DB·계정 삭제·앱 밖 도구 검사)
+  checks:
+    if: github.ref != 'refs/heads/codex/login'
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+
   build:
     # This chat's login work is validation-only until the user's combined release is ready.
     if: github.ref != 'refs/heads/codex/login'
@@ -97,9 +104,33 @@ jobs:
           name: GymNote-ipa
           path: GymNote.ipa
 
+  # 배포 차단 지점: 같은 커밋의 검사와 Release 빌드가 모두 성공해야만 성공한다.
+  # needs의 기본 동작으로 하나라도 실패·취소·건너뜀이면 이 job과 아래 publish는 실행되지 않는다.
+  release-gate:
+    needs: [checks, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required checks passed for this commit
+        run: |
+          echo "commit ${{ github.sha }} (${{ github.ref }})"
+          echo "checks=${{ needs.checks.result }} build=${{ needs.build.result }}"
+          test "${{ needs.checks.result }}" = success
+          test "${{ needs.build.result }}" = success
+
+  publish:
+    needs: [release-gate]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verified IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: GymNote-ipa
+
       # 빌드마다 고정 주소(build-N) 릴리스 + 'latest' 릴리스
       - name: Publish releases
-        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -120,7 +151,6 @@ jobs:
 
       # AltStore 소스 갱신: altstore 브랜치의 source.json
       - name: Update AltStore source
-        if: github.ref == 'refs/heads/main'
         run: |
           URL="https://github.com/${{ github.repository }}/releases/download/build-$BUILD_NUMBER/GymNote.ipa"
           python3 scripts/make_source.py GymNote.ipa "$APP_VERSION" "$BUILD_NUMBER" "$URL" /tmp/source.json

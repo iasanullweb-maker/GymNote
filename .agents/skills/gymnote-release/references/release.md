@@ -4,11 +4,11 @@
 
 ## 워크플로 의미
 
-- check.yml: pull_request 및 codex 브랜치 push의 iPad XCTest·계정 삭제·격리 DB 검사. 현재 workflow_dispatch는 없다.
-- build.yml: main 및 codex 브랜치 push와 workflow_dispatch의 모델 검사·macOS Release 앱/위젯 빌드·IPA artifact. 브랜치 예외와 버전 생성 규칙도 확인한다.
-- main 실행만 build-N/latest 릴리스와 altstore 브랜치 source.json을 갱신한다. 현재 버전은 0.1.<run_number>이며 run 번호 확인 전에 버전을 단정하지 않는다. latest 교체와 오래된 build-N 정리도 이 워크플로에서 수행한다.
-- 자동 차단 보완 목표: 배포 대상의 필수 검사 성공을 릴리스·AltStore 게시 실행 조건으로 연결한다. 현재는 미구현이며, main 검사를 추가해도 독립 게시가 계속되면 차단을 구현한 것이 아니다.
-- 두 워크플로는 독립적이다. main push가 check.yml 성공을 기다리거나 새 XCTest를 실행한다고 가정하지 않는다. 전체 검증이 없으면 승인 범위 안의 codex 브랜치/PR로 검증한 후 대상 트리와 배포 트리를 대조한다.
+- check.yml: 필수 검사 정의(iPad XCTest·Swift 회귀·계정 삭제·격리 DB·`tooling`의 automation/웹/UX/USB 순수 로직/IPA 사전 검사). 단독 실행은 pull_request뿐이고 push 때는 build.yml이 workflow_call로 호출한다.
+- build.yml: main 및 codex 브랜치 push와 workflow_dispatch에서 `checks`(check.yml 호출)·`build`(macOS Release 앱/위젯 빌드·IPA artifact)·`release-gate`(둘 다 성공해야 성공)·`publish`(게이트 성공 후 main에서만) 순서로 실행한다. 브랜치 예외와 버전 생성 규칙도 확인한다.
+- main 실행의 `publish` job만 같은 run의 검증된 IPA artifact로 build-N/latest 릴리스와 altstore 브랜치 source.json을 갱신한다. 현재 버전은 0.1.<run_number>이며 run 번호 확인 전에 버전을 단정하지 않는다. latest 교체와 오래된 build-N 정리도 이 워크플로에서 수행한다.
+- 자동 차단(2026-10-12 구현·검증): 필수 검사나 빌드가 실패·취소·건너뜀이면 `release-gate`와 `publish`가 실행되지 않는다. 검증 브랜치 run `38204269829`(정상: checks 4개·build·release-gate 성공, publish는 main 아님으로 건너뜀)와 `38204278116`(의도적 실패 검사: build 성공에도 checks/tooling 실패로 release-gate·publish 건너뜀). 실제 main 게시 경로는 다음 승인 배포에서 처음 실행되므로 그 run의 `publish` 성공과 태그·IPA·소스 대조를 확인한다.
+- `[skip ci]` 커밋 push는 어떤 job도 실행하지 않으므로 배포가 아니다. main에 제품 코드가 있어도 다음 일반 push·workflow_dispatch에서 게이트를 거쳐 게시된다.
 - IPA는 인증서 없이 빌드하고 App Group entitlements를 포함한 ad-hoc 서명으로 포장한다. AltStore가 설치 시 재서명한다. App Store/TestFlight 배포 절차로 보고하지 않는다.
 
 ## 대상과 원격
