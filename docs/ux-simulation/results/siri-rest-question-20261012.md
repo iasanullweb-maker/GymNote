@@ -20,7 +20,19 @@
 - Siri 입력 흐름의 작은 상호작용 변경으로 전체 iOS 검사·앱/위젯 Release 빌드를 유예한다. 문법 검사는 타입 검사·컴파일 성공이 아니다. 묶음 통합 검증 또는 배포 전에 같은 제품 코드로 iPad XCTest와 앱/위젯 빌드가 필요하다.
 - Apple 문서: [필수 매개변수와 값 해결](https://developer.apple.com/documentation/appintents/adding-parameters-to-an-app-intent), [App Shortcuts](https://developer.apple.com/videos/play/wwdc2025/244/).
 - Apple 공식 SDK 선언에서 `Measurement<UnitDuration>`의 title/defaultUnit/requestValueDialog 생성자가 iOS/iPadOS 16.0부터 지원되고 `.seconds` 단위가 존재함을 확인했다. 앱의 최소 iOS 17.0에 맞는다. SDK 확인은 실제 컴파일을 대신하지 않는다.
-- 원격 push, CI 실행, 배포, 기기 설치는 수행하지 않는다.
+- 구현 단계에서는 원격 push, CI 실행, 배포, 기기 설치를 수행하지 않았다. 아래 사용자 승인 배포에서 기술 검증 대기를 해소했다.
+
+## 0.1.113/build 113 배포 완료
+
+- 사용자 승인: "배포해둬". 실제 배포 소스 SHA: `8886c6bc7c27061ab02ab7fd71189073bcf6227f`.
+- [검증 Build 112](https://github.com/iasanullweb-maker/GymNote/actions/runs/38223756676): 동일 SHA의 iOS/DB/계정 삭제/tooling 검사, Release 앱/위젯 빌드, release-gate 성공. 검증 브랜치이므로 publish는 정상 건너뜀.
+- [정식 Build 113](https://github.com/iasanullweb-maker/GymNote/actions/runs/38225110522): 동일 SHA의 모든 검사·Release 빌드·release-gate·publish 성공. XCTest 148개 중 4개 건너뜀·실패 0이며 새 `RestIntentTests` 4개 모두 통과.
+- [build-113](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-113), latest, 실행 head SHA가 모두 배포 소스와 일치한다.
+- Release artifact의 실제 IPA에서 앱 `com.gymnote.app`과 위젯 `com.gymnote.app.widget` 모두 버전 `0.1.113`, 빌드 `113` 확인.
+- IPA 크기: 2,191,577바이트. SHA-256: `6cd37d90b74b659172c413184443e2ee1567449e8e7862fe3e82f4177e114c40`. build-113/latest 공개 asset의 크기와 SHA-256이 동일하다.
+- 원격 altstore/source.json의 bundle ID, 버전/빌드, 고정 build-113 다운로드 URL, size가 실제 IPA와 일치한다. 공개 게시와 AltStore 갱신을 각각 확인했다.
+- 기술 검증 대기는 해소했다. 기기 설치·실제 Siri 음성 인식·취소/잠금 상태 확인은 아직 미완료이며 아래 항목을 유지한다. 운영 DB·별도 서버 배포는 실행하지 않았다.
+- 이후 배포 결과 기록 변경은 Markdown 문서뿐이며 앱/위젯/공유 코드·테스트·설정·CI 입력은 배포 SHA와 같다. 기록 커밋은 `[skip ci]`로 불필요한 재배포 없이 통합한다.
 
 ## 실제 기기 확인 대기
 

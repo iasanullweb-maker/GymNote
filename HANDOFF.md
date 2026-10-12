@@ -2,6 +2,14 @@
 
 마지막 업데이트: 2026-10-12
 
+## Siri 휴식 시간 질문 0.1.113 배포 (2026-10-12)
+
+사용자의 "배포해둬" 승인으로 소스 `8886c6bc7c27061ab02ab7fd71189073bcf6227f`를 검증 브랜치에서 전체 검사·Release 빌드한 후 동일 SHA를 main에 일반 push했다. [검증 Build 112](https://github.com/iasanullweb-maker/GymNote/actions/runs/38223756676)와 [정식 Build 113](https://github.com/iasanullweb-maker/GymNote/actions/runs/38225110522) 성공. iPad XCTest 148개 중 4개 건너뜀·실패 0, 새 Siri 회귀 4개 통과. DB·계정 삭제·도구 검사와 앱/위젯 Release 빌드, release-gate, main publish 모두 성공했다.
+
+[build-113 릴리스](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-113)와 latest가 같은 소스를 가리키고, 실제 IPA의 앱/위젯 모두 `0.1.113 (113)`, 크기 2,191,577바이트, SHA-256 `6cd37d90b74b659172c413184443e2ee1567449e8e7862fe3e82f4177e114c40`이다. AltStore source.json의 버전/빌드/고정 다운로드 URL/크기도 일치했다. GitHub 인증 관리자에 계정 두 개가 있어 push가 계정 선택을 기다린 문제는 기존 소유 계정을 명령에만 지정하여 해결했으며 전역 설정은 바꾸지 않았다.
+
+기기 설치와 실제 한국어 Siri 대화·취소·잠금 상태는 미확인으로 유지한다. 운영 SQL·별도 서버 배포는 실행하지 않았다. [결과 기록](docs/ux-simulation/results/siri-rest-question-20261012.md) 및 TODOLIST의 113 확인 대기를 따른다. 아래 구현 당시 미배포·전체 빌드 미실행 기록은 이 배포 검증으로 기술 대기를 해소했다.
+
 ## Siri 휴식 시간 후속 질문 구현 (2026-10-12, 미배포)
 
 사용자의 "휴식 시작이라고 하면 시리가 다시 질문하는 거로 하자" 요청으로 자동 등록 앱 단축어에 기본값 없는 필수 시간 매개변수와 후속 질문을 추가했다. "헬스노트 휴식 시작" → "얼마 동안 쉴까요?" → 시간 답변 후 기존 타이머 경로를 실행한다. 위젯의 설정 시간과 계정 보호는 유지한다. 기존 저장된 단축어와의 호환성을 위해 `StartRestIntent`는 남겼다.
