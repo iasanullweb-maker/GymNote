@@ -31,7 +31,7 @@ Windows Python 3.12/tree-sitter-swift로 변경 Swift 11개 구문 오류 0, git
 - [build-107](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-107)·[latest](https://github.com/iasanullweb-maker/GymNote/releases/tag/latest)의 태그 대상은 `45ae068408e4b2697530ac31ce8f8c705f64ac82`로 동일하다. 두 자산의 API digest·크기가 같으며 고정 IPA를 직접 내려받아 2,171,197바이트, SHA-256 `8b4b4b91dd811ee71a57fae8dff446bcf8c993b2917a830d5bcd185be20eae47`를 대조했다.
 - IPA 내부 `com.gymnote.app`·`com.gymnote.app.widget` 모두 0.1.107/build 107이다. 두 Mach-O 실행 파일의 LC_CODE_SIGNATURE SuperBlob에서 XML entitlements를 읽어 서명 App Group `group.com.gymnote.app`을 확인했다. 실제 설치 재서명은 AltStore가 수행한다.
 - 원격 altstore SHA `da662ae1ef036d7fa3bca742884411930fb22418`의 source.json bundle ID·버전·빌드·크기·고정 build-107 다운로드 URL이 IPA와 일치한다.
-- 사용자에게 AltStore 소스 새로고침→업데이트→설정 하단 `0.1.107 (107)` 확인→실행 화면 열기를 안내했다. 현재 **업데이트·실기기 운동 시작·삭제 결과는 사용자 확인 대기**이며 자동 검사로 완료 처리하지 않았다. 확인 후 휴리봇 작업을 재개한다. 기존 사용자 확인 대기도 보존했다.
+- 사용자에게 AltStore 소스 새로고침→업데이트→설정 하단 `0.1.107 (107)` 확인→실행 화면 열기를 안내했다. 후속 사용자가 ‘107이라고 잘 떠’, ‘운동 시작되고 세트 완료 버튼이 활성화됨’이라고 확인했다. USB installation_proxy의 설치 앱 조회도 0.1.107/build 107이다. 이 확인 범위만 TODOLIST에서 완료 처리하고 **미등록 전체 삭제·실제 세트 완료·일지 저장·동기화는 미확인**으로 보존했다. 사용자 요청에 따라 이후 가상 사용자 검증을 진행한다.
 - 사용자는 USB 연결·같은 Wi-Fi에서 Sources 새로고침의 긴 로딩을 보고했고, 이어 107 버전의 UPDATE가 표시됐다고 확인했다. 이는 최신 소스 정보를 받은 범위의 확인이며 설치 성공은 아니다. PC 읽기 전용 점검에서는 USB 1대·AltServer 1.8.0 응답·Apple Mobile Device/Bonjour 실행·PC VPN 어댑터 연결 끊김을 확인했다. AltServer/iTunes 재시작이나 네트워크 설정 변경은 하지 않았다.
 - 정리 권한은 프로세스 내에만 두므로 앱 재시작 뒤 성공한 서버 조회 전에는 삭제를 유예한다. 다른 기기의 구버전 데이터가 먼저 내려오면 조회 성공까지 잠시 보일 수 있고 이후 읽기·저장 경계에서 제거된다. 오프라인·조회 실패 상태를 임의 삭제로 해결하지 않는다.
 - 배포 결과 문서는 `[skip ci]` 커밋으로 공통 잠금 아래 로컬 main에 후속 통합해 추가 앱 버전을 만들지 않는다.
