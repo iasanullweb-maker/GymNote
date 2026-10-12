@@ -15,5 +15,10 @@
       "autoIntegrate": true
     }
   },
-  "telegramNotificationsEnabled": true
+  "telegramNotificationsEnabled": true,
+  "kakaoEnabled": false,
+  "kakaoPort": 8766,
+  "kakaoBotIds": [],
+  "kakaoUserKeys": [],
+  "kakaoDiscoveryEnabled": false
 }

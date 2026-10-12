@@ -68,7 +68,7 @@ class Runner:
         if not readonly:
             args[-1:-1] = ['--approve-for-me']
         env = {k: v for k, v in os.environ.items() if k not in
-               ('TELEGRAM_BOT_TOKEN', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN')}
+               ('TELEGRAM_BOT_TOKEN', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN', 'KAKAO_SKILL_TOKEN')}
         # Agent output stays local; never send code/log contents to Telegram automatically.
         with output.with_suffix('.log').open('wb') as log:
             process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=log, stderr=log,

@@ -255,6 +255,7 @@ class Tests(unittest.TestCase):
         fake.write_text('''import os,sys,json,pathlib
 assert 'TELEGRAM_BOT_TOKEN' not in os.environ
 assert 'GYMNOTE_AUTOMATION_ADMIN_TOKEN' not in os.environ
+assert 'KAKAO_SKILL_TOKEN' not in os.environ
 assert sys.argv[-1] == '-'
 assert sys.stdin.read() == 'private idea'
 schema=json.loads(pathlib.Path(sys.argv[sys.argv.index('--output-schema')+1]).read_text())
@@ -264,7 +265,7 @@ pathlib.Path(sys.argv[sys.argv.index('--output-last-message')+1]).write_text('{"
         real_popen = subprocess.Popen
         def routed(args, **kwargs):
             return real_popen([sys.executable, str(fake), *args[1:]], **kwargs)
-        with patch.dict(os.environ, {'TELEGRAM_BOT_TOKEN': 'sentinel-bot', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN': 'sentinel-admin'}), patch('automation.worker.runner.subprocess.Popen', side_effect=routed):
+        with patch.dict(os.environ, {'TELEGRAM_BOT_TOKEN': 'sentinel-bot', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN': 'sentinel-admin', 'KAKAO_SKILL_TOKEN': 'sentinel-kakao'}), patch('automation.worker.runner.subprocess.Popen', side_effect=routed):
             text = Runner(self.store, {}, self.root, 'fake').agent(task['id'], self.root, 'private idea', self.root / 'out.json')
         self.assertTrue(json.loads(text)['ready'])
 

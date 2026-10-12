@@ -13,8 +13,9 @@ def now():
 
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, path, *, timeout=30):
         self.path = str(path)
+        self.timeout = timeout
         with self.connect() as db:
             db.executescript('''
             PRAGMA journal_mode=WAL;
@@ -28,6 +29,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS history (
               task TEXT NOT NULL, time TEXT NOT NULL, status TEXT NOT NULL, attempt TEXT);
             CREATE TABLE IF NOT EXISTS commands (event TEXT PRIMARY KEY);
+            CREATE TABLE IF NOT EXISTS kakao_memo_receipts (
+              fingerprint TEXT PRIMARY KEY, task TEXT NOT NULL, expires REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS telegram_targets (
               task TEXT PRIMARY KEY, chat INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS telegram_notifications (
@@ -66,7 +69,7 @@ class Store:
 
     @contextmanager
     def connect(self):
-        db = sqlite3.connect(self.path, timeout=30)
+        db = sqlite3.connect(self.path, timeout=self.timeout)
         db.row_factory = sqlite3.Row
         try:
             with db:
@@ -74,14 +77,25 @@ class Store:
         finally:
             db.close()
 
-    def create(self, source, event, actor, project, text, intent, *, telegram_chat=None):
+    def create(self, source, event, actor, project, text, intent, *, telegram_chat=None, memo_replay_seconds=None):
         event, text = validate_input(source, event, actor, project, text, intent)
         if telegram_chat is not None and (source != 'telegram' or isinstance(telegram_chat, bool)
                 or not isinstance(telegram_chat, int) or telegram_chat == 0 or not -(2**63) <= telegram_chat < 2**63):
             raise ValueError('Invalid Telegram notification chat')
+        if memo_replay_seconds is not None and (source != 'kakao' or intent != 'memo' or memo_replay_seconds != 60):
+            raise ValueError('Invalid memo replay window')
         stamp = now()
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
+            fingerprint = event if memo_replay_seconds is not None else None
+            if fingerprint is not None:
+                receipt = db.execute('SELECT task,expires FROM kakao_memo_receipts WHERE fingerprint=?', (fingerprint,)).fetchone()
+                if receipt and receipt['expires'] > time.time():
+                    item = self.decode(db.execute('SELECT * FROM tasks WHERE id=?', (receipt['task'],)).fetchone())
+                    if not item or (item['source'], item['actor'], item['project'], item['text'], item['intent']) != (source, actor, project, text, intent):
+                        raise ValueError('Memo fingerprint already used for different input')
+                    return item
+                event = str(uuid.uuid4())
             existing = db.execute('SELECT * FROM tasks WHERE source=? AND event=?', (source, event)).fetchone()
             if existing:
                 item = self.decode(existing)
@@ -98,6 +112,10 @@ class Store:
                         'memo' if intent == 'memo' else 'queued', stamp, stamp, None, intent))
             row = db.execute('SELECT * FROM tasks WHERE source=? AND event=?',
                              (source, str(event))).fetchone()
+            if fingerprint is not None:
+                db.execute('DELETE FROM kakao_memo_receipts WHERE expires<=?', (time.time(),))
+                db.execute('INSERT INTO kakao_memo_receipts VALUES (?,?,?) ON CONFLICT(fingerprint) DO UPDATE SET task=excluded.task,expires=excluded.expires',
+                           (fingerprint, row['id'], time.time() + memo_replay_seconds))
             if telegram_chat is not None:
                 db.execute('INSERT INTO telegram_targets VALUES (?,?)', (row['id'], telegram_chat))
             self.record(db, row['id'], row['status'])
@@ -118,6 +136,11 @@ class Store:
     def list(self):
         with self.connect() as db:
             return [self.decode(r) for r in db.execute('SELECT * FROM tasks ORDER BY created DESC LIMIT 200')]
+
+    def list_actor(self, actor, limit=5):
+        with self.connect() as db:
+            return [self.decode(row) for row in db.execute(
+                'SELECT * FROM tasks WHERE actor=? ORDER BY created DESC LIMIT ?', (actor, limit))]
 
     def history(self, task):
         with self.connect() as db:

@@ -1,4 +1,4 @@
-"""Read-only local preflight. No Telegram requests, agent execution, or token output."""
+"""Read-only local preflight. No messenger requests, agent execution, or token output."""
 import argparse
 import json
 import os
@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 from automation.service import load_config
+from automation.ingress.kakao import validate_config as validate_kakao_config
 
 
 def inspect(config, environment=None):
@@ -15,9 +16,9 @@ def inspect(config, environment=None):
     def record(name, ok, detail):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
     record('python', sys.version_info >= (3, 12), 'Python 3.12 or later required')
-    for key in ('telegramEnabled', 'executionEnabled', 'telegramNotificationsEnabled'):
+    for key in ('telegramEnabled', 'executionEnabled', 'telegramNotificationsEnabled', 'kakaoEnabled', 'kakaoDiscoveryEnabled'):
         record(key, isinstance(config.get(key, False if key != 'telegramNotificationsEnabled' else True), bool), 'Must be a JSON boolean')
-    git_env = {key: value for key, value in environment.items() if not key.startswith('GIT_') and key not in ('TELEGRAM_BOT_TOKEN', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN')}
+    git_env = {key: value for key, value in environment.items() if not key.startswith('GIT_') and key not in ('TELEGRAM_BOT_TOKEN', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN', 'KAKAO_SKILL_TOKEN')}
     for project_id, project in config['projects'].items():
         try:
             result = subprocess.run(['git', '-C', project['path'], 'branch', '--show-current'],
@@ -35,6 +36,16 @@ def inspect(config, environment=None):
         record('telegram-token', bool(environment.get('TELEGRAM_BOT_TOKEN')), 'Bot token environment variable required; value is never printed')
     else:
         record('telegram', True, 'Disabled: no real bot reception or notification delivery')
+    if config.get('kakaoEnabled') is True:
+        try:
+            validate_kakao_config(config, environment.get('KAKAO_SKILL_TOKEN', ''))
+            kakao_ready = True
+        except (ValueError, TypeError):
+            kakao_ready = False
+        record('kakao-config', kakao_ready, 'Separate skill port, bot/user allowlists and random KAKAO_SKILL_TOKEN required; no secret values printed')
+        record('kakao-discovery', True, 'Discovery exposes only calling user IDs; turn off after enrollment' if config.get('kakaoDiscoveryEnabled') else 'Discovery disabled')
+    else:
+        record('kakao', True, 'Disabled: no real channel reception')
     if config.get('executionEnabled') is True:
         executable = config.get('codexExecutable', '')
         record('codex-executable', isinstance(executable, str) and Path(executable).is_absolute() and Path(executable).is_file(), 'Existing absolute Codex executable path required')
@@ -42,6 +53,7 @@ def inspect(config, environment=None):
         record('execution', True, 'Disabled: queued work will not launch an agent')
     return {'ok': all(item['ok'] for item in checks), 'checks': checks,
             'notChecked': ['Telegram token validity, webhook/polling conflicts and real delivery',
+                           'Kakao channel/bot deployment, public HTTPS ingress, skill headers and actual reception',
                            'Codex account authentication, quota and actual execution',
                            'Port availability, runtime directory permissions and live service status']}
 

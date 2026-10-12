@@ -1,6 +1,6 @@
 """Shared v1 task validation and state transitions (no channel or agent dependencies)."""
 
-SOURCES = frozenset(('telegram', 'web', 'mock'))
+SOURCES = frozenset(('telegram', 'kakao', 'web', 'mock'))
 ACTIVE = frozenset(('planning', 'running', 'reviewing', 'validating'))
 TRANSITIONS = {
     'memo': {'cancelled'},

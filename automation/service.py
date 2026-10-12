@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from automation.store import Store
 from automation.ingress.telegram import Telegram
+from automation.ingress.kakao import Kakao, SkillServer, handler as kakao_handler, validate_config as validate_kakao_config
 from automation.worker.runner import Runner
 from automation.contracts.tasks import identifier
 
@@ -54,6 +55,7 @@ def load_config(path):
         raise ValueError('timeoutSeconds must be between 10 and 3600')
     if not 1 <= config.get('maxTasksPerSession', 10) <= 100:
         raise ValueError('maxTasksPerSession must be between 1 and 100')
+    validate_kakao_config(config)
     return config
 
 
@@ -155,19 +157,41 @@ def run(config):
     token = os.environ.get('GYMNOTE_AUTOMATION_ADMIN_TOKEN', '')
     if len(token) < 24:
         raise ValueError('Set GYMNOTE_AUTOMATION_ADMIN_TOKEN to a random value of at least 24 characters')
+    validate_kakao_config(config, os.environ.get('KAKAO_SKILL_TOKEN', ''))
     runtime = Path(config.get('runtimeDir', str(Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'GymNoteAutomation'))).resolve()
     runtime.mkdir(parents=True, exist_ok=True)
     instance = InstanceLock(runtime / 'service.lock')
     stop = threading.Event()
-    store = Store(runtime / 'ideas.sqlite3')
-    store.recover()
-    runner = Runner(store, config['projects'], runtime, config.get('codexExecutable', 'codex'), config.get('timeoutSeconds', 900))
-    telegram = None
-    if config.get('telegramEnabled'):
-        telegram = Telegram(os.environ.get('TELEGRAM_BOT_TOKEN'), config.get('allowedUserIds'),
-                            config.get('allowedChatIds'), config['defaultProject'], store)
-    server = ThreadingHTTPServer(('127.0.0.1', config.get('port', 8765)), handler(store, config, token))
-    server.daemon_threads = True
+    try:
+        store = Store(runtime / 'ideas.sqlite3')
+        store.recover()
+        runner = Runner(store, config['projects'], runtime, config.get('codexExecutable', 'codex'), config.get('timeoutSeconds', 900))
+        telegram = None
+        if config.get('telegramEnabled'):
+            telegram = Telegram(os.environ.get('TELEGRAM_BOT_TOKEN'), config.get('allowedUserIds'),
+                                config.get('allowedChatIds'), config['defaultProject'], store)
+    except Exception:
+        instance.close()
+        raise
+    server = None
+    skill_server = None
+    try:
+        server = ThreadingHTTPServer(('127.0.0.1', config.get('port', 8765)), handler(store, config, token))
+        server.daemon_threads = True
+        if config.get('kakaoEnabled'):
+            # Short DB wait keeps skills inside Kakao's five-second response budget.
+            skill_store = Store(runtime / 'ideas.sqlite3', timeout=.5)
+            kakao = Kakao(skill_store, config)
+            skill_server = SkillServer(('127.0.0.1', config.get('kakaoPort', 8766)),
+                                               kakao_handler(kakao, os.environ['KAKAO_SKILL_TOKEN']))
+            skill_server.daemon_threads = False
+    except Exception:
+        if skill_server:
+            skill_server.server_close()
+        if server:
+            server.server_close()
+        instance.close()
+        raise
 
     def work():
         processed = 0
@@ -197,19 +221,24 @@ def run(config):
                 stop.wait(10)
 
     threads = []
+    if skill_server:
+        threads.append(threading.Thread(target=skill_server.serve_forever, kwargs={'poll_interval': .25}, daemon=True))
     if config.get('executionEnabled'):
         threads.append(threading.Thread(target=work, daemon=True))
     if telegram:
         threads.append(threading.Thread(target=receive, daemon=True))
     for thread in threads:
         thread.start()
-    print(f"Idea automation: http://127.0.0.1:{server.server_port} | Telegram={bool(telegram)} | execution={bool(config.get('executionEnabled'))}", flush=True)
+    print(f"Idea automation: http://127.0.0.1:{server.server_port} | Telegram={bool(telegram)} | Kakao={bool(skill_server)} | execution={bool(config.get('executionEnabled'))}", flush=True)
     try:
         server.serve_forever(poll_interval=.25)
     except KeyboardInterrupt:
         pass
     finally:
         stop.set()
+        if skill_server:
+            skill_server.shutdown()
+            skill_server.server_close()
         server.server_close()
         # Stop current agent through the same cancellation path; keep lock until stopped.
         for task in store.list():

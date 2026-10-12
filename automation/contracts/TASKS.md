@@ -24,7 +24,7 @@ requestId는 앞뒤 공백·제어문자 없는 1~200자 문자열. 전달하면
 
 ## 저장·상태·시도
 
-작업 객체: id, source(telegram/web/mock), event, actor, project, text, intent, status, created, updated, attempt, result, cancel. created/updated는 UTC ISO 8601이다. result는 summary, checks, notRun, commit, worktree, integrated 등을 담는다. cancel은 0/1 중지 요청이며 실행 종료 성공 표시가 아니다.
+작업 객체: id, source(telegram/kakao/web/mock), event, actor, project, text, intent, status, created, updated, attempt, result, cancel. created/updated는 UTC ISO 8601이다. result는 summary, checks, notRun, commit, worktree, integrated 등을 담는다. cancel은 0/1 중지 요청이며 실행 종료 성공 표시가 아니다.
 
 상태는 memo 또는 queued → planning → running → reviewing → validating → completed. 진행 중 실패/판단 필요는 waiting_user 또는 failed, 종료 확인 후 cancelled. memo/queued/waiting_user는 실행 프로세스가 없어 즉시 cancelled 가능하다. completed는 종료 상태로 다시 변경할 수 없다. 재시도만 failed/waiting_user/cancelled → queued를 허용한다. 메모는 실행기로 claim되지 않는다.
 
@@ -49,3 +49,13 @@ telegram_targets는 새 텔레그램 요청의 원래 chat ID를 저장한다. t
 Telegram sendMessage와 SQLite를 하나의 외부 트랜잭션으로 묶을 수 없으므로 응답 유실/발송 직후 재시작에는 중복 가능성이 있다. 알림 ID로 식별하며 exactly-once를 주장하지 않는다. telegramNotificationsEnabled=false는 큐를 삭제하지 않고 발송만 멈춘다. 다시 켜면 권한을 재검사한 뒤 남은 알림을 처리한다.
 
 python -m automation.check --config <local-config.json>은 네트워크/에이전트 실행/비밀값 출력 없는 사전 점검이다. 실제 봇 인증·모델 로그인·서비스 운영 검증과 구분한다.
+
+## 카카오톡 스킬 입력 (2026-10-12)
+
+POST /kakao/skill은 별도 localhost 포트(기본 8766)의 x-api-key로 인증한다. 관리자 API 포트 8765를 공개하지 않는다. bot.id와 userRequest.user.id/type=botUserKey를 각각 허용 목록에 대조하며 actor는 봇+사용자 조합의 해시다. source=kakao를 기존 tasks에 추가하며 기존 데이터를 보존한다. source+event 및 소유자 검사를 그대로 사용한다.
+
+실행은 `실행 요청키 내용`으로 명시적 키를 요구하고 봇+사용자+키 해시를 영구 event로 사용한다. 같은 키·다른 내용은 거부한다. 메모는 kakao_memo_receipts의 60초 수신 이력을 작업 생성과 같은 트랜잭션에 저장한다. 기간 내 동시/재시작 수신은 같은 메모를 반환하며 이후 새 메모를 허용한다. 오래 지연된 메모 재전송을 exactly-once로 보장하지 않는다. 상태/중지/재시도는 해당 봇·사용자의 작업만 허용하고 메모를 재시도로 실행하지 않는다.
+
+스킬은 version=2.0/simpleText/상태 확인 quickReply로 즉시 응답한다. 콜백 URL을 저장하거나 호출하지 않는다. 에이전트 실행은 기존 워커에서만 수행한다. 카카오 작업의 자동 push는 미구현이며 `상태`로 안전한 결과 요약을 조회한다. 실행 꺼짐/일시 중지에서는 실행과 재시도를 거부한다. 발견 모드는 허용 봇에서 `내정보`만 미등록 사용자에게 반환하며 등록 후 반드시 끈다.
+
+KAKAO_SKILL_TOKEN은 설정/Git/로그/에이전트 자식 환경에 넣지 않는다. 스킬 서버는 요청 전체 3.5초·본문 32KB·동시 16 요청 제한을 적용하고 스킬 DB 대기는 0.5초다. 오류/권한 응답에는 원래 발화·식별자·토큰·DB 오류가 없다. 연결 절차와 명령은 [KAKAO_SETUP.md](../KAKAO_SETUP.md)를 따른다.
