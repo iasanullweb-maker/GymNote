@@ -12,12 +12,14 @@
 ## 검토와 검증
 
 - 기준 커밋: `121193ee6327c945bd6076b3f2c3062e5c5dfae1`, 통합 대상: 원본 `2026_IASA/GymNote`의 `main`.
+- 구현 커밋: `d89281d`. 작업 중 추가된 main `f3364dab81472bfc1c12a7ab957f3b9449cfeef8`을 워크트리에 병합했고, 최종 검사 대상은 `c81f5875c77a507b7e3d4cc804f24dddfc1c89b5`이다. 병합 후 Swift 3개 문법과 `git diff --check main..HEAD`를 다시 통과했다. 이후 변경은 이 결과 문서뿐이다.
 - 작업 브랜치: `codex/siri-rest-question-20261012`, 작업 폴더: `Documents/ChatGPT/gymnote in web 2/GymNote/.worktrees/siri-rest-question`.
 - 기존 Python/tree-sitter Swift 문법 검사: `Shared/Intents.swift`, `App/Shortcuts.swift`, `Tests/RestIntentTests.swift` 모두 오류 없음.
 - `git diff --check` 통과. 위젯 호출이 `StartRestIntent(seconds: entry.data.defaultRest, generation: entry.generation)`인 것을 검토했다.
 - XCTest 회귀 4개를 추가했다: 분/초 변환, 소수 초와 최소값, 잘못된 값·정수 경계, 기존 위젯 매개변수 보존. Windows에 Swift/Xcode가 없어 실행하지 않았다.
 - Siri 입력 흐름의 작은 상호작용 변경으로 전체 iOS 검사·앱/위젯 Release 빌드를 유예한다. 문법 검사는 타입 검사·컴파일 성공이 아니다. 묶음 통합 검증 또는 배포 전에 같은 제품 코드로 iPad XCTest와 앱/위젯 빌드가 필요하다.
 - Apple 문서: [필수 매개변수와 값 해결](https://developer.apple.com/documentation/appintents/adding-parameters-to-an-app-intent), [App Shortcuts](https://developer.apple.com/videos/play/wwdc2025/244/).
+- Apple 공식 SDK 선언에서 `Measurement<UnitDuration>`의 title/defaultUnit/requestValueDialog 생성자가 iOS/iPadOS 16.0부터 지원되고 `.seconds` 단위가 존재함을 확인했다. 앱의 최소 iOS 17.0에 맞는다. SDK 확인은 실제 컴파일을 대신하지 않는다.
 - 원격 push, CI 실행, 배포, 기기 설치는 수행하지 않는다.
 
 ## 실제 기기 확인 대기
