@@ -3,7 +3,7 @@ import sqlite3
 import uuid
 import time
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from automation.contracts.tasks import validate_input, validate_transition
 
@@ -141,6 +141,23 @@ class Store:
         with self.connect() as db:
             return [self.decode(row) for row in db.execute(
                 'SELECT * FROM tasks WHERE actor=? ORDER BY created DESC LIMIT ?', (actor, limit))]
+
+    def updated_since(self, source, watermark=None, *, overlap_seconds=0, limit=200):
+        """Tasks of one source updated after watermark - overlap, oldest first (relay status publishing)."""
+        floor = ''
+        if watermark:
+            floor = (datetime.fromisoformat(watermark) - timedelta(seconds=overlap_seconds)).isoformat()
+        with self.connect() as db:
+            return [self.decode(row) for row in db.execute(
+                'SELECT * FROM tasks WHERE source=? AND updated>? ORDER BY updated, id LIMIT ?',
+                (source, floor, limit))]
+
+    def setting(self, key, value=None):
+        with self.connect() as db:
+            if value is not None:
+                db.execute('INSERT INTO settings VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', (key, str(value)))
+            row = db.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()
+            return row[0] if row else None
 
     def history(self, task):
         with self.connect() as db:

@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from automation.store import Store
 from automation.ingress.telegram import Telegram
 from automation.ingress.kakao import Kakao, SkillServer, handler as kakao_handler, validate_config as validate_kakao_config
+from automation.ingress.kakao_relay import Relay, validate_relay_config
 from automation.worker.runner import Runner
 from automation.contracts.tasks import identifier
 
@@ -56,6 +57,7 @@ def load_config(path):
     if not 1 <= config.get('maxTasksPerSession', 10) <= 100:
         raise ValueError('maxTasksPerSession must be between 1 and 100')
     validate_kakao_config(config)
+    validate_relay_config(config)
     return config
 
 
@@ -157,7 +159,8 @@ def run(config):
     token = os.environ.get('GYMNOTE_AUTOMATION_ADMIN_TOKEN', '')
     if len(token) < 24:
         raise ValueError('Set GYMNOTE_AUTOMATION_ADMIN_TOKEN to a random value of at least 24 characters')
-    validate_kakao_config(config, os.environ.get('KAKAO_SKILL_TOKEN', ''))
+    validate_kakao_config(config, os.environ.get('KAKAO_SKILL_TOKEN', '') if config.get('kakaoEnabled') else None)
+    validate_relay_config(config, os.environ.get('AUTOMATION_RELAY_TOKEN', ''))
     runtime = Path(config.get('runtimeDir', str(Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'GymNoteAutomation'))).resolve()
     runtime.mkdir(parents=True, exist_ok=True)
     instance = InstanceLock(runtime / 'service.lock')
@@ -185,6 +188,11 @@ def run(config):
             skill_server = SkillServer(('127.0.0.1', config.get('kakaoPort', 8766)),
                                                kakao_handler(kakao, os.environ['KAKAO_SKILL_TOKEN']))
             skill_server.daemon_threads = False
+        relay = None
+        if config.get('kakaoRelayEnabled'):
+            relay_store = Store(runtime / 'ideas.sqlite3', timeout=5)
+            relay = Relay(Kakao(relay_store, config), relay_store, config['kakaoRelayUrl'],
+                          os.environ['AUTOMATION_RELAY_TOKEN'])
     except Exception:
         if skill_server:
             skill_server.server_close()
@@ -220,7 +228,23 @@ def run(config):
                 print('Telegram polling failed; retrying in 10 seconds. No credentials logged.', flush=True)
                 stop.wait(10)
 
+    def sync():
+        delay = config.get('kakaoRelayPollSeconds', 5)
+        failures = 0
+        while not stop.is_set():
+            try:
+                relay.step()
+                failures = 0
+                stop.wait(delay)
+            except Exception:
+                failures += 1
+                # Unacknowledged items stay leased in the cloud and are retried; nothing is lost.
+                print('Kakao relay sync failed; retrying. No credentials or messages logged.', flush=True)
+                stop.wait(min(300, delay * 2 ** min(failures, 6)))
+
     threads = []
+    if relay:
+        threads.append(threading.Thread(target=sync, daemon=True))
     if skill_server:
         threads.append(threading.Thread(target=skill_server.serve_forever, kwargs={'poll_interval': .25}, daemon=True))
     if config.get('executionEnabled'):
@@ -229,7 +253,7 @@ def run(config):
         threads.append(threading.Thread(target=receive, daemon=True))
     for thread in threads:
         thread.start()
-    print(f"Idea automation: http://127.0.0.1:{server.server_port} | Telegram={bool(telegram)} | Kakao={bool(skill_server)} | execution={bool(config.get('executionEnabled'))}", flush=True)
+    print(f"Idea automation: http://127.0.0.1:{server.server_port} | Telegram={bool(telegram)} | Kakao={bool(skill_server)} | KakaoRelay={bool(relay)} | execution={bool(config.get('executionEnabled'))}", flush=True)
     try:
         server.serve_forever(poll_interval=.25)
     except KeyboardInterrupt:

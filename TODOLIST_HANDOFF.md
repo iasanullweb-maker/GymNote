@@ -125,12 +125,12 @@
 
 - [ ] **실제 일지 카드 상세·세트별 값 확인.** 후속 파일럿의 직접 카드 터치 결과와 최신 상세 화면이 아직 pending이다. 현재 설치 앱 버전을 기록하고 실제 상세 값 확인과 원격 탭/영상 최신성 문제를 구분한다. 상세: [후속 파일럿](docs/ux-simulation/results/subagent-followup-pilot-20261010.md).
 - [ ] **USB 반대 가로/세로·장시간 안정성.** 현재 확인한 가로 방향 외의 클릭/드래그 대응, 장시간 연결·반복 단절 복구를 확인한다. 현재 가로 270° 입력, 10분 관찰/PC 앱 전환, 짧은 USB 분리 후 자동 복구와 복구 후 입력은 사용자 확인 기록이 있어 다시 미완료로 올리지 않는다. 상세: [좌표 검증](docs/ux-simulation/results/windows-usb-ipad-validation.md), [복구 검증](docs/ux-simulation/results/usb-idle-recovery-validation.md).
-- [ ] **카카오톡 자동화 실제 연결·전체 흐름.** 2026-10-12 기본 입력 채널을 텔레그램에서 카카오톡 채널 챗봇으로 바꿨다. 코드·로컬 검사(71개)는 끝났고 실제 연결은 미확인이다. [카카오톡 설정 안내](automation/KAKAO_SETUP.md) 순서대로 확인한다. 텔레그램 연결 절차는 현재 과제에서 제외했다(기능·이력 보존).
+- [ ] **카카오톡 자동화 실제 연결·전체 흐름 (클라우드 우편함 중계).** 2026-10-12 기본 입력 채널을 카카오톡 채널 챗봇으로 바꾸고, PC가 꺼져 있어도 접수되도록 Supabase `kakao-skill` 함수 + 우편함 중계로 전환했다. 코드·로컬 검사는 끝났고 운영 설정·실제 연결은 미확인이다. [카카오톡 설정 안내](automation/KAKAO_SETUP.md) 순서대로 확인한다. 텔레그램 연결 절차와 PC 직접 수신(터널) 방식은 현재 과제에서 제외했다(기능·이력 보존).
   - [ ] 채널·챗봇 생성과 채널 연결 → 기대 결과: 챗봇 관리자센터에서 봇 ID 확인.
-  - [ ] 로컬 설정·비밀값 준비 후 `python -m automation.check --config <로컬 설정>` → 기대 결과: `ok=true`(실제 연결 성공을 뜻하지는 않음).
-  - [ ] 서비스 실행, cloudflared로 8766만 공개, 스킬 URL·`x-api-key` 헤더·폴백 블록 연결 후 배포 → 기대 결과: 채널 채팅의 `도움말`에 명령 안내가 응답됨.
-  - [ ] `내정보`로 botUserKey 등록 후 발견 모드 끄고 재시작 → 기대 결과: 등록 전 다른 메시지는 저장되지 않고, 등록 후 메모가 저장됨.
-  - [ ] `메모 …` 전송 → 기대 결과: 저장 응답·작업 ID가 오고 PC 관리자 화면에 같은 메모가 보임.
+  - [ ] Supabase SQL Editor에서 `202610120001_kakao_relay.sql` 실행 → 기대 결과: 확인 쿼리에서 대기 0건, anon 읽기·authenticated 저장 권한 false.
+  - [ ] `kakao-skill` 함수 배포(JWT 검증 강제 끔)·Secrets 5개 등록·챗봇 스킬 URL/`x-api-key`/폴백 연결 후 배포 → 기대 결과: 채널 채팅 `도움말`에 "PC가 꺼져 있어도 접수" 안내가 응답됨.
+  - [ ] `내정보`로 botUserKey 확인 후 Secrets `KAKAO_USER_KEYS` 교체·`KAKAO_DISCOVERY=false` → 기대 결과: PC가 꺼진 상태에서 `메모 …`가 접수되고 `상태`에 "PC 처리 대기 1건"이 보임.
+  - [ ] PC 로컬 설정(kakaoRelayEnabled=true)·AUTOMATION_RELAY_TOKEN 후 `python -m automation.check` → `ok=true`, 서비스 시작 → 기대 결과: 꺼진 동안 보낸 메모가 몇 초 뒤 `상태`에 작업 ID·"메모 저장"으로 바뀌고 PC 관리자 화면에도 보임.
   - [ ] Codex 로그인 확인 후 실행 켜고 `실행 smoke-1 …` 작은 문서 작업 → 기대 결과: `상태 작업ID`에서 completed·로컬 통합·커밋이 확인되고 앱 코드는 바뀌지 않음.
 - [ ] **클라우드 실제 iPad 검증 환경.** BrowserStack 연결 상태·IPA 설치/재서명·첫 실행 및 위젯/알림/App Group 호환성이 미확인이다. 결제/외부 실행 없이 남은 과제로 유지하고, 웹 모사 성공을 실제 기기 확인으로 대체하지 않는다. [작업 이력](HANDOFF.md)의 클라우드 실험 착수 기록을 따른다.
 

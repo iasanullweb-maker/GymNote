@@ -3,3 +3,7 @@ project_id = "gymnote"
 [functions.delete-account]
 # JWTs are explicitly verified by getUser in the handler (supports current asymmetric signing keys).
 verify_jwt = false
+
+[functions.kakao-skill]
+# Kakao cannot send a Supabase JWT. The handler checks x-api-key (Kakao) or x-relay-token (PC) itself.
+verify_jwt = false

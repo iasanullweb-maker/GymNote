@@ -20,5 +20,8 @@
   "kakaoPort": 8766,
   "kakaoBotIds": [],
   "kakaoUserKeys": [],
-  "kakaoDiscoveryEnabled": false
+  "kakaoDiscoveryEnabled": false,
+  "kakaoRelayEnabled": false,
+  "kakaoRelayUrl": "https://wthfekhyrsbslnkyvtax.supabase.co/functions/v1/kakao-skill",
+  "kakaoRelayPollSeconds": 5
 }
