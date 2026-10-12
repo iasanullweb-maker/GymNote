@@ -43,3 +43,17 @@
 - 미실행: 실제 카카오 채널/챗봇 생성·공개 HTTPS 터널·실제 스킬 수신, 유료 Codex 구현/검토, 원격 push·배포·운영 DB 변경, 전체 iOS 빌드/XCTest(앱 코드 변경 없음). 카카오 완료 자동 알림과 Claude 어댑터·질문 답변 세션 재개는 남은 구현 과제다.
 - 기록: HANDOFF.md 자동화 항목에 2026-10-12 상태와 카카오톡 연결 절차 1~6번을 추가하고 텔레그램 절차는 현재 과제에서 제외(보존)했다. TODOLIST_HANDOFF.md의 텔레그램 연결 확인 항목을 카카오톡 연결 확인 항목으로 바꿨다.
 - 통합: AGENTS.md의 직접 통합 절차대로 원본 `.validation-tools/ux-integration.lock` 아래에서 기준 SHA 재확인 후 `git merge --ff-only`로 로컬 main에 통합한다. 기존 미추적 `%SystemDrive%/`는 보존한다.
+
+## 카카오톡 클라우드 우편함 중계 (2026-10-12 후속)
+
+- 사용자 질문(노트북을 항상 켜 둬야 하는지)에 세 가지 선택지를 설명했고, 사용자가 "받는 부분만 클라우드로"를 선택했다. 기준 커밋은 로컬 main `121193e`, 브랜치는 `codex/kakao-cloud-relay`.
+- 클라우드: `supabase/functions/kakao-skill/index.ts`(카카오 스킬 `x-api-key` 인증, 허용 봇/사용자·발견 모드는 함수 비밀값, 형식이 맞는 메모/실행/중지/재시도만 우편함 저장, `상태`는 PC가 올린 요약·대기·처리 결과로 응답, PC용 `/relay/claim|ack|publish`는 `x-relay-token`). `supabase/migrations/202610120001_kakao_relay.sql`(우편함·상태 테이블, RLS, 앱 역할 권한 회수, 5분 임대 claim, 임대 ID 확인 ack와 원문 삭제, actor 고정 publish, 사용자별 대기 100건 제한, 30/90일 정리). `supabase/config.toml`에 `verify_jwt = false`.
+- PC: `automation/ingress/kakao_relay.py`(우편함 항목을 `Kakao.handle`로 재생, 메모는 `relay:<우편함 ID>` event로 한 번만 저장, 저장소 오류 시 미확인으로 재처리, kakao 작업만 120초 겹침 워터마크로 상태 발행). `Kakao.accept`는 `handle`을 감싸며 기존 동작은 같다. `service.py`에 중계 스레드(5초 주기, 실패 시 최대 5분 백오프), `check.py` 사전 점검, `Store.updated_since/setting`, 에이전트 자식 환경에서 `AUTOMATION_RELAY_TOKEN` 제거, 설정 예시 추가.
+- 검증(소스: 이 문서를 포함한 커밋, 기준 `121193e`):
+  - `python3.12 -m unittest discover -s automation/tests`: 83개 통과(기존 71 + 중계 12). 중계 핵심 불변식은 변형 검사로 확인(메모 event 제거·정렬 제거·발행 대상 변경 시 실패).
+  - `node scripts/test_kakao_skill.mjs`(Node 22.22): 인증·허용 목록·발견 모드·형식 검증·저장·상태 문구·중계 입력 검증 통과. `deno check`(2.1.4, 원격 import는 로컬 스텁)로 `kakao-skill`·`delete-account` 타입 검사 통과. 기존 `test_delete_account.mjs` 통과.
+  - 격리 PostgreSQL 16에서 CI database job과 같은 순서로 전체 마이그레이션·기존 SQL 검사·`test_kakao_relay.sql` 통과. `scripts/supabase_default_privileges.sql`로 Supabase 기본 권한을 재현해 회수 문장을 지우면 검사가 실패함을 확인했다.
+  - 종단 검사(작업 공간 전용 하네스): 실제 함수 코드 + 실제 PostgreSQL(service_role) + 실제 `Relay`(urllib)로 PC 꺼짐 중 메모·실행 접수 → `상태` "PC 처리 대기 2건" → 중계가 메모·실행 작업 생성 → `상태`에 작업 ID·실행 대기 → `중지` → "중지 완료" 확인. 하네스는 저장소에 넣지 않았다.
+  - `actionlint` check.yml·build.yml, `git diff --check`, py_compile 통과.
+- 미실행: 운영 Supabase 마이그레이션·함수 배포·비밀값 설정, 실제 카카오 채널/챗봇·외부 수신, 유료 Codex 실행, GitHub Actions 실행, 원격 push·배포, 전체 iOS 빌드/XCTest(앱 코드 변경 없음). Supabase 실제 런타임(Deno Deploy)에서의 동작은 배포 후 사용자 연결 확인으로 검증한다.
+- 기록: KAKAO_SETUP.md를 중계 방식 기준으로 다시 썼다(직접 수신은 부록). README·TASKS 계약·ASSIGNMENTS·HANDOFF·TODOLIST를 갱신했다. 로컬 main 통합은 공통 잠금 아래 fast-forward로 진행한다.

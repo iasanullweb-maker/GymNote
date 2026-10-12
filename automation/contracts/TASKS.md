@@ -59,3 +59,11 @@ POST /kakao/skill은 별도 localhost 포트(기본 8766)의 x-api-key로 인증
 스킬은 version=2.0/simpleText/상태 확인 quickReply로 즉시 응답한다. 콜백 URL을 저장하거나 호출하지 않는다. 에이전트 실행은 기존 워커에서만 수행한다. 카카오 작업의 자동 push는 미구현이며 `상태`로 안전한 결과 요약을 조회한다. 실행 꺼짐/일시 중지에서는 실행과 재시도를 거부한다. 발견 모드는 허용 봇에서 `내정보`만 미등록 사용자에게 반환하며 등록 후 반드시 끈다.
 
 KAKAO_SKILL_TOKEN은 설정/Git/로그/에이전트 자식 환경에 넣지 않는다. 스킬 서버는 요청 전체 3.5초·본문 32KB·동시 16 요청 제한을 적용하고 스킬 DB 대기는 0.5초다. 오류/권한 응답에는 원래 발화·식별자·토큰·DB 오류가 없다. 연결 절차와 명령은 [KAKAO_SETUP.md](../KAKAO_SETUP.md)를 따른다.
+
+## 카카오톡 클라우드 우편함 중계 (2026-10-12)
+
+Supabase Edge Function `kakao-skill`(supabase/functions/kakao-skill)이 카카오 스킬 요청을 `x-api-key`(KAKAO_SKILL_TOKEN)로 인증하고, 허용 봇(KAKAO_BOT_IDS)·사용자(KAKAO_USER_KEYS)·발견 모드(KAKAO_DISCOVERY)를 함수 비밀값으로 검사한다. 형식이 맞는 메모/실행/중지/재시도 원문은 `automation_kakao_inbox`에 저장하고 즉시 접수 응답한다. 도움말·내정보·상태는 저장하지 않는다. 사용자별 미처리 100건 초과 시 저장을 거부한다.
+
+PC는 `x-relay-token`(AUTOMATION_RELAY_TOKEN)으로 `/relay/claim`(최대 20건, 5분 임대)·`/relay/ack`(임대 ID 일치 시 처리 완료·원문 삭제, 같은 확인 반복은 성공, 만료된 임대는 거부)·`/relay/publish`(작업 ID·actor·PC가 만든 상태 문구, 최대 200건, 다른 actor로 작업 ID 이동 금지)를 호출한다. 각 항목은 기존 `Kakao.handle`로 재생한다. 메모 event는 `relay:<우편함 ID>`라 임대 만료 재처리에도 한 번만 저장되고, 실행/재시도는 기존 요청키 event로 중복을 막는다. 저장소 오류 시 확인하지 않아 임대 만료 후 재처리된다. 상태 발행은 settings의 `kakao_relay_published` 기준 120초 겹침으로 kakao 작업만 보낸다.
+
+actor는 SQL `automation_kakao_actor`와 Python이 같은 `kakao:` + sha256(bot NUL user)이다. 앱 역할(anon/authenticated)은 테이블·함수 권한이 없고 RLS가 켜져 있다. 처리 기록은 30일, 상태 요약은 90일 뒤 claim 시 정리된다. 연결 절차는 [KAKAO_SETUP.md](../KAKAO_SETUP.md)를 따른다.

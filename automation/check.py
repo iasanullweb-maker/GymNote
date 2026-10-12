@@ -8,6 +8,7 @@ import sys
 
 from automation.service import load_config
 from automation.ingress.kakao import validate_config as validate_kakao_config
+from automation.ingress.kakao_relay import validate_relay_config
 
 
 def inspect(config, environment=None):
@@ -16,9 +17,9 @@ def inspect(config, environment=None):
     def record(name, ok, detail):
         checks.append({'name': name, 'ok': bool(ok), 'detail': detail})
     record('python', sys.version_info >= (3, 12), 'Python 3.12 or later required')
-    for key in ('telegramEnabled', 'executionEnabled', 'telegramNotificationsEnabled', 'kakaoEnabled', 'kakaoDiscoveryEnabled'):
+    for key in ('telegramEnabled', 'executionEnabled', 'telegramNotificationsEnabled', 'kakaoEnabled', 'kakaoDiscoveryEnabled', 'kakaoRelayEnabled'):
         record(key, isinstance(config.get(key, False if key != 'telegramNotificationsEnabled' else True), bool), 'Must be a JSON boolean')
-    git_env = {key: value for key, value in environment.items() if not key.startswith('GIT_') and key not in ('TELEGRAM_BOT_TOKEN', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN', 'KAKAO_SKILL_TOKEN')}
+    git_env = {key: value for key, value in environment.items() if not key.startswith('GIT_') and key not in ('TELEGRAM_BOT_TOKEN', 'GYMNOTE_AUTOMATION_ADMIN_TOKEN', 'KAKAO_SKILL_TOKEN', 'AUTOMATION_RELAY_TOKEN')}
     for project_id, project in config['projects'].items():
         try:
             result = subprocess.run(['git', '-C', project['path'], 'branch', '--show-current'],
@@ -45,7 +46,16 @@ def inspect(config, environment=None):
         record('kakao-config', kakao_ready, 'Separate skill port, bot/user allowlists and random KAKAO_SKILL_TOKEN required; no secret values printed')
         record('kakao-discovery', True, 'Discovery exposes only calling user IDs; turn off after enrollment' if config.get('kakaoDiscoveryEnabled') else 'Discovery disabled')
     else:
-        record('kakao', True, 'Disabled: no real channel reception')
+        record('kakao', True, 'Disabled: no direct skill server on this PC')
+    if config.get('kakaoRelayEnabled') is True:
+        try:
+            validate_relay_config(config, environment.get('AUTOMATION_RELAY_TOKEN', ''))
+            relay_ready = True
+        except (ValueError, TypeError):
+            relay_ready = False
+        record('kakao-relay', relay_ready, 'HTTPS kakao-skill URL, bot/user allowlists and AUTOMATION_RELAY_TOKEN matching the function secret required; no secret values printed')
+    else:
+        record('kakao-relay', True, 'Disabled: cloud mailbox is not pulled')
     if config.get('executionEnabled') is True:
         executable = config.get('codexExecutable', '')
         record('codex-executable', isinstance(executable, str) and Path(executable).is_absolute() and Path(executable).is_file(), 'Existing absolute Codex executable path required')
@@ -54,6 +64,7 @@ def inspect(config, environment=None):
     return {'ok': all(item['ok'] for item in checks), 'checks': checks,
             'notChecked': ['Telegram token validity, webhook/polling conflicts and real delivery',
                            'Kakao channel/bot deployment, public HTTPS ingress, skill headers and actual reception',
+                           'Supabase kakao-skill function deployment, secrets, migration and relay token match',
                            'Codex account authentication, quota and actual execution',
                            'Port availability, runtime directory permissions and live service status']}
 

@@ -81,7 +81,7 @@ jobs:
             build/TestResults.xcresult
             build/test-attachments
   tooling:
-    # 앱 밖 영역(텔레그램 자동화, 웹 프로토타입, UX 규격·실행기, USB 뷰어 순수 로직, IPA 사전 검사).
+    # 앱 밖 영역(텔레그램·카카오 자동화와 카카오 중계 함수, 웹 프로토타입, UX 규격·실행기, USB 뷰어 순수 로직, IPA 사전 검사).
     # 모두 합성 입력·격리 환경만 쓰며 실제 Telegram/모델/기기에 접속하지 않는다.
     # USB 뷰어의 Python 검사는 로컬 고정 pymobiledevice3 환경(실기기 관찰용)이 필요해 여기서 돌리지 않는다.
     runs-on: ubuntu-latest
@@ -94,8 +94,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Automation (Telegram ingress, worker, admin, store)
+      - name: Automation (Telegram/Kakao ingress, cloud relay, worker, admin, store)
         run: python -m unittest discover -s automation/tests -v
+      - name: Kakao skill relay Edge Function
+        run: node scripts/test_kakao_skill.mjs
       - name: IPA preflight
         run: python -m unittest discover -s simulation/cloud -p "test_*.py" -v
       - name: Web prototype
@@ -138,8 +140,11 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610090001_social.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610090002_integer_records.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610090003_social_withdraw.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/supabase_default_privileges.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/202610120001_kakao_relay.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_auth_policies.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_record_catalog.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_social.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_integer_records.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_social_withdraw.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f scripts/test_kakao_relay.sql

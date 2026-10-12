@@ -76,6 +76,11 @@ class Kakao:
         return '\n'.join(lines)
 
     def accept(self, payload):
+        text, task = self.handle(payload)
+        return response(text, task)
+
+    def handle(self, payload, *, memo_event=None):
+        """Return (reply text, task or None). memo_event makes relay replays idempotent."""
         try:
             if not isinstance(payload, dict):
                 raise ValueError('Expected object')
@@ -98,53 +103,57 @@ class Kakao:
                    '상태': '/status', '중지': '/cancel', '재시도': '/retry'}
         command = aliases.get(command, command)
         if command == '/whoami' and self.config.get('kakaoDiscoveryEnabled'):
-            return response('연결 식별자\nbot.id: ' + bot + '\nbotUserKey: ' + user_id + '\nPC 로컬 설정의 허용 목록에 등록하세요.')
+            return '연결 식별자\nbot.id: ' + bot + '\nbotUserKey: ' + user_id + '\nPC 로컬 설정의 허용 목록에 등록하세요.', None
         if user_id not in self.config['kakaoUserKeys']:
             raise PermissionError('User is not allowed')
         actor = 'kakao:' + hashlib.sha256((bot + '\0' + user_id).encode()).hexdigest()
         if command in ('/help', '/start'):
-            return response('일반 메시지 / 메모 내용: 메모 저장\n실행 요청키 내용: 자동 작업\n상태 [작업ID]: 결과 조회\n중지 작업ID\n재시도 요청키 작업ID\n요청키는 영문·숫자·_·-로 1~64자입니다. 새 작업은 새 키를 쓰세요.')
+            return '일반 메시지 / 메모 내용: 메모 저장\n실행 요청키 내용: 자동 작업\n상태 [작업ID]: 결과 조회\n중지 작업ID\n재시도 요청키 작업ID\n요청키는 영문·숫자·_·-로 1~64자입니다. 새 작업은 새 키를 쓰세요.', None
         if command == '/whoami':
-            return response('연결 식별자 확인은 PC에서 발견 모드를 켠 동안만 가능합니다.')
+            return '연결 식별자 확인은 PC에서 발견 모드를 켠 동안만 가능합니다.', None
         if command == '/status' and not body:
             tasks = self.store.list_actor(actor)
-            return response('\n\n'.join(self.status(task) for task in tasks) if tasks else '등록한 작업이 없습니다.')
+            return '\n\n'.join(self.status(task) for task in tasks) if tasks else '등록한 작업이 없습니다.', None
         if command in ('/status', '/cancel', '/retry'):
             retry_key = None
             if command == '/retry':
                 parts = body.split()
                 if len(parts) != 2:
-                    return response('재시도 요청키 작업ID 형식으로 입력하세요.')
+                    return '재시도 요청키 작업ID 형식으로 입력하세요.', None
                 retry_key, body = self.key(parts[0]), parts[1]
             task = self.store.get(body)
             if not task or task['actor'] != actor or task['source'] != 'kakao':
-                return response('해당 작업을 찾을 수 없습니다.')
+                return '해당 작업을 찾을 수 없습니다.', None
             if command == '/cancel':
                 self.store.cancel(task['id'])
             elif command == '/retry':
                 if not self.config.get('executionEnabled') or self.config.get('executionPaused'):
-                    return response('자동 작업 실행이 꺼져 있거나 일시 중지되어 있습니다. PC 설정을 확인하세요.')
+                    return '자동 작업 실행이 꺼져 있거나 일시 중지되어 있습니다. PC 설정을 확인하세요.', None
                 if task['intent'] != 'execute':
-                    return response('메모는 재시도로 실행할 수 없습니다. 실행 요청키 내용으로 새로 요청하세요.')
+                    return '메모는 재시도로 실행할 수 없습니다. 실행 요청키 내용으로 새로 요청하세요.', None
                 self.store.retry(task['id'], event='kakao:retry:' + self.event(actor, task['id'], retry_key))
-            return response(self.status(self.store.get(task['id'])), task)
+            return self.status(self.store.get(task['id'])), task
         if command == '/run':
             if not self.config.get('executionEnabled') or self.config.get('executionPaused'):
-                return response('자동 작업 실행이 꺼져 있거나 일시 중지되어 있습니다. 먼저 메모 수신을 확인하고 PC에서 실행을 켜세요.')
+                return '자동 작업 실행이 꺼져 있거나 일시 중지되어 있습니다. 먼저 메모 수신을 확인하고 PC에서 실행을 켜세요.', None
             parts = body.split(maxsplit=1)
             if len(parts) != 2:
-                return response('실행 요청키 내용 형식으로 입력하세요. 예: 실행 test-1 문서에 연결 확인 문장 추가')
+                return '실행 요청키 내용 형식으로 입력하세요. 예: 실행 test-1 문서에 연결 확인 문장 추가', None
             key, idea = self.key(parts[0]), parts[1]
             task = self.store.create('kakao', self.event(actor, 'run', key), actor,
                                      self.config['defaultProject'], idea, 'execute')
-            return response('실행 요청 접수\n' + self.status(task) + '\n상태 확인 버튼으로 결과를 조회하세요.', task)
+            return '실행 요청 접수\n' + self.status(task) + '\n상태 확인 버튼으로 결과를 조회하세요.', task
         if command.startswith('/') and command != '/memo':
-            return response('지원하지 않는 명령입니다. 도움말을 입력하세요.')
+            return '지원하지 않는 명령입니다. 도움말을 입력하세요.', None
         idea = body if command == '/memo' else text.strip()
-        fingerprint = self.event(actor, 'memo', idea)
-        task = self.store.create('kakao', fingerprint, actor, self.config['defaultProject'], idea,
-                                 'memo', memo_replay_seconds=60)
-        return response('아이디어 저장\n' + self.status(task), task)
+        if memo_event is not None:
+            # Relay mailbox IDs are stable across lease expiry and restarts: exactly one memo per item.
+            task = self.store.create('kakao', memo_event, actor, self.config['defaultProject'], idea, 'memo')
+        else:
+            fingerprint = self.event(actor, 'memo', idea)
+            task = self.store.create('kakao', fingerprint, actor, self.config['defaultProject'], idea,
+                                     'memo', memo_replay_seconds=60)
+        return '아이디어 저장\n' + self.status(task), task
 
 
 class SkillServer(ThreadingHTTPServer):
