@@ -2,6 +2,16 @@
 
 마지막 업데이트: 2026-10-12
 
+## CI 배포 자동 차단·도구 검사 연결 구현 (2026-10-12)
+
+사용자의 ‘구현하고 제대로 구현되었는지 검증해’ 요청으로 아래 ‘CI 배포 자동 차단 규칙’과 TODOLIST의 CI 보완 두 항목을 구현했다. 워크플로 커밋 `aaadd2c`.
+
+- build.yml: `checks`(같은 커밋으로 check.yml 호출) + `build`(기존 Release 앱/위젯 빌드·IPA artifact) → `release-gate`(needs 둘 다, 성공만 통과) → `publish`(needs gate, main만, Ubuntu에서 같은 run의 IPA artifact로 릴리스·AltStore 갱신). 실패·취소·건너뜀은 needs 기본 동작으로 게이트를 통과하지 못한다. 다른 SHA·다른 run의 결과는 쓰지 않는다.
+- check.yml: 단독 실행은 pull_request만 남기고 workflow_call 추가(codex push의 macOS 검사 중복 방지). Swift 회귀에 `test_manual_workout.swift` 추가. `tooling` job 신설: automation 46개, IPA 사전 검사, 웹 프로토타입, UX 규격·시나리오·캡처·실행기·입력 검증, USB 뷰어 JS. USB 뷰어 Python 검사는 로컬 고정 pymobiledevice3 환경이 필요해 제외.
+- 사전 검사: actionlint 1.7.7·YAML 파싱 통과. Linux에서 tooling 명령 전부 통과(Git 전역 설정 없이도 automation 46개 통과). 실제 0.1.109 IPA로 `make_source.py`가 Ubuntu에서 정상 동작함을 확인(publish job 이동 근거).
+- Actions 검증(승인 범위: 검증 브랜치 push, main 아님): `codex/ci-gate-verify-pass` run `38204269829` — checks/ios·database·account-deletion·tooling, build, release-gate 성공, publish 건너뜀(main 아님). `codex/ci-gate-verify-fail`(automation에 의도적 실패 테스트 1개만 추가) run `38204278116` — build·ios·database·account-deletion 성공에도 tooling 실패로 release-gate·publish 건너뜀. 단독 Validate run이 생기지 않아 중복이 없음도 확인했다.
+- 미실행: 실제 main 게시 경로(릴리스·AltStore 갱신)는 배포가 되므로 실행하지 않았다. 다음 승인 배포 run에서 `publish` 성공과 태그·IPA·소스 대조를 확인한다. 앱 코드 변경 없음, 사용자 확인 항목 변화 없음.
+
 ## 휴리봇 UI 개선 0.1.109 배포 (2026-10-12)
 
 사용자의 ‘빌드 배포 업데이트 먼저 진행해’ 승인으로 제품 커밋 `c78511c`를 검증했다. [Validate 38202458082](https://github.com/iasanullweb-maker/GymNote/actions/runs/38202458082): XCTest 140개 통과·기존 캡처 4개 건너뜀·실패 0, 모델·계정·DB 검사 성공. [브랜치 Build 38202458083](https://github.com/iasanullweb-maker/GymNote/actions/runs/38202458083)의 앱/위젯 Release 빌드도 성공했다.
