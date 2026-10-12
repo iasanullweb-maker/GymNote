@@ -84,7 +84,7 @@ final class AppModel {
 
     func startWorkout(catalog: [CatalogRecordType]? = nil) {
         if let catalog, !todayPlan.exercises.allSatisfy({ data.isRegisteredExercise($0, catalog: catalog) }) {
-            storageError = "등록된 운동 종목으로 계획을 다시 설정해 주세요. 기존 계획과 기록은 보관됩니다."
+            storageError = "운동 종목을 불러온 뒤 등록된 종목으로 계획을 확인해 주세요."
             return
         }
         data.startWorkout()
