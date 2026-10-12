@@ -2,6 +2,15 @@
 
 마지막 업데이트: 2026-10-12
 
+## 운영 Supabase 정수 기록·친구 탈퇴 마이그레이션 적용 (2026-10-12)
+
+사용자 요청으로 선행 기술 과제를 진행했다. 사용자가 Supabase SQL Editor에서 직접 실행하고 결과를 대화로 알렸다. Claude는 운영 DB에 직접 접속하지 않았다.
+
+- 적용 전 읽기 전용 확인: `social_publish_records`에 정수 검사(`trunc`) 없음 → 002 미적용, `social_withdraw` 함수 없음·프로필 외래 키 0개 → 003 미적용. 003 외래 키 대상의 프로필 없는 친구 요청자/대상·그룹원·공개 기록·그룹장 모두 0건.
+- `202610090002_integer_records.sql` → `202610090003_social_withdraw.sql` 순서로 파일 전체를 적용했다.
+- 적용 후 확인(사용자 보고, 기대값 일치): `integer_records_applied=true`, `withdraw_fn_exists=true`, 프로필 외래 키 5개, `social_withdraw` authenticated 실행 허용, anon의 `social_withdraw`·`social_publish_records` 실행 차단.
+- 테스트 SQL(`scripts/test_*.sql`)은 운영에 실행하지 않았다. 앱 코드 변경·빌드·배포 없음. 앱의 친구 탈퇴 실제 동작은 [TODOLIST_HANDOFF.md](TODOLIST_HANDOFF.md)의 사용자 확인 항목으로 남긴다. 아래 이전 기록의 ‘002 미확인·003 미적용’은 당시 상태다.
+
 ## 휴리봇 화면 개선 구현 (2026-10-12, 미배포)
 
 사용자의 ‘개선 시작해’ 요청으로 실행의 시작 전 세트 조작 회색/진행 중 주황색·세트 진행 숫자·이번 세트 횟수 조절 안내, 달력 위 선택 날짜 계획 설정, 일지 ‘일지 N개’와 최고기록/그래프 범위 설명을 구현했다. 기존 세트 완료 조건·신디·선택 날짜·기록 계산과 저장은 유지한다. 수정 파일은 TodayView/RoutineView/PlanCalendarView/RecordsView 4개다.
