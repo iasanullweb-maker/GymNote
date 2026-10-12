@@ -33,7 +33,7 @@ struct TodayView: View {
                             Label(model.savedToday ? "새 운동 시작" : "운동 시작", systemImage: "play.fill")
                         }.disabled(plan.isRestDay || !plan.exercises.allSatisfy { model.data.isRegisteredExercise($0, catalog: account.catalogTypes) })
                         if !plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) {
-                            Text("계획에서 등록된 운동 종목을 다시 선택해 주세요. 기존 기록은 유지돼요.")
+                            Text("운동 종목을 불러오면 미등록 운동을 계획과 기록에서 정리해요. 인터넷 연결 후 다시 확인해 주세요.")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                     }
@@ -106,6 +106,7 @@ struct TodayView: View {
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
             .navigationBarTitleDisplayMode(compact ? .inline : .large)
+            .task { await account.refreshRecordCatalog() }
             .alert("🎉 신기록!", isPresented: Binding(
                 get: { model.recordMessage != nil },
                 set: { if !$0 { model.recordMessage = nil } }

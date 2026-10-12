@@ -62,6 +62,10 @@ final class AppModel {
         let failures = failedWriteCount
         var edited = data
         edit(&edited)
+        guard !edited.introducesUnregisteredWorkout(from: data, catalog: account.catalogTypes) else {
+            storageError = "등록된 운동 종목만 추가할 수 있어요. 운동 종목 목록에서 다시 선택해 주세요."
+            return false
+        }
         data = edited
         return failedWriteCount == failures
     }
@@ -168,6 +172,18 @@ final class AppModel {
         data = value
         replacingData = false
         refreshWorkoutActivity()
+    }
+
+    func applyVerifiedWorkoutCatalog(_ catalog: [CatalogRecordType]) throws {
+        let next: AppData
+        if previewOnly { next = data.removingUnregisteredWorkouts(catalog: catalog) }
+        else { next = try SharedStore.useVerifiedWorkoutCatalog(catalog, selection: selection) }
+        guard next != data else { return }
+        if data.activeWorkout != nil, next.activeWorkout == nil { stopRest() }
+        savedWorkout = nil
+        replaceData(next)
+        // Cleanup is a persisted edit, including removals from previously published best records.
+        if !previewOnly { account.scheduleSync(); social.schedulePublish() }
     }
 
     func switchAccount(_ userID: UUID?) async throws {

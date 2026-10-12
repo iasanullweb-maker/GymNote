@@ -41,7 +41,7 @@ final class WorkoutFlowTests: XCTestCase {
     func testEditorSaveFailurePreservesLibraryAndPlanTogether() throws {
         let model = makeModel()
         let before = model.data
-        let exercise = Exercise(name: "새 운동", sets: 3, detail: "10회")
+        let exercise = Exercise(name: "풀업", sets: 3, detail: "10회")
         try breakPersistence()
         XCTAssertFalse(model.saveEdit { data in
             data.exerciseLibrary.append(exercise)

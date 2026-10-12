@@ -211,6 +211,48 @@ final class RecordCatalogTests: XCTestCase {
         XCTAssertEqual(try SharedStore.snapshot(userID: nil).data, original)
     }
 
+    func testFailedCatalogFetchDoesNotDeleteExercisesUsingFallbackOrCache() async throws {
+        var data = AppData.empty
+        let unknown = Exercise(name: "서버 전용 종목", sets: 2, detail: "10회")
+        data.scheduledPlans[DayKey.key()] = DayPlan(title: "보존", exercises: [unknown])
+        let model = AppModel(previewData: data)
+        let client = catalogClient()
+        try SharedStore.saveRecordCatalog(RecordCatalogCache(project: "다른 프로젝트", types: [], fetchedAt: Date()))
+        let account = AccountModel(model: model, client: client, initialConnection: .online, monitorConnectivity: false)
+        AuthStub.reply = { _ in (500, Data()) }
+        await account.refreshRecordCatalog()
+        XCTAssertEqual(model.data, data)
+        XCTAssertNil(account.catalogFetchedAt)
+    }
+
+    func testSuccessfulCatalogFetchCleansOldPlanAndHistory() async throws {
+        let registered = CatalogRecordType.defaults[0].makeExercise()
+        let unknown = Exercise(name: "미등록", sets: 1, detail: "10회")
+        var data = AppData.empty
+        let plan = DayPlan(title: "혼합", exercises: [registered, unknown])
+        data.scheduledPlans[DayKey.key()] = plan
+        data.workouts = [WorkoutSession(startedAt: Date().addingTimeInterval(-86400), plan: plan)]
+        let model = AppModel(previewData: data)
+        let account = AccountModel(model: model, client: catalogClient(), initialConnection: .online, monitorConnectivity: false)
+        AuthStub.reply = { _ in (200, try JSONEncoder().encode([CatalogRecordType.defaults[0]])) }
+        await account.refreshRecordCatalog()
+        XCTAssertEqual(model.todayPlan.exercises, [registered])
+        XCTAssertEqual(model.data.workouts.first?.plan.exercises, [registered])
+        model.startWorkout(catalog: account.catalogTypes)
+        XCTAssertNotNil(model.data.activeWorkout)
+    }
+
+    func testNewUnregisteredWorkoutIsRejectedBeforeSaving() {
+        let model = AppModel(previewData: .empty)
+        let original = model.data
+        let unknown = Exercise(name: "미등록", sets: 1, detail: "10회")
+        XCTAssertFalse(model.saveEdit { $0.exerciseLibrary.append(unknown) })
+        XCTAssertEqual(model.data, original)
+        XCTAssertFalse(model.saveEdit { $0.scheduledPlans[DayKey.key()] = DayPlan(title: "미등록", exercises: [unknown]) })
+        XCTAssertEqual(model.data, original)
+        XCTAssertTrue(model.saveEdit { $0.exerciseLibrary.append(CatalogRecordType.defaults[0].makeExercise()) })
+    }
+
     func testDirectRecordsAreBlockedAndRegisteredTodayExecutionCanUpdateBest() {
         let model = AppModel(previewData: .empty)
         let legacy = RecordEntry(typeID: "custom", date: Date(), value: 5)

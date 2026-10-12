@@ -241,15 +241,10 @@ struct ExerciseLibraryView: View {
                         }
                 }
                 .onMove { model.data.exerciseLibrary.move(fromOffsets: $0, toOffset: $1) }
-                Button {
-                    editing = Exercise(name: "", sets: 3, detail: "10회")
-                } label: {
-                    Label("운동 만들기", systemImage: "plus")
-                }
             } header: {
                 Text("내 운동 목록")
             } footer: {
-                Text("기본 세트·횟수를 저장해 두면 계획에 바로 가져올 수 있어. 수정하거나 삭제해도 이미 배정한 운동은 유지돼.")
+                Text("위 운동 종목에서 선택해 기본 세트·횟수를 저장할 수 있어요.")
             }
         }
         .navigationTitle("운동 목록")
@@ -334,7 +329,7 @@ struct CatalogExerciseSection: View {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
             }
         } header: { Text("운동 종목") } footer: {
-            Text("관리자가 등록한 운동이에요. 선택 후 내 세트·횟수·시간을 설정할 수 있어요. 운동 목록이 바뀌어도 저장한 계획과 기록은 유지돼요.")
+            Text("관리자가 등록한 운동이에요. 선택 후 내 세트·횟수·시간을 설정할 수 있어요.")
         }
     }
 }
@@ -368,16 +363,20 @@ struct ExerciseDraftView: View {
 }
 
 struct ExerciseDraftForm: View {
+    @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @State var exercise: Exercise
     let title: String
     let onCancel: () -> Void
     let onSave: (Exercise) -> Bool
-    @FocusState private var nameFocused: Bool
     @State private var saveFailed = false
+
+    private var registered: Bool { model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) }
 
     var body: some View {
         Form {
             if saveFailed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
+            if !registered { Text("현재 등록되지 않은 운동이에요. 운동 종목에서 다시 선택해 주세요.").foregroundStyle(.secondary) }
             LabeledContent("운동 종목", value: exercise.name)
             Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
             if let reps = exercise.plannedReps {
@@ -399,15 +398,14 @@ struct ExerciseDraftForm: View {
             ToolbarItem(placement: .cancellationAction) { Button("취소", action: onCancel) }
             ToolbarItem(placement: .confirmationAction) {
                 Button("저장") {
+                    guard registered else { return }
                     exercise.name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !onSave(exercise) { saveFailed = true }
-                }.disabled(exercise.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                           || exercise.hasPercentageTarget)
+                }.disabled(!registered || exercise.hasPercentageTarget)
             }
         }
         .onAppear {
             if exercise.hasPercentageTarget { exercise.detail = "10회" }
-            nameFocused = exercise.name.isEmpty
         }
     }
 }

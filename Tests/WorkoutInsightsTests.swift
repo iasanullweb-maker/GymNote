@@ -216,7 +216,7 @@ final class WorkoutAssistancePersistenceTests: XCTestCase {
         let model = AppModel()
         model.data = AppData(week: [])
         let date = model.workoutDate
-        let routine = StarterWorkouts.plan(equipment: .bodyweight, experience: .beginner, minutes: 15)
+        let routine = DayPlan(title: "등록 운동", exercises: CatalogRecordType.defaults.map { $0.makeExercise() })
         XCTAssertTrue(model.saveEdit { _ = $0.appendStarterWorkout(routine, on: date) })
         let saved = model.data
         XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.plan(for: date), saved.plan(for: date))
@@ -237,7 +237,7 @@ final class WorkoutAssistancePersistenceTests: XCTestCase {
         widget.changeSets(exercise.id, by: 1, on: active.startedAt, actualReps: 11)
         _ = try SharedStore.persistEdits(from: base, to: widget, selection: model.selection)
         var edited = base
-        let replacement = Exercise(name: "벽 푸쉬업", sets: 2, detail: "8회")
+        let replacement = Exercise(name: "풀업", sets: 2, detail: "8회")
         XCTAssertNotNil(edited.replaceExecutionExercise(exercise, with: replacement, on: active.startedAt,
                                                         expectedSessionID: active.id, expectedDone: 1))
         XCTAssertTrue(widget.hasStaleWorkoutReplacement(from: base, to: edited))
@@ -262,7 +262,7 @@ final class WorkoutAssistancePersistenceTests: XCTestCase {
         _ = try SharedStore.persistEdits(from: base, to: widget, selection: model.selection)
         let latest = try SharedStore.snapshot(userID: nil).data
         var edited = base
-        let replacement = Exercise(name: "벽 푸쉬업", sets: 3, detail: "8회")
+        let replacement = Exercise(name: "풀업", sets: 3, detail: "8회")
         XCTAssertNotNil(edited.replaceExecutionExercise(exercise, with: replacement, on: date,
                                                         expectedSessionID: nil, expectedDone: 0))
         XCTAssertTrue(latest.hasStaleWorkoutReplacement(from: base, to: edited))

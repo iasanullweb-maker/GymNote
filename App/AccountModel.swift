@@ -169,6 +169,8 @@ final class AccountModel {
             catalogMessage = nil
             do { try SharedStore.saveRecordCatalog(cache) }
             catch { catalogMessage = "최신 운동 종목을 불러왔지만 기기에 보관하지 못했어요." }
+            do { try model.applyVerifiedWorkoutCatalog(types) }
+            catch { catalogMessage = "운동 종목을 불러왔지만 미등록 운동을 정리하지 못했어요. 다시 새로고침해 주세요." }
             await refreshCatalogAdmin()
         } catch {
             // URLSession may bridge Swift cancellation into NSError (including an underlying error).

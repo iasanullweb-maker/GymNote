@@ -9,7 +9,9 @@ enum SharedStore {
     static let fileName = "gymnote-data.json"
 
     #if DEBUG
-    static var testingDirectory: URL?
+    static var testingDirectory: URL? {
+        didSet { verifiedWorkoutCatalog = nil }
+    }
     #endif
 
     /// AltStore는 다시 서명할 때 그룹 ID 뒤에 팀 ID를 붙이고(예: group.com.gymnote.app.ABCDE12345),
@@ -32,6 +34,42 @@ enum SharedStore {
 
     static var fileURL: URL { directory.appendingPathComponent(fileName) }
     private static var catalogURL: URL { directory.appendingPathComponent("record-catalog.json") }
+    // Process-local authority: a cached/default list cannot authorize destructive cleanup.
+    // All access is under the store lock. Each app launch waits for a fresh successful fetch.
+    private static var verifiedWorkoutCatalog: [CatalogRecordType]?
+
+    private static func normalized(_ data: AppData) -> AppData {
+        verifiedWorkoutCatalog.map { data.removingUnregisteredWorkouts(catalog: $0) } ?? data
+    }
+
+    private static func cleanSnapshot(_ original: StoredWorkout, userID: UUID?) throws -> StoredWorkout {
+        let cleaned = normalized(original.data)
+        guard cleaned != original.data else { return original }
+        let scope = userID?.uuidString.lowercased() ?? "guest"
+        // Keep one rolling recovery copy, using the existing protected, size-limited writer.
+        try write(original, to: directory.appendingPathComponent("backup-\(scope)-registered-workouts.json"))
+        var copy = original
+        copy.data = cleaned
+        copy.dirty = true
+        copy.revision = UUID()
+        return copy
+    }
+
+    private static func writeSnapshot(_ value: StoredWorkout, userID: UUID?) throws {
+        try write(cleanSnapshot(value, userID: userID), to: url(for: userID))
+    }
+
+    static func useVerifiedWorkoutCatalog(_ catalog: [CatalogRecordType], selection: StoreSelection) throws -> AppData {
+        let result = try locked {
+            guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
+            let oldCatalog = verifiedWorkoutCatalog
+            verifiedWorkoutCatalog = catalog
+            do { return try readSnapshot(userID: selection.userID).data }
+            catch { verifiedWorkoutCatalog = oldCatalog; throw error }
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        return result
+    }
 
     static func recordCatalog() -> RecordCatalogCache? {
         try? locked {
@@ -88,6 +126,7 @@ enum SharedStore {
             var initial = StoredWorkout(data: userID == nil ? .sample : .empty)
             initial.data.preserveExistingBestRecords()
             initial.dirty = userID == nil
+            initial = try cleanSnapshot(initial, userID: userID)
             try write(initial, to: file)
             return initial
         }
@@ -108,7 +147,9 @@ enum SharedStore {
                     try write(snapshot, to: file)
                 }
             }
-            return snapshot
+            let cleaned = try cleanSnapshot(snapshot, userID: userID)
+            if cleaned.revision != snapshot.revision { try write(cleaned, to: file) }
+            return cleaned
         }
         // Migrate legacy JSON only for the guest. Corrupt account caches must never become sample data.
         guard userID == nil,
@@ -121,7 +162,9 @@ enum SharedStore {
         var migrated = StoredWorkout(data: legacy)
         migrated.data.preserveExistingBestRecords()
         if try JSONEncoder().encode(migrated).count <= 2_000_000 { try write(migrated, to: file) }
-        return migrated
+        let cleaned = try cleanSnapshot(migrated, userID: userID)
+        if cleaned.revision != migrated.revision { try write(cleaned, to: file) }
+        return cleaned
     }
 
     static func snapshot(userID: UUID?) throws -> StoredWorkout {
@@ -161,10 +204,10 @@ enum SharedStore {
             guard !latest.data.hasStaleWorkoutReplacement(from: base, to: edited) else {
                 throw CocoaError(.fileWriteUnknown)
             }
-            latest.data = latest.data.applyingEdits(from: base, to: edited)
+            latest.data = normalized(latest.data.applyingEdits(from: base, to: edited))
             latest.dirty = true
             latest.revision = UUID()
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
             return latest.data
         }
         WidgetCenter.shared.reloadAllTimelines()
@@ -193,7 +236,7 @@ enum SharedStore {
             latest.serverVersion = version
             latest.dirty = adopted != cloud
             latest.revision = UUID()
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -205,7 +248,8 @@ enum SharedStore {
         let merged: Bool = try locked {
             guard try readSelection() == selection else { throw CocoaError(.fileWriteUnknown) }
             var latest = try readSnapshot(userID: selection.userID)
-            guard let base = latest.syncedBase, let data = cloud.mergingCloud(local: latest.data, base: base) else { return false }
+            guard let base = latest.syncedBase,
+                  let data = normalized(cloud).mergingCloud(local: latest.data, base: normalized(base)) else { return false }
             // One rolling copy of the pre-merge file; eraseAccount removes it with the account.
             try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-merge.json"))
             latest.data = data
@@ -213,7 +257,7 @@ enum SharedStore {
             latest.serverVersion = version
             latest.dirty = data != cloud
             latest.revision = UUID()
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
             return true
         }
         if merged { WidgetCenter.shared.reloadAllTimelines() }
@@ -227,7 +271,7 @@ enum SharedStore {
             var latest = try readSnapshot(userID: selection.userID)
             guard latest.syncedBase == nil, !latest.dirty, latest.serverVersion == version else { return }
             latest.syncedBase = latest.data
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
         }
     }
 
@@ -240,7 +284,7 @@ enum SharedStore {
             if latest.revision == revision { latest.dirty = false }
             if let uploaded { latest.syncedBase = uploaded }
             else { latest.syncedBase = latest.revision == revision ? latest.data : nil }
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
         }
     }
 
@@ -260,7 +304,7 @@ enum SharedStore {
             latest.serverVersion = version
             latest.dirty = true
             latest.revision = UUID()
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -283,7 +327,7 @@ enum SharedStore {
             account.importedGuest = true
             account.dirty = true
             account.revision = UUID()
-            try write(account, to: url(for: selection.userID))
+            try writeSnapshot(account, userID: selection.userID)
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -313,7 +357,7 @@ enum SharedStore {
             latest.data.completeSetFromWidget(exerciseID)
             latest.dirty = true
             latest.revision = UUID()
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -330,7 +374,7 @@ enum SharedStore {
             guard latest.data.markDailyComplete(itemID, on: date, at: now) else { return nil }
             latest.dirty = true
             latest.revision = UUID()
-            try write(latest, to: url(for: selection.userID))
+            try writeSnapshot(latest, userID: selection.userID)
             return (latest.data, generation)
         }
         if result != nil { WidgetCenter.shared.reloadAllTimelines() }

@@ -11,6 +11,7 @@ struct ExerciseGuideRequest: Identifiable {
 
 struct ExerciseGuideView: View {
     @Environment(AppModel.self) private var model
+    @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
     let request: ExerciseGuideRequest
     @State private var reason = ReplacementReason.busy
@@ -23,6 +24,10 @@ struct ExerciseGuideView: View {
     private var remaining: Int { max(0, request.exercise.sets - request.done) }
     private var candidates: [ExerciseGuide] {
         ExerciseGuides.alternatives(for: request.exercise.name, equipment: equipment, reason: reason)
+            .filter(isRegistered)
+    }
+    private func isRegistered(_ guide: ExerciseGuide) -> Bool {
+        model.data.isRegisteredExercise(Exercise(name: guide.name, sets: 1, detail: guide.defaultDetail), catalog: account.catalogTypes)
     }
 
     var body: some View {
@@ -55,7 +60,7 @@ struct ExerciseGuideView: View {
                             Text("이 조건에 맞는 대체 후보가 없어요.").foregroundStyle(.secondary)
                         }
                         DisclosureGroup("전체 안내 종목에서 직접 선택") {
-                            ForEach(ExerciseGuides.all.filter { $0.id != guide?.id }) { candidate in
+                            ForEach(ExerciseGuides.all.filter { $0.id != guide?.id && isRegistered($0) }) { candidate in
                                 candidateButton(candidate)
                             }
                         }
@@ -69,7 +74,7 @@ struct ExerciseGuideView: View {
                             TextField("횟수·시간 (예: 8회, 20초)", text: $detail)
                             ForEach(selected.cues, id: \.self) { Text($0).font(.subheadline) }
                             Button("남은 세트를 이 운동으로 바꾸기") { apply(selected) }
-                                .disabled(detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                .disabled(!isRegistered(selected) || detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                           || detail.contains("%") || detail.contains("％"))
                         }
                     }
@@ -99,6 +104,10 @@ struct ExerciseGuideView: View {
     }
 
     private func apply(_ selected: ExerciseGuide) {
+        guard isRegistered(selected) else {
+            failure = "현재 등록되지 않은 운동이에요. 운동 종목에서 다시 선택해 주세요."
+            return
+        }
         guard model.selection.generation == request.owner else {
             failure = "계정이 바뀌었어요. 닫은 뒤 다시 선택해 주세요."
             return
