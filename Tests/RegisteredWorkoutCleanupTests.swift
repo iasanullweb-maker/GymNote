@@ -49,9 +49,11 @@ final class RegisteredWorkoutCleanupTests: XCTestCase {
     }
 
     private func assertOnlyRegistered(_ data: AppData, file: StaticString = #filePath, line: UInt = #line) {
-        let plans = data.week + Array(data.scheduledPlans.values)
-            + data.workouts.map(\.plan) + (data.recordWorkouts ?? []).map(\.plan)
-            + (data.activeWorkout.map { [$0.plan] } ?? [])
+        var plans: [DayPlan] = data.week
+        plans.append(contentsOf: data.scheduledPlans.values)
+        plans.append(contentsOf: data.workouts.map(\.plan))
+        plans.append(contentsOf: (data.recordWorkouts ?? []).map(\.plan))
+        if let active = data.activeWorkout { plans.append(active.plan) }
         XCTAssertTrue(plans.flatMap(\.exercises).allSatisfy { $0.name == allowed.name }, file: file, line: line)
         XCTAssertTrue(data.exerciseLibrary.allSatisfy { $0.name == allowed.name }, file: file, line: line)
         XCTAssertTrue(data.recordTypes.allSatisfy { $0.name == allowed.name }, file: file, line: line)
