@@ -34,3 +34,12 @@
 - 사용자에게 연결 절차 1~6번 진행 상태와 로컬 설정 경로를 요청했다. 실제 봇 연결·발송은 지정 봇/개인 대화 연결 확인 지시 후, 실제 Codex 작업은 로그인 및 /run 테스트 요청 후 진행한다. 새 수신기를 시작하지 않았으며 체크리스트를 완료로 바꾸지 않았다.
 - 이번 변경은 재확인 보고서뿐이다. git diff --check와 내용 검토 후 이 파일만 커밋하고 지정 Integrate -Unified 스크립트로 공통 잠금 아래 로컬 main에 통합한다. 다른 대화의 기존 미추적 %SystemDrive%/는 보존한다.
 - 실제 외부 연결·유료 모델 실행·원격 push·배포·운영 DB 변경·전체 iOS 빌드/XCTest는 미실행. 앱 코드 변경이 없어 전체 iOS 빌드는 실행하지 않았다. 다음 단계는 사용자 설정 상태 확인 → 로컬 설정 사전 점검 → 메모 연결 확인 → 인증 및 작은 /run 검증이다.
+
+## 카카오톡 채널 챗봇 연동과 마무리 통합 (2026-10-12)
+
+- 사용자가 텔레그램 계정이 없어 카카오톡 채널 챗봇 + 스킬 서버로 전환을 지시했다. Codex가 `d51c446`에서 `automation/ingress/kakao.py`·KAKAO_SETUP.md·서비스/저장소/사전 점검/계약 변경과 카카오 검사 2개 파일을 커밋했다. 그 세션은 커밋 직후 사용량 한도로 끊겼다. 끊긴 뒤 워크트리에 미커밋 변경은 없었다.
+- Claude가 이어서 마무리했다. 최신 로컬 main `d6801fe`(CI 릴리스 게이트 4커밋)를 이 브랜치에 병합했다(`9fef499`, 충돌 없음, 양쪽 변경 파일 겹침 없음). 병합 후 automation 트리는 `d51c446`과 동일하다.
+- 검증: 병합 소스의 automation 파일(Git blob 해시 일치 확인)로 Python 3.12 `python -m unittest discover -s automation/tests` 71개 통과. CI tooling job과 같은 버전이다. py_compile 통과. `git diff --check d6801fe..HEAD` 통과. 같은 검사를 Python 3.10에서 돌리면 사전 점검의 Python 3.12 요구로 4개가 실패하며 이는 의도된 동작이다.
+- 미실행: 실제 카카오 채널/챗봇 생성·공개 HTTPS 터널·실제 스킬 수신, 유료 Codex 구현/검토, 원격 push·배포·운영 DB 변경, 전체 iOS 빌드/XCTest(앱 코드 변경 없음). 카카오 완료 자동 알림과 Claude 어댑터·질문 답변 세션 재개는 남은 구현 과제다.
+- 기록: HANDOFF.md 자동화 항목에 2026-10-12 상태와 카카오톡 연결 절차 1~6번을 추가하고 텔레그램 절차는 현재 과제에서 제외(보존)했다. TODOLIST_HANDOFF.md의 텔레그램 연결 확인 항목을 카카오톡 연결 확인 항목으로 바꿨다.
+- 통합: AGENTS.md의 직접 통합 절차대로 원본 `.validation-tools/ux-integration.lock` 아래에서 기준 SHA 재확인 후 `git merge --ff-only`로 로컬 main에 통합한다. 기존 미추적 `%SystemDrive%/`는 보존한다.

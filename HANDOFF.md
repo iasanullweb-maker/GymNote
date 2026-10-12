@@ -485,7 +485,15 @@
   - 필수 기능: 메모와 실행 요청 구분, 입력 사용자 인증, 중복 실행 방지, 작업 상태·이력 저장, 실패 재시도·재개·중지, 동시 작업 충돌 방지, 비용·실행 시간 제한, 완료·실패·사용자 판단 필요 시 알림. 에이전트 실행 자격 증명은 서버/실행기에 보관한다.
   - 기존 작업 규칙대로 검토·검증 후 기존 작업 브랜치에 로컬 통합하고, 원격 push·배포는 해당 작업의 승인 범위를 따른다. 로컬 실행기는 PC가 켜져 있어야 하며, 전체 iOS 빌드는 Mac/Xcode 또는 기존 macOS CI 실행 환경을 사용한다.
   - 현재 상태(2026-10-09): Telegram 수신·메모/실행 구분·SQLite 저장·Codex 큐/별도 검토/로컬 통합·관리자 화면·결과 알림·사전 점검 구현 및 로컬 main 통합 완료. 자동화 회귀 46개 통과. 실제 봇 연결·Codex 실행은 아직 미확인이며 Claude 어댑터·질문 답변 세션 재개는 남아 있다.
-  - **텔레그램 자동화 연결 절차 — 사용자에게 안내한 1~6번 (모두 미완료):** 아래 순서로 진행한다. 설정·명령 상세는 [자동화 실행 안내](automation/README.md)를 참고한다. 토큰은 채팅이나 Git에 기록하지 않는다.
+  - 현재 상태(2026-10-12): 사용자가 텔레그램 계정이 없어 **카카오톡 채널 챗봇 + 스킬 서버**를 기본 입력 채널로 선택했다. Codex `d51c446`에서 카카오 스킬 수신기(`automation/ingress/kakao.py`, localhost 8766, `x-api-key`·허용 봇/사용자 검사), 명시적 실행 요청키, 메모 60초 중복 방지, 상태/중지/재시도 명령, [카카오톡 설정 안내](automation/KAKAO_SETUP.md)를 구현했다. 그 세션이 사용량 한도로 끊겨 Claude가 최신 main 병합·검증·기록·로컬 main 통합을 마무리했다. 자동화 회귀 71개 통과(Python 3.12). 기존 텔레그램 기능은 보존한다. 카카오 채널/챗봇·공개 HTTPS·실제 수신·Codex 실행은 미확인이며, 카카오 완료 자동 알림은 미구현이라 `상태` 조회로 결과를 확인한다.
+  - **카카오톡 연결 절차 — 현재 기본 과제 (모두 미완료):** 상세 명령은 [카카오톡 설정 안내](automation/KAKAO_SETUP.md)를 따른다. 스킬 토큰·봇 ID·사용자 키는 채팅이나 Git에 기록하지 않는다.
+    1. [ ] **채널·챗봇 생성:** 카카오톡 채널 관리자센터에서 채널을, 챗봇 관리자센터에서 챗봇을 만들고 채널을 연결한다. 봇 ID를 확인한다.
+    2. [ ] **로컬 설정·비밀값:** `%LOCALAPPDATA%/GymNoteAutomation/config.json`에 kakaoEnabled=true, kakaoBotIds, kakaoDiscoveryEnabled=true, executionEnabled=false, maxTasksPerSession=1을 넣는다. 같은 PowerShell 창에서 관리자 토큰과 KAKAO_SKILL_TOKEN을 생성한다.
+    3. [ ] **공개 HTTPS·스킬 등록:** 사전 점검 후 서비스를 실행하고 cloudflared로 127.0.0.1:8766만 공개한다(8765 관리자 화면은 공개 금지). 챗봇에 `/kakao/skill` 스킬 URL·테스트 URL과 `x-api-key` 헤더를 등록하고 폴백 블록에 스킬데이터 응답으로 연결해 배포한다.
+    4. [ ] **본인 등록:** 채널 채팅에서 `내정보`를 보내 botUserKey를 kakaoUserKeys에 등록하고 kakaoDiscoveryEnabled=false로 바꿔 재시작한다.
+    5. [ ] **메모 확인:** `메모 운동 기록 화면 개선 아이디어`를 보내 저장 응답·작업 ID와 PC 관리자 화면의 같은 메모를 확인한다.
+    6. [ ] **작은 실행 확인:** codex login status 확인 후 executionEnabled=true로 재시작하고 `실행 smoke-1 docs/automation-smoke-test.md에 카카오톡 연결 확인 문장만 추가해 줘. 앱 코드는 수정하지 마.`를 보낸다. `상태 작업ID`로 구현·검토·검증·로컬 main 통합 결과를 확인한다.
+  - **텔레그램 자동화 연결 절차 — 2026-10-12 카카오톡 전환으로 현재 과제 아님 (이력·기능 보존, 모두 미완료):** 아래 순서로 진행한다. 설정·명령 상세는 [자동화 실행 안내](automation/README.md)를 참고한다. 토큰은 채팅이나 Git에 기록하지 않는다.
     1. [ ] **봇 생성:** 공식 @BotFather에서 /newbot으로 봇과 토큰을 만들고, 생성한 봇의 개인 대화에 /start와 연결 확인 메시지를 보낸다.
     2. [ ] **PowerShell 로컬 설정 준비:** 저장소에서 Python·Codex 경로를 지정하고, %LOCALAPPDATA%/GymNoteAutomation/config.json에 예시 설정을 복사한다(기존 설정 보존). 같은 PowerShell 창에서 TELEGRAM_BOT_TOKEN을 비공개 입력하고 GYMNOTE_AUTOMATION_ADMIN_TOKEN을 생성한다.
     3. [ ] **허용 사용자·대화 등록:** 서비스가 꺼진 상태에서 getUpdates로 본인의 UserId·ChatId를 확인해 allowedUserIds·allowedChatIds에 숫자로 등록한다. telegramEnabled=true, executionEnabled=false로 저장한다.
