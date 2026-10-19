@@ -13,6 +13,7 @@ struct TodayView: View {
         let progress = model.workoutProgress
         let isWorkingOut = model.data.activeWorkout != nil
         let startTitle = model.savedToday ? "새 운동 시작" : "운동 시작"
+        let canStart = !plan.isRestDay && plan.exercises.allSatisfy { model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }
         NavigationStack {
             List {
                 Section {
@@ -29,10 +30,30 @@ struct TodayView: View {
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 4)
-                    if !isWorkingOut {
+                    if isWorkingOut {
+                        Label("운동 중", systemImage: "figure.strengthtraining.traditional")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(Color.orange.opacity(0.6), lineWidth: 1.5)
+                                    .allowsHitTesting(false)
+                            }
+                            .accessibilityValue("\(progress.total)세트 중 \(progress.done)세트 완료")
+                    } else {
                         Button { model.startWorkout(catalog: account.catalogTypes) } label: {
                             Label(startTitle, systemImage: "play.fill")
-                        }.disabled(plan.isRestDay || !plan.exercises.allSatisfy { model.data.isRegisteredExercise($0, catalog: account.catalogTypes) })
+                                .font(.headline)
+                                .foregroundStyle(canStart ? Color.black : Color.secondary)
+                                .frame(maxWidth: .infinity, minHeight: 52)
+                                .background(canStart ? Color.orange : Color.secondary.opacity(0.15),
+                                            in: RoundedRectangle(cornerRadius: 12))
+                                .contentShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(!canStart)
                         if !plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) {
                             Text("운동 종목을 불러오면 미등록 운동을 계획과 기록에서 정리해요. 인터넷 연결 후 다시 확인해 주세요.")
                                 .font(.footnote).foregroundStyle(.secondary)
@@ -213,37 +234,37 @@ struct ExerciseRow: View {
                 .disabled(session == nil || done == 0)
                 .accessibilityLabel("세트 완료 되돌리기")
 
-                HStack(spacing: 0) {
+                HStack(spacing: 8) {
                     if !finished, !requiresMeasurement, let value = actualReps {
-                        Button { draftReps = max(0, value - 1) } label: {
-                            Image(systemName: "minus").frame(width: 48, height: 48)
+                        repetitionButton(symbol: "minus", enabled: isEnabled && session != nil && value > 0) {
+                            draftReps = max(0, value - 1)
                         }
-                        .disabled(session == nil || value == 0)
-                        .foregroundStyle(!isEnabled || session == nil || value == 0 ? Color.secondary : Color.white)
                         .accessibilityLabel("완료할 횟수 1회 줄이기")
-                        Divider().frame(height: 28)
                     }
                     Button {
                         if requiresMeasurement, let value = measuredValue { onMeasuredComplete(value, Int(extraReps) ?? 0) }
                         else { onComplete(actualReps) }
                     } label: {
                         Text(finished ? "완료" : requiresMeasurement ? "세트 완료" : actualReps.map { "\($0)회로 세트 완료" } ?? "세트 완료")
-                            .font(.headline).frame(maxWidth: .infinity, minHeight: 48)
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .contentShape(RoundedRectangle(cornerRadius: 12))
                     }.disabled(!canComplete)
-                        .foregroundStyle(canComplete ? Color.white : Color.secondary)
+                        .foregroundStyle(canComplete ? Color.black : Color.secondary)
+                        .background(canComplete ? Color.orange : Color.secondary.opacity(0.15),
+                                    in: RoundedRectangle(cornerRadius: 12))
                     if !finished, !requiresMeasurement, let value = actualReps {
-                        Divider().frame(height: 28)
-                        Button { draftReps = min(9999, value + 1) } label: {
-                            Image(systemName: "plus").frame(width: 48, height: 48)
+                        repetitionButton(symbol: "plus", enabled: isEnabled && session != nil && value < 9999) {
+                            draftReps = min(9999, value + 1)
                         }
-                        .disabled(session == nil || value == 9999)
-                        .foregroundStyle(!isEnabled || session == nil || value == 9999 ? Color.secondary : Color.white)
                         .accessibilityLabel("완료할 횟수 1회 늘리기")
                     }
                 }
                 .buttonStyle(.borderless)
-                .background(canComplete ? Color.orange : Color.secondary.opacity(0.15),
-                            in: RoundedRectangle(cornerRadius: 12))
             }
             if session != nil, !finished, !requiresMeasurement, actualReps != nil {
                 Text("− / +로 이번 세트 횟수를 조절해요.")
@@ -258,6 +279,24 @@ struct ExerciseRow: View {
                 draftReps = $0
             }
         }
+    }
+
+    private func repetitionButton(symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 24, weight: .bold))
+                .frame(width: 52, height: 56)
+                .foregroundStyle(enabled ? Color.primary : Color.secondary)
+                .background(enabled ? Color.orange.opacity(0.18) : Color.secondary.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(enabled ? Color.orange : Color.secondary.opacity(0.25), lineWidth: 1.5)
+                        .allowsHitTesting(false)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .disabled(!enabled)
     }
 }
 
