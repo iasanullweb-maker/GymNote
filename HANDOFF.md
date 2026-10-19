@@ -2,11 +2,13 @@
 
 마지막 업데이트: 2026-10-19
 
-## 실행 탭 시작 상태 바·세트 −/+ 가독성 (2026-10-19, 미배포)
+## 실행 탭 시작 상태 바·세트 −/+ 가독성 (2026-10-19, 검증 완료·정식 배포 대기)
 
 사용자 요청으로 `App/TodayView.swift`의 시작 바를 실제 운동 시작 후 같은 위치의 ‘운동 중’ 표시로 바꾸고, 세트 횟수 −/+를 굵은 아이콘·독립 테두리 버튼으로 분리했다. 시작 바 높이 52pt, 조절 버튼 52×56pt/아이콘 24pt, 가운데 완료 버튼은 주황 배경·검정 글씨와 줄바꿈을 적용했다. 상태는 기존 activeWorkout을 그대로 따르며 시작·저장·되돌리기 모델은 변경하지 않았다.
 
 기준 main `f455e86`, 구현·검증 소스 `9dd632f`. 별도 워크트리에서 diff 검토·Swift Tree-sitter 문법 검사·공백 검사를 수행하고 기존 main에 공통 잠금/fast-forward 조건으로 로컬 통합한다. 전체 iOS XCTest·Release 빌드와 실제 화면/터치 검증은 Windows 환경에서 미실행이며 TODOLIST의 기술 검증·사용자 확인 대기를 유지한다. 원격 push·배포 없음. [상세 결과와 검증 범위](docs/ux-simulation/results/execution-controls-20261019.md).
+
+후속 배포 승인으로 최종 소스 `7a3acab1732c998dec544f3a1a2422a9a0c83e7f`를 검증 브랜치에 push하고 [Build IPA #114](https://github.com/iasanullweb-maker/GymNote/actions/runs/39193930660)를 수동 실행했다. iPad XCTest/Swift 회귀·DB·계정 삭제·tooling·앱/위젯 Release 빌드·release-gate 모두 성공, 검증 브랜치의 publish는 의도대로 건너뛰었다. 위 구현 당시 전체 검사 대기는 이 run으로 해소한다. 이후 같은 SHA의 main 일반 push 요청과 허용된 한 차례 재시도는 모두 자동 승인 검토 시간 초과로 프로세스 실행 전에 거절됐다. 위험 판정은 아니지만 main push·정식 run·릴리스/AltStore 갱신은 아직 미실행이다. 재개 시 로컬/원격 SHA와 공개 상태를 다시 확인하고 main push 실행 권한을 확보해 진행한다. #114를 정식 배포 버전으로 안내하지 않는다.
 
 ## AltStore 만료·12002 시간 초과 / 학교망 VPN 확인 (2026-10-19)
 

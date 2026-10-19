@@ -16,3 +16,11 @@
 - Windows에 Swift/Xcode가 없어 XCTest·전체 iOS 검사·앱/위젯 Release 빌드·네이티브 화면 캡처/실기기 터치를 실행하지 않았다. 작은 UI 변경의 검사 유예 규칙을 적용하며, TODOLIST에 기술 검증 대기를 남긴다. 다음 묶음 통합 검증 또는 배포 전에 통합 제품 코드의 전체 iOS 검증·Release 빌드로 해소한다.
 - 실사용 확인: 새 앱 배포 후 시작→운동 중→종료→새 운동 시작 전환, 재실행/탭 왕복의 상태 유지, 밝은/어두운 화면·작은 화면·큰 글자에서 −/+와 완료 버튼 분리·가독성, 0/9999 경계와 완료/되돌리기를 확인해야 한다. 현재 설치된 0.1.113에는 이 변경이 없다.
 - 로컬 통합은 공통 잠금 안에서 기준 HEAD·추적 파일 상태·진행 중 Git 작업·fast-forward 조건을 재확인하여 수행한다. 최종 문서 커밋·통합 결과는 완료 응답에 제공한다. 원격 push·CI 실행·배포·운영 변경은 하지 않는다.
+
+## 후속 전체 검증·배포 시도
+
+- 사용자 배포 승인 후 `7a3acab1732c998dec544f3a1a2422a9a0c83e7f`를 `codex/execution-controls-20261019`에 push하고 workflow_dispatch로 [Build IPA #114 / 39193930660](https://github.com/iasanullweb-maker/GymNote/actions/runs/39193930660)를 실행했다.
+- `checks / ios`, `checks / database`, `checks / account-deletion`, `checks / tooling`, `build`, `release-gate` 모두 success. publish는 main 아닌 검증 브랜치여서 skipped. 구현 당시 전체 iOS 검사/Release 빌드 대기는 해소했으나 네이티브 화면의 사용자 확인은 별도다.
+- 이후 검증한 같은 SHA의 main 일반 push를 실행 요청했지만 자동 승인 검토가 제한 시간 내 끝나지 않아 프로세스 생성 전에 거절됐다. 도구가 허용한 한 차례 재시도도 같은 사유로 거절됐다. 실행이 위험하다고 판정한 결과는 아니다.
+- main push·정식 workflow_dispatch·릴리스·AltStore 소스 갱신은 미실행이다. 마지막 확인한 원격 main은 `ee37d269c40d0a4d4e2d78aadd4e2ee96d77a8d3`. 재개 시 원격/로컬 상태·공개 릴리스를 재조회하고 main push 실행 권한을 확보한다. 검증용 #114 IPA를 정식 배포 완료로 안내하지 않는다.
+- 이 후속 기록은 문서 변경만이며 제품·테스트·설정·서버·빌드/CI 입력은 검증 SHA와 같다. 정식 배포가 가능해지면 고정 SHA와 승인 범위를 다시 확인하고 정식 run의 게이트·IPA 버전/크기/해시·릴리스·AltStore source.json을 대조한다.
