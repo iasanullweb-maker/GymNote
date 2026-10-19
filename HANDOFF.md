@@ -9,7 +9,7 @@
 - 사용자 확인: 같은 학교 Wi-Fi의 iPad Safari에서 VPN을 켜면 AltStore 홈페이지가 열리고 끄면 열리지 않았다. 따라서 학교망에서 해당 서버까지의 접속 경로 영향을 우선 의심한다. 구체적인 차단 주체·방식이나 서버 전체 장애까지 확정한 것은 아니다.
 - **다음에 같은 오류가 나면 먼저 할 순서:** 노트북에서 `https://altstore.io/` 접속 확인 → 안 열리면 사용 가능한 VPN을 노트북에서 켜고 홈페이지가 열리는지 재확인 → iPad를 USB로 연결·잠금 해제·컴퓨터 신뢰 → AltServer의 Install AltStore에서 해당 iPad 선택, 기존 설치에 사용한 Apple ID로 덮어 설치. USB 연결이면 같은 Wi-Fi일 필요가 없다. iPad VPN만으로 노트북 AltServer의 다운로드 경로가 바뀌지는 않으며, 두 기기에서 VPN을 켰다고 서로 같은 로컬 네트워크가 되는 것도 아니다.
 - 설치 후에는 USB와 노트북 VPN을 유지하고 iPad AltStore의 My Apps → Refresh All로 헬스노트를 갱신한 뒤 앱 실행·기록 유지를 확인한다. **기존 AltStore·헬스노트는 삭제하지 않는다.** VPN의 로컬 통신 제한이나 기기 검색 문제가 생기면 USB 인식부터 확인한다. 홈페이지가 정상인데 오류가 계속되면 iTunes/iCloud 실행·아이패드 인식·AltServer 상태를 다음으로 점검한다.
-- 현재 결과: 위 VPN·USB 재시도 안내 뒤 사용자가 “설치되는중”이라고 알렸다. VPN 적용 기기·설정의 구체적인 실행 내역, 설치 완료·Refresh All 성공·헬스노트 실행·설치 앱 버전은 아직 사용자 확인 전이다. 확인 대기는 TODOLIST_HANDOFF에서 관리하며 기존 113/Siri 확인 항목을 완료로 바꾸지 않았다.
+- 현재 결과: VPN·USB 재시도 안내 뒤 사용자가 “설치되는중”, “다운로드 되었어”라고 알렸고, 후속 점검 1~3번(AltStore 실행·Refresh All, 헬스노트 실행·업데이트/0.1.113 (113) 버전 확인, 기존 운동 일지·최고기록·계획·일상 유지)을 2026-10-19 iPad에서 완료했다고 명시했다. VPN 적용 기기·설정의 구체적인 실행 내역은 별도로 확인하지 않았다. Siri는 사용자가 나중에 확인하기로 했고 운동 세트 조작·일지 저장은 상세 절차 안내 단계이므로 미확인으로 유지한다. 현재 체크 상태는 TODOLIST_HANDOFF에서 관리한다.
 - 공식 근거: [AltServer: USB 연결과 삭제 없는 재설치](https://faq.altstore.io/altstore-classic/altserver), [학교망·USB·iTunes/iCloud 문제 해결](https://faq.altstore.io/altstore-classic/troubleshooting-guide). 단순 시간 초과만으로 Apple ID 변경·앱 삭제·Apple 프로그램 전체 재설치를 먼저 권하지 않는다.
 - 문서 작업 기준: 기존 main `ee37d26`에서 별도 `codex/altstore-network-handoff-20261019` 워크트리로 시작했다. 이번 변경은 HANDOFF·TODOLIST Markdown뿐이며 diff 검토·`git diff --check`와 제품/검사/빌드 입력 불변을 확인한다. 전체 iOS 검사·빌드는 문서 변경이므로 실행하지 않으며 새 기술 검증 대기를 만들지 않는다. 원격 push·배포·서버 변경 없음. 최종 소스 커밋·로컬 통합 결과는 완료 응답에 제공한다.
 
