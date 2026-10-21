@@ -9,6 +9,9 @@
 
 ## 디자인 스킬·DESIGN.md·iPhone/다크 캡처 (미배포, 2026-10-21)
 
+- [x] **Windows impeccable 엔진 설치·인식 확인 — 2026-10-21 완료.** 0.1.16 공식 체크섬 일치, Claude/Codex 양쪽 engine-probe·Codex context 성공. 프로젝트 스킬 8개 기존 설치 사용. HANDOFF의 Windows 디자인 도구 준비 기록 참고.
+- [ ] **디자인 보조 파일 갱신(향후 디자인 문서 작업 시).** doctor의 design-sidecar-stale 1건. DESIGN.md를 보존하며 impeccable document로 보조 design.json을 갱신한 뒤 재점검한다. 설치·앱 빌드 차단은 아니다.
+
 - [x] **스킬 설치·PRODUCT.md/DESIGN.md 작성·캡처 확장과 CI 검증 — 2026-10-21 기술 완료.** [Build IPA 39537037520](https://github.com/iasanullweb-maker/GymNote/actions/runs/39537037520) 성공, 캡처 17장 직접 확인. [결과](docs/ux-simulation/results/design-skills-20261021.md).
 - [ ] **일지 목록 머리글 날짜 확인(다음 배포 후 실기기).** 기록 → 운동 일지 → 캘린더에서 운동한 날짜를 누르면 아래 목록 머리글 날짜·요일이 누른 날짜와 같은지 확인한다. 캡처 환경(시뮬레이터 UTC)에서는 8일 선택 시 머리글이 "10월 7일 (수)"로 보였다. 실기기에서도 다르면 머리글을 `DayKey`/환경 시간대 기준으로 고친다.
 
