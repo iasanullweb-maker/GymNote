@@ -79,6 +79,7 @@ struct TodayView: View {
                                     startMotion?.startFrame = $0
                                 }
                         }
+                        .coachmarkTarget("workout.start")
                         .buttonStyle(PressScaleButtonStyle())
                         .sensoryFeedback(.impact(weight: .medium), trigger: startTaps)
                         .disabled(!canStart)

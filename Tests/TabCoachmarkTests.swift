@@ -39,4 +39,35 @@ final class TabCoachmarkTests: XCTestCase {
         }
         XCTAssertEqual(ids.count, 8)
     }
+    func testExplanationStaysBesideVisibleControlOnPhoneAndPad() {
+        for size in [CGSize(width: 393, height: 852), CGSize(width: 834, height: 1194)] {
+            for y in [CGFloat(60), size.height - 140] {
+                let target = CGRect(x: size.width - 60, y: y, width: 44, height: 44)
+                let placement = CoachmarkPlacement(target: target, size: size, cardHeight: 210)
+                XCTAssertTrue(placement.showsHighlight)
+                XCTAssertFalse(placement.card.intersects(placement.highlight))
+                XCTAssertGreaterThanOrEqual(placement.card.minX, 16)
+                XCTAssertLessThanOrEqual(placement.card.maxX, size.width - 16)
+                XCTAssertGreaterThanOrEqual(placement.card.minY, 8)
+                XCTAssertLessThanOrEqual(placement.card.maxY, size.height - 8)
+                XCTAssertEqual(placement.below, y < size.height / 2)
+            }
+        }
+    }
+
+    func testMissingOrOffscreenControlNeverHighlightsWholeScreen() {
+        let size = CGSize(width: 393, height: 852)
+        for target in [nil, CGRect(x: 20, y: 950, width: 100, height: 44)] as [CGRect?] {
+            XCTAssertFalse(CoachmarkPlacement(target: target, size: size, cardHeight: 210).showsHighlight)
+        }
+    }
+
+    func testLargeExplanationKeepsControlCoveredWhenThereIsNoRoom() {
+        let placement = CoachmarkPlacement(target: CGRect(x: 100, y: 130, width: 100, height: 44),
+                                          size: CGSize(width: 700, height: 320), cardHeight: 240)
+        XCTAssertFalse(placement.showsHighlight)
+        XCTAssertGreaterThanOrEqual(placement.card.minY, 8)
+        XCTAssertLessThanOrEqual(placement.card.maxY, 312)
+    }
+
 }

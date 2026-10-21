@@ -86,7 +86,6 @@ struct FriendsView: View {
                     }
                 }
             }
-            .coachmarkTarget("friends")
             .navigationTitle("친구")
             .disabled(social.working)
             .task(id: account.user?.id) { await social.refresh() }
@@ -227,6 +226,7 @@ struct FriendsView: View {
             Button { code = ""; addingFriend = true } label: {
                 Label("친구 추가", systemImage: "person.badge.plus")
             }
+            .coachmarkTarget("friends.add")
             if overview.acceptedFriends.isEmpty {
                 Text("아직 친구가 없어요. 친구 코드를 주고받아 추가해 보세요.").font(.footnote).foregroundStyle(.secondary)
             }

@@ -57,6 +57,7 @@ struct DailyTodayView: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button { editing = DailyItem(title: "", scheduledDate: today) } label: { Image(systemName: "plus") }
                         .accessibilityLabel("일상 추가")
+                        .coachmarkTarget("daily.add")
                 }
             }
             .sheet(item: $editing) { DailyItemEditor(item: $0) }

@@ -2,6 +2,11 @@
 
 마지막 업데이트: 2026-10-21
 
+## 튜토리얼 집중도 개선 (2026-10-21, 미배포)
+
+- 사용자 승인한 리뷰대로 짧은 제목+한 문장, 실제 시작/+·친구 추가/선택 날짜 강조, 대상 위·아래 카드, 주황/청록 진행 버튼, 카드 등장+유한 테두리 모션을 적용했다. 동작 줄이기는 정적 표시, 설정에 튜토리얼 다시 보기 추가. 기존 8개 안내·완료 저장·건너뛰기 없는 흐름 유지.
+- 기준 main `476f6c6`. Swift 7개 기준 대조에서 새 구문 오류 없음, Anchor·diff 검토·공백 검사 통과. 배치 XCTest 3개 추가했으나 Windows에서 XCTest·전체 iOS/Release·실제 화면·VoiceOver는 미실행. 다음 묶음 검증 또는 배포 전 해소, 사용자 확인은 대기. [상세 결과](docs/ux-simulation/results/tutorial-focus-20261021.md). 커밋 후 기존 main에 잠금 아래 로컬 fast-forward 통합하며 push·배포 없음.
+
 ## 0.1.133 정식 배포 완료 (2026-10-21)
 
 - 사용자 “배포 진행해” 승인으로 main a34b782를 일반 push하고, 마지막 커밋이 [skip ci]여서 [정식 Build #133 / 39557827990](https://github.com/iasanullweb-maker/GymNote/actions/runs/39557827990)를 수동 실행했다. 같은 SHA의 iOS·DB·계정 삭제·도구 검사, 앱/위젯 Release, release-gate, publish 모두 성공. XCTest 177개(기존 캡처 4개 건너뜀·실패 0).

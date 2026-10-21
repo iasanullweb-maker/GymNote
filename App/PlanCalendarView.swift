@@ -52,11 +52,12 @@ struct PlanCalendarView: View {
                     GridRow {
                         ForEach(Array(dates[offset..<min(offset + 7, dates.count)]), id: \.self) { date in
                             dayCell(date, workouts: workoutsByDay[DayKey.key(date)] ?? [])
+                                .coachmarkTarget(workspace == "일상" ? "daily.calendar" : "workout.calendar",
+                                    enabled: content != .journal && Calendar.current.isDate(date, inSameDayAs: selectedDate))
                         }
                     }
                 }
             }
-            .coachmarkTarget(workspace == "일상" ? "daily.calendar" : "workout.calendar")
             if compact, content != .journal {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(selectedDate, format: .dateTime.month().day().weekday())
