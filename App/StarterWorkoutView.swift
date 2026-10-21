@@ -23,6 +23,7 @@ struct StarterWorkoutView: View {
                     Picker("사용할 기구", selection: $equipment) {
                         ForEach(WorkoutEquipment.allCases) { Text($0.rawValue).tag($0) }
                     }
+                    .coachmarkTarget("starter.conditions")
                     Picker("운동 경험", selection: $experience) {
                         ForEach(WorkoutExperience.allCases) { Text($0.rawValue).tag($0) }
                     }
@@ -30,7 +31,6 @@ struct StarterWorkoutView: View {
                         ForEach([15, 30, 45], id: \.self) { Text("\($0)분").tag($0) }
                     }
                 }
-                .coachmarkTarget("starter.conditions")
                 Section {
                     ForEach(Array(preview.exercises.enumerated()), id: \.offset) { _, exercise in
                         VStack(alignment: .leading, spacing: 4) {

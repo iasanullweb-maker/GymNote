@@ -160,10 +160,9 @@ struct ScheduledDayEditor: View {
                     .shortSwipeAction { session.remove(exercise) }
                 }
                 .onMove { session.move(from: $0, to: $1) }
-            } header: { Text("계획한 운동") } footer: {
+            } header: { Text("계획한 운동").coachmarkTarget("plan.exercises") } footer: {
                 Text("운동을 누르면 세트·횟수를 수정해요. 왼쪽으로 밀면 삭제하고, ‘순서 편집’에서 순서를 바꿀 수 있어요.")
             }
-            .coachmarkTarget("plan.exercises")
             .disabled(activeOnDate || !session.isCurrentOwner)
             Section {
                 Button { showingAdd = true } label: { Label("운동 선택해서 추가", systemImage: "plus") }
@@ -396,12 +395,10 @@ struct ExercisePicker: View {
                             }
                         }.foregroundStyle(.primary).disabled(!registered)
                     }
-                } header: { Text("내 운동 목록") } footer: {
+                } header: { Text("내 운동 목록").coachmarkTarget("exercise.library") } footer: {
                     Text("저장한 세트·횟수로 시작해요. 이 날짜에서 수정해도 원본 목록은 바뀌지 않아요.")
                 }
-                .coachmarkTarget("exercise.library")
                 CatalogExerciseSection { draft = $0.makeExercise() }
-                    .coachmarkTarget("exercise.catalog")
             }
             .tabCoachmarks(.exercisePicker)
             .navigationTitle("운동 추가")
@@ -443,7 +440,7 @@ struct CatalogExerciseSection: View {
             if let message = account.catalogMessage {
                 Text(message).font(.footnote).foregroundStyle(.secondary)
             }
-        } header: { Text("운동 종목") } footer: {
+        } header: { Text("운동 종목").coachmarkTarget("exercise.catalog") } footer: {
             Text("관리자가 등록한 운동이에요. 선택 후 내 세트·횟수·시간을 설정할 수 있어요.")
         }
     }
