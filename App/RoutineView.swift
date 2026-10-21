@@ -399,14 +399,40 @@ struct ExerciseDraftForm: View {
                 }
             } else {
                 LabeledContent("운동 종목", value: exercise.name)
-                Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
+                Stepper("세트: \(exercise.sets)", value: Binding(
+                    get: { exercise.sets },
+                    set: { exercise.resizeSetReps(to: $0) }
+                ), in: 1...20)
                 if let reps = exercise.plannedReps {
-                    Stepper("목표 횟수: \(reps)회", value: Binding(
-                        get: { exercise.plannedReps ?? reps },
-                        set: { exercise.detail = "\($0)회" }
-                    ), in: 1...9999)
+                    Toggle("세트별 횟수 상세 설정", isOn: Binding(
+                        get: { exercise.setReps != nil },
+                        set: { exercise.applySetReps($0 ? Array(repeating: reps, count: max(exercise.sets, 1)) : nil) }
+                    ))
+                    if let values = exercise.setReps {
+                        ForEach(values.indices, id: \.self) { index in
+                            Stepper("\(index + 1)세트: \(values[index])회", value: Binding(
+                                get: { exercise.setReps?[index] ?? reps },
+                                set: { value in
+                                    guard var updated = exercise.setReps, updated.indices.contains(index) else { return }
+                                    updated[index] = value
+                                    exercise.applySetReps(updated)
+                                }
+                            ), in: 1...9999)
+                        }
+                    } else {
+                        Stepper("목표 횟수: \(reps)회", value: Binding(
+                            get: { exercise.plannedReps ?? reps },
+                            set: { exercise.detail = "\($0)회" }
+                        ), in: 1...9999)
+                    }
                 } else {
                     TextField("시간·수행 조건", text: $exercise.detail)
+                }
+                if exercise.plannedReps != nil {
+                    Text(exercise.setReps == nil
+                         ? "모든 세트에 같은 횟수를 써요. 운동 중 −/+로 바꾼 횟수는 다음 세트에도 이어져요."
+                         : "세트마다 정한 횟수로 시작해요. 운동 중 −/+로 그 세트만 바꿀 수 있어요.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
                 if exercise.hasPercentageTarget {
                     Text("비율 대신 횟수를 입력해 주세요. 예: 10회")
