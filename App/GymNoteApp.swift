@@ -206,6 +206,7 @@ struct RootView: View {
     private func mainTabs(compact: Bool) -> some View {
         VStack(spacing: 0) {
             WorkspaceSwitcher(selection: protectedSelection($workspace))
+                .coachmarkTarget("workspace")
                 .disabled(editingNavigation.isEditing)
                 .padding(.horizontal, 16)
                 .padding(.vertical, compact ? 4 : 10)
@@ -252,8 +253,10 @@ struct RootView: View {
                     .id("settings-\(tabScreenVersions[4])")
                     .tabItem { Label("설정", systemImage: "gearshape") }.tag(4)
             }
+            .coachmarkTarget("tour.surface")
             .toolbar(editingNavigation.isEditing ? .hidden : .automatic, for: .tabBar)
         }
+        .tabCoachmarks(.tour(tab: selectedTab, daily: workspace == "일상"))
         .id(model.selection.generation)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !account.isOnline {

@@ -30,6 +30,7 @@ struct TodayView: View {
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 4)
+                    .coachmarkTarget("workout.today")
                     if isWorkingOut {
                         Label("운동 중", systemImage: "figure.strengthtraining.traditional")
                             .font(.headline)

@@ -86,6 +86,7 @@ struct FriendsView: View {
                     }
                 }
             }
+            .coachmarkTarget("friends")
             .navigationTitle("친구")
             .disabled(social.working)
             .task(id: account.user?.id) { await social.refresh() }

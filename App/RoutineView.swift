@@ -26,6 +26,7 @@ struct RoutineView: View {
                             Image(systemName: "chevron.right").foregroundStyle(.secondary)
                         }
                     }
+                    .coachmarkTarget("workout.plan")
                     Divider()
                     Toggle("운동·일상 함께 보기", isOn: $showAll)
                     PlanCalendarView(selectedDate: $selectedDate, content: showAll ? .all : .workout) {

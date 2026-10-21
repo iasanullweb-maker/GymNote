@@ -17,6 +17,7 @@ struct RecordsView: View {
                     Text("최고 기록").tag(RecordsTab.records)
                 }
                 .pickerStyle(.segmented)
+                .coachmarkTarget("workout.records")
                 .padding(.horizontal)
                 .padding(.bottom, 8)
                 if tab == .journal {

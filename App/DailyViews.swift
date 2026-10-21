@@ -21,6 +21,7 @@ struct DailyTodayView: View {
                 Section {
                     let done = scheduled.filter { model.data.isDailyComplete($0, on: today) }.count
                     LabeledContent("오늘의 일상", value: "\(done) / \(scheduled.count) 완료")
+                        .coachmarkTarget("daily.today")
                     if !scheduled.isEmpty { ProgressView(value: Double(done), total: Double(scheduled.count)).tint(.teal) }
                     Text(today, format: .dateTime.year().month().day().weekday())
                         .font(.subheadline).foregroundStyle(.secondary)
@@ -456,6 +457,7 @@ struct DailyHistoryView: View {
                     let keys = Set(week.map { DayKey.key($0) })
                     let completions = model.data.dailyCompletions.filter { keys.contains($0.day) }
                     LabeledContent("완료한 일상", value: "\(completions.count)개")
+                        .coachmarkTarget("daily.history")
                 }
                 Section {
                     let past = week.filter { Calendar.current.startOfDay(for: $0) <= Calendar.current.startOfDay(for: model.currentDate) }
