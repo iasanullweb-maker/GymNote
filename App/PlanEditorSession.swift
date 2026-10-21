@@ -18,6 +18,7 @@ final class PlanEditorSession {
     }
 
     var plan: DayPlan { model.data.plan(for: date) }
+    var ownerGeneration: UUID { owner }
     var isCurrentOwner: Bool { owner == model.selection.generation }
     var canUndo: Bool {
         isCurrentOwner && deletion.map { model.data.canRestorePlannedExercise($0) } == true

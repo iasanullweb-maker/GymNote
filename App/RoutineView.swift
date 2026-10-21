@@ -201,7 +201,7 @@ struct ScheduledDayEditor: View {
         .sheet(isPresented: $showingName) {
             PlanNameEditor(plan: session.plan, onSave: session.rename)
         }
-        .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: date) }
+        .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: date, expectedOwner: session.ownerGeneration) }
         .sheet(isPresented: $showingAdd) { ExercisePicker(onSave: session.add) }
         .sheet(item: $editing) { exercise in
             ExerciseDraftView(exercise: exercise, title: "운동 수정") { saved in

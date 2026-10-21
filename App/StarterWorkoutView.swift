@@ -5,6 +5,7 @@ struct StarterWorkoutView: View {
     @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
     let date: Date
+    var expectedOwner: UUID? = nil
     @State private var equipment = WorkoutEquipment.bodyweight
     @State private var experience = WorkoutExperience.beginner
     @State private var minutes = 15
@@ -60,7 +61,7 @@ struct StarterWorkoutView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("계획에 추가") {
                         guard registered else { return }
-                        guard model.selection.generation == owner else {
+                        guard model.selection.generation == (expectedOwner ?? owner) else {
                             failure = "계정이 바뀌었어요. 취소한 뒤 다시 선택해 주세요."
                             return
                         }

@@ -1179,6 +1179,7 @@ struct RepetitionDraft {
     @discardableResult
     mutating func setDetailed(_ enabled: Bool, count: Int) -> Bool {
         guard isValid, (1...20).contains(count) else { return false }
+        guard enabled != usesDetails else { return true }
         if enabled { detailed = Array(repeating: common, count: count) }
         else { common = detailed.first ?? common }
         usesDetails = enabled
