@@ -21,3 +21,9 @@
 2. 운동 계획 첫 진입: 달력 강조 → 계획 설정 버튼 강조. 완료 후 탭 왕복/재실행 시 미표시. 실제 날짜 길게 누르기/버튼 편집 동작 유지.
 3. 운동 기록·친구(게스트/로그인/오프라인)·설정 첫 방문 확인. 일상 전환 후 실행·계획·기록은 별도 안내, 공통 친구·설정은 중복 미표시.
 4. iPhone/iPad 세로·가로, 라이트/다크, 큰 Dynamic Type·VoiceOver에서 설명/완료 버튼 가시성·포커스·배경 탐색 차단 확인. 계정 환영·권한 요청·저장 오류 알림과 겹칠 때 진행 가능 여부 확인.
+
+## 최신 대상 반영 후 재검증
+
+- 통합 준비 중 대상 main이 `60ac8257f57eedab66bb995f056f619b043f48f7`로 변경되어 작업 워크트리에 먼저 병합했다. 병합 소스 `7f89acb9a1cca0d2a497ab345a8bdf3e35e31326`, 자동 병합 충돌 없음. 기존 신디·세트별 횟수 구현과 TODOLIST 항목을 보존했다.
+- 해당 소스 대 최신 main의 변경 Swift 10개를 같은 Python/Tree-sitter 명령으로 다시 파싱해 새 문법 오류 없음 확인. RoutineView/TodayView의 최신 main 대비 차이는 Anchor modifier 1개씩뿐이다. Shared/Models.swift·Shared/ManualWorkout.swift·scripts/test_models.swift의 최신 main 대비 차이 0으로 선행 변경의 제품/검사 입력 보존을 확인했다. `git diff --check main..HEAD` 통과. 선행 CI 성공을 새 코치마크의 실행 검증으로 사용하지 않는다.
+- 이후 변경은 이 결과 문서뿐이다. iOS 실행 검증 대기는 유지하고, 최종 문서 커밋을 포함해 위 최신 기준에서 fast-forward 통합한다.
