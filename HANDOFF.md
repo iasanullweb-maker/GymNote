@@ -11,6 +11,19 @@
 
 - Impeccable critique로 찾은 아쉬운 점 전부를 사용자가 승인해 TODOLIST에 등록. 근거·코드 위치는 [리뷰 결과](docs/ux-simulation/results/plan-editor-review-20261021.md), 다음 세션은 [프롬프트](docs/parallel-work/prompts/plan-editor-ux-20261021.md)를 붙여 넣어 시작한다.
 
+## 신디 전용 운동 설정 (2026-10-21, 미배포)
+
+- 신디에만 ‘목표 세트 수’와 ‘1세트 구성’(풀업 5회·푸쉬업 10회·에어 스쿼트 15회)을 분리하고 제목을 ‘신디 설정’으로 변경. 의미가 불명확한 ‘한 세트’ 입력과 중복 반복 설명 없이 표시한다. 일반 운동 폼·저장 데이터는 유지한다.
+- 기준 `5599bdc`, 제품 소스 `4a3e905`. diff·공백·Swift Tree-sitter 구문 검사 통과. Windows에서 전체 iOS 빌드·XCTest·실제 화면/접근성 검증 미실행, 다음 묶음 검증/배포 전 대기. [결과](docs/ux-simulation/results/cindy-settings-20261021.md). 별도 워크트리에서 기존 main에 로컬 통합하며 push·배포 없음.
+
+## Windows 디자인 도구 준비 (2026-10-21)
+
+- HANDOFF의 새 디자인 방식과 PRODUCT.md·DESIGN.md·docs/GYMNOTE_SKILLS.md를 읽고 적용한다. 프로젝트 스킬 8개는 이미 Codex에 노출되어 있어 개인 폴더에 중복 복사하지 않았다. Emil 7개 폴더의 Claude/Codex 사본은 파일별 SHA-256 일치, impeccable은 플랫폼별 경로·메타데이터 조정이 있는 기존 사본을 보존했다.
+- Windows 사용자 캐시 `~/.impeccable/bin/0.1.16/impeccable.exe` 설치 완료(19,796,872바이트). 공식 engine-v0.1.16 x64 체크섬과 SHA-256 `c7dfa8846ec59ceb3a40be99b89fba29e4f3bdd16f3c412a33f19ad8a68ccff2` 일치. 양쪽 런처의 `engine-probe`가 `impeccable-engine 0.1.16`을 반환하고 Codex 런처 `context`가 제품·디자인·iOS 지침을 읽었다.
+- 최초 다운로드 끝에서 Windows 배치 `discard_staging` 라벨 경고가 한 번 있었으나 설치·context는 종료 0, 후속 양쪽 probe는 경고 없이 성공했다. 실행 파일은 Git에 넣지 않는다.
+- `doctor`는 `design-sidecar-stale` 1건을 보고했다. DESIGN.md를 기준으로 사용하고 보조 `.impeccable/design.json`은 향후 요청 시 `document`로 갱신한다. 설치 요청에서 디자인 기준을 다시 생성하지 않았다.
+- 기록 기준 main `6ede94e`. 문서만 변경하고 공백·diff 검토 후 별도 워크트리에서 커밋·main 로컬 fast-forward 통합한다. 앱 코드·검사·빌드 입력 변경 없음, 전체 iOS 빌드·실기기 검사·push·배포 없음. Taste·Figma MCP 보류와 Playwright 대신 CI 시뮬레이터 캡처 방식을 유지한다.
+
 ## 짧은 밀기 삭제 화면 깨짐 수정 (2026-10-21, 미배포)
 
 - 사용자 제보: 날짜 계획 시트에서 운동 행을 왼쪽으로 밀면 이름이 사라지고 빨간 버튼이 깨져 보임. `App/ShortSwipeAction.swift`가 행 여백 안에서만 그려진 것이 원인. 행 여백을 직접 그리고, 글자는 제자리에 둔 채 둥근 빨간 버튼이 오른쪽에서 자라도록 고쳤다. 이동 거리·편집 모드·접근성 동작은 유지. 같은 modifier의 운동 일지·운동 목록·일상 완료 취소에도 적용.
