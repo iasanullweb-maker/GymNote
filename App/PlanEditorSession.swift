@@ -18,8 +18,9 @@ final class PlanEditorSession {
     }
 
     var plan: DayPlan { model.data.plan(for: date) }
+    var isCurrentOwner: Bool { owner == model.selection.generation }
     var canUndo: Bool {
-        owner == model.selection.generation && deletion.map { model.data.canRestorePlannedExercise($0) } == true
+        isCurrentOwner && deletion.map { model.data.canRestorePlannedExercise($0) } == true
     }
 
     @discardableResult

@@ -124,6 +124,9 @@ struct ScheduledDayEditor: View {
 
     private func editor(_ session: PlanEditorSession) -> some View {
         Form {
+            if !session.isCurrentOwner {
+                Section { Text("계정이 바뀌었어요. 이 화면을 닫고 다시 열어 주세요.").foregroundStyle(.secondary) }
+            }
             if activeOnDate || !model.data.workouts(on: date).isEmpty || Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: model.currentDate) {
                 Section {
                     Text(activeOnDate
@@ -146,7 +149,7 @@ struct ScheduledDayEditor: View {
                         Image(systemName: "pencil").foregroundStyle(.secondary)
                     }
                 }
-                .foregroundStyle(.primary).disabled(activeOnDate)
+                .foregroundStyle(.primary).disabled(activeOnDate || !session.isCurrentOwner)
                 .accessibilityHint("계획 이름 변경")
             }
             if let deletion = session.deletion {
@@ -172,27 +175,27 @@ struct ScheduledDayEditor: View {
             } header: { Text("계획한 운동") } footer: {
                 Text("운동을 누르면 세트·횟수를 수정해요. 왼쪽으로 밀면 삭제하고, ‘순서 편집’에서 순서를 바꿀 수 있어요.")
             }
-            .disabled(activeOnDate)
+            .disabled(activeOnDate || !session.isCurrentOwner)
             Section {
                 Button { showingAdd = true } label: { Label("운동 선택해서 추가", systemImage: "plus") }
                 Button { showingStarter = true } label: { Label("기본 루틴 추가", systemImage: "list.bullet.clipboard") }
             } header: { Text("운동 추가") } footer: {
                 Text("지금 계획한 운동을 유지하고 뒤에 추가해요.")
             }
-            .disabled(activeOnDate)
+            .disabled(activeOnDate || !session.isCurrentOwner)
             Section {
                 Button("다른 계획으로 교체") { showingCopy = true }
             } header: { Text("계획 교체") } footer: {
                 Text("다른 날짜나 요일의 계획으로 이 날짜의 운동 전체를 바꿔요. 교체 전에 내용을 확인할 수 있어요.")
             }
-            .disabled(activeOnDate)
+            .disabled(activeOnDate || !session.isCurrentOwner)
         }
         .environment(\.editMode, $editMode)
         .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(editMode.isEditing ? "완료" : "순서 편집") { editMode = editMode.isEditing ? .inactive : .active }
-                    .disabled(activeOnDate || session.plan.isRestDay)
+                    .disabled(activeOnDate || !session.isCurrentOwner || session.plan.isRestDay)
             }
         }
         .sheet(isPresented: $showingName) {
@@ -211,6 +214,13 @@ struct ScheduledDayEditor: View {
             }
         }
         .sheet(isPresented: $showingCopy) { PlanCopyView(targetDate: date, onCopy: session.replace) }
+        .onChange(of: model.selection.generation) { _, _ in
+            showingAdd = false
+            showingCopy = false
+            showingStarter = false
+            showingName = false
+            editing = nil
+        }
     }
 }
 
