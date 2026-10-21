@@ -15,7 +15,6 @@ struct SettingsView: View {
 
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
-    @AppStorage(CoachmarkHistory.key) private var completedCoachmarks = ""
     @State private var showingAccount = false
     @AppStorage(WorkoutStartAnimationStyle.storageKey) private var startStyle = WorkoutStartAnimationStyle.defaultStyle
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -84,11 +83,11 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("튜토리얼 다시 보기") { completedCoachmarks = "" }
+                    Button("튜토리얼 다시 보기") { model.replayCoachmarks() }
                 } header: {
                     Text("사용 안내")
                 } footer: {
-                    Text("각 탭의 짧은 안내를 이 기기에서 다시 표시해요.")
+                    Text("각 탭과 세부 화면의 안내를 다시 표시해요. 계정의 완료 이력은 유지돼요.")
                 }
 
                 dailyReminderSection

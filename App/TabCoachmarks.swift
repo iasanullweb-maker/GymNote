@@ -10,6 +10,33 @@ struct TabCoachTour {
     let id: String
     let steps: [CoachmarkStep]
 
+    static let planEditor = Self(id: "workout.plan.editor", steps: [
+        .init(target: "plan.add", title: "운동을 더해요", message: "운동을 고르거나 기본 루틴을 추가해요. 기존 운동은 유지돼요."),
+        .init(target: "plan.exercises", title: "세트와 순서를 바꿔요", message: "운동을 눌러 수정하고, 왼쪽으로 밀어 삭제해요. 순서 편집으로 순서를 바꿔요."),
+        .init(target: "plan.replace", title: "계획 전체를 바꿔요", message: "다른 날짜나 요일의 계획을 가져오고, 확인한 뒤 교체해요.")
+    ])
+    static let exercisePicker = Self(id: "workout.exercise.picker", steps: [
+        .init(target: "exercise.library", title: "저장한 운동을 골라요", message: "내 운동 목록의 세트·횟수를 복사해요. 원본은 바뀌지 않아요."),
+        .init(target: "exercise.catalog", title: "새 종목도 추가해요", message: "운동 종목을 고르면 세트·횟수 설정으로 이어져요.")
+    ])
+    static func exerciseSettings(cindy: Bool) -> Self {
+        Self(id: cindy ? "workout.exercise.cindy" : "workout.exercise.settings", steps: [
+            .init(target: "exercise.settings", title: cindy ? "신디 목표를 정해요" : "내 목표를 정해요",
+                  message: cindy ? "목표 세트 수를 정해요. 한 세트의 운동 구성은 아래에 있어요." : "세트 수와 목표 횟수·시간을 정해요. 세트별로 횟수를 다르게 설정할 수도 있어요."),
+            .init(target: "exercise.save", title: "저장해서 적용해요", message: "저장을 누르면 설정한 목표가 계획에 반영돼요.")
+        ])
+    }
+    static let planCopy = Self(id: "workout.plan.copy", steps: [
+        .init(target: "plan.source", title: "가져올 계획을 골라요", message: "운동이 있는 다른 날짜나 요일을 골라요. 다음 화면에서 교체할 내용을 확인해요.")
+    ])
+    static let starter = Self(id: "workout.plan.starter", steps: [
+        .init(target: "starter.conditions", title: "운동 조건을 골라요", message: "기구·경험·시간을 고르고 미리보기를 확인한 뒤 계획에 추가해요.")
+    ])
+    static let dailyEditor = Self(id: "daily.item.editor", steps: [
+        .init(target: "daily.content", title: "할 일을 적어요", message: "이름과 메모를 입력해요. 저장한 일상도 여기서 수정해요."),
+        .init(target: "daily.schedule", title: "날짜와 반복을 정해요", message: "한 번 할 일은 날짜를 정하고, 습관은 반복을 골라요. 알림도 설정할 수 있어요.")
+    ])
+
     static func tour(tab: Int, daily: Bool) -> Self {
         let scope = daily ? "daily" : "workout"
         switch tab {
@@ -49,15 +76,12 @@ struct TabCoachTour {
     }
 }
 
-/// Only presentation preferences; never stored in the account or shared workout store.
+/// Completion belongs to the account; replay deliberately uses only this app session.
 enum CoachmarkHistory {
-    static let key = "gymnote.coachmarks.completed.v1"
-    static func contains(_ id: String, in value: String) -> Bool {
-        value.split(separator: "\n").contains(Substring(id))
-    }
-    static func completing(_ id: String, in value: String) -> String {
-        guard !contains(id, in: value) else { return value }
-        return (value.split(separator: "\n").map(String.init) + [id]).joined(separator: "\n")
+    static func shouldPresent(_ id: String, completed: [String], accountReady: Bool,
+                              replayCompleted: Set<String>? = nil) -> Bool {
+        if let replayCompleted { return !replayCompleted.contains(id) }
+        return accountReady && !completed.contains(id)
     }
 }
 
@@ -110,20 +134,29 @@ extension View {
         modifier(CoachmarkTarget(id: id, enabled: enabled))
     }
 
-    func tabCoachmarks(_ tour: TabCoachTour) -> some View {
-        modifier(TabCoachmarkHost(tour: tour))
+    func tabCoachmarks(_ tour: TabCoachTour, enabled: Bool = true) -> some View {
+        modifier(TabCoachmarkHost(tour: tour, enabled: enabled))
     }
 }
 
 private struct TabCoachmarkHost: ViewModifier {
     let tour: TabCoachTour
+    let enabled: Bool
     @Environment(AppModel.self) private var model
-    @AppStorage(CoachmarkHistory.key) private var completed = ""
+    @Environment(AccountModel.self) private var account
     @State private var progressID = ""
     @State private var index = 0
     @State private var targets: [String: [UUID: CGRect]] = [:]
 
-    private var pending: Bool { !CoachmarkHistory.contains(tour.id, in: completed) }
+    private var pending: Bool {
+        guard enabled else { return false }
+        // The first server read must finish before deciding on a new device.
+        let ready = model.selection.userID != nil && account.user?.id == model.selection.userID
+            && account.cloudChecked && !account.busy && account.conflict == nil
+        return CoachmarkHistory.shouldPresent(tour.id, completed: model.data.completedCoachmarks,
+            accountReady: ready,
+            replayCompleted: model.replayingCoachmarks ? model.replayCompletedCoachmarks : nil)
+    }
     private var currentIndex: Int { progressID == tour.id ? index : 0 }
 
     func body(content: Content) -> some View {
@@ -151,7 +184,13 @@ private struct TabCoachmarkHost: ViewModifier {
                                          }, size: proxy.size,
                                          accent: tour.id.hasPrefix("daily.") ? .teal : .orange) {
                             if currentIndex + 1 == tour.steps.count {
-                                completed = CoachmarkHistory.completing(tour.id, in: completed)
+                                if model.replayingCoachmarks {
+                                    model.replayCompletedCoachmarks.insert(tour.id)
+                                } else {
+                                    _ = model.saveEdit { data in
+                                        if !data.completedCoachmarks.contains(tour.id) { data.completedCoachmarks.append(tour.id) }
+                                    }
+                                }
                             } else {
                                 index = currentIndex + 1
                                 progressID = tour.id
@@ -162,6 +201,8 @@ private struct TabCoachmarkHost: ViewModifier {
                 }
             }
             .onChange(of: tour.id) { _, _ in progressID = tour.id; index = 0 }
+            .onChange(of: model.selection.generation) { _, _ in progressID = ""; index = 0 }
+            .onChange(of: model.coachmarkReplayGeneration) { _, _ in progressID = ""; index = 0 }
     }
 }
 

@@ -223,6 +223,7 @@ enum SharedStore {
                 try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
             }
             var adopted = cloud
+            adopted.completedCoachmarks = Array(Set(cloud.completedCoachmarks).union(latest.data.completedCoachmarks)).sorted()
             if adopted.recordWorkouts == nil {
                 // A first download establishes the old baseline; later legacy payloads cannot
                 // discard achievements already retained by this device.
@@ -299,7 +300,9 @@ enum SharedStore {
             }
             try write(latest, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
             try write(cloud, to: directory.appendingPathComponent("backup-\(selection.scope)-\(UUID()).json"))
+            let history = latest.data.completedCoachmarks
             latest.data = cloud.importingGuest(latest.data)
+            latest.data.completedCoachmarks = Array(Set(cloud.completedCoachmarks).union(history)).sorted()
             latest.syncedBase = cloud
             latest.serverVersion = version
             latest.dirty = true
