@@ -9,7 +9,8 @@ final class UXSimulationCaptureTests: XCTestCase {
     typealias Screen = UXSimulationFixtures.Screen
     private enum EditorCapture: String {
         case copy = "plan-copy", confirmation = "plan-replacement-confirmation", picker = "plan-exercise-picker"
-        case repetitions = "plan-repetitions", name = "plan-name", actions = "plan-actions", copyRest = "plan-copy-rest"
+        case cindy = "cindy-settings", dailyItem = "daily-item-editor"
+        case repetitions = "plan-repetitions", starter = "plan-starter", actions = "plan-actions", copyRest = "plan-copy-rest"
     }
 
     /// AccountModel.init reads the catalog under a lock even with client:nil.
@@ -31,7 +32,7 @@ final class UXSimulationCaptureTests: XCTestCase {
 
     private func capture(_ screen: Screen, width: Int = 834, height: Int = 1194,
                          accessibility: Bool = false, dark: Bool = false, editor: EditorCapture? = nil,
-                         tutorialTab: Int? = nil, daily: Bool = false,
+                         tutorialTab: Int? = nil, daily: Bool = false, detailTutorial: Bool = false,
                          captureDelay: UInt64 = 700_000_000) async throws {
         if let reason = screen.blockedReason { throw XCTSkip(reason) }
         if screen == .workoutReady, !UXSimulationFixtures.calendar.isDate(Date(), inSameDayAs: UXSimulationFixtures.anchor) {
@@ -48,9 +49,9 @@ final class UXSimulationCaptureTests: XCTestCase {
             defaults.set(String(decoding: try JSONEncoder().encode(UXSimulationFixtures.makeDraft()), as: UTF8.self),
                          forKey: ManualWorkoutDraft.storageKey(userID: UXSimulationFixtures.id(90)))
             if editor == .copy || editor == .copyRest { model.data.week[0] = DayPlan(title: "휴식", exercises: []) }
-            if tutorialTab != nil {
+            if tutorialTab != nil || detailTutorial {
                 defaults.set(daily ? "일상" : "운동", forKey: "selectedWorkspace")
-                defaults.set("", forKey: CoachmarkHistory.key)
+                model.replayCoachmarks()
                 await account.bootstrap()
             }
             var tutorialPresentation: CoachmarkPresentation?
@@ -91,7 +92,7 @@ final class UXSimulationCaptureTests: XCTestCase {
             }
             XCTAssertEqual(window.bounds.width, CGFloat(width))
             XCTAssertEqual(window.bounds.height, CGFloat(height))
-            if let tutorialTab {
+            if tutorialTab != nil || detailTutorial {
                 let presentation = try XCTUnwrap(tutorialPresentation, "Tutorial card was never measured")
                 XCTAssertGreaterThanOrEqual(presentation.card.minY, window.bounds.minY, "Tutorial card clipped above window")
                 XCTAssertLessThanOrEqual(presentation.card.maxY, window.bounds.maxY, "Tutorial progress button clipped below window")
@@ -116,7 +117,7 @@ final class UXSimulationCaptureTests: XCTestCase {
             }
             let png = try XCTUnwrap(image.pngData())
             // Dark captures add a "--dark" suffix for design review; UX collect.mjs maps receipts explicitly and ignores them.
-            let captureID = tutorialTab.map { "tutorial-\(daily ? "daily" : "workout")-\($0)-\(captureDelay / 1_000_000)ms" } ?? editor?.rawValue ?? screen.rawValue
+            let captureID = (detailTutorial ? "tutorial-detail-" : "") + (tutorialTab.map { "tutorial-\(daily ? "daily" : "workout")-\($0)-\(captureDelay / 1_000_000)ms" } ?? editor?.rawValue ?? screen.rawValue)
             let name = "\(captureID)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")" + (dark ? "--dark" : "")
             let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
             attachment.name = name + ".png"
@@ -125,7 +126,7 @@ final class UXSimulationCaptureTests: XCTestCase {
             let metadata: [String: String] = ["captureId": captureID, "fixtureId": "demo-v1",
                 "anchorTime": UXSimulationFixtures.anchorISO8601,
                 "renderedAt": ISO8601DateFormatter().string(from: Date()),
-                "clock": "system-clock-not-frozen", "scope": tutorialTab != nil ? "product-root-with-tab-chrome-and-tutorial" : editor == nil ? "direct-product-view-without-root-tab-chrome" : "plan-editor-design-review",
+                "clock": "system-clock-not-frozen", "scope": detailTutorial ? "product-detail-with-tutorial" : tutorialTab != nil ? "product-root-with-tab-chrome-and-tutorial" : editor == nil ? "direct-product-view-without-root-tab-chrome" : "plan-editor-design-review",
                 "appearance": dark ? "dark" : "light"]
             let receipt = XCTAttachment(data: try JSONSerialization.data(withJSONObject: metadata, options: [.sortedKeys]),
                                         uniformTypeIdentifier: "public.json")
@@ -172,14 +173,25 @@ final class UXSimulationCaptureTests: XCTestCase {
         case .repetitions:
             ExerciseDraftView(exercise: Exercise(name: "푸쉬업", sets: 3, detail: "12회", setReps: [12, 10, 8]),
                               title: "운동 수정", onSave: { _ in false })
-        case .name: PlanNameEditor(plan: plan, onSave: { _ in false })
+        case .cindy: ExerciseDraftView(exercise: Exercise(name: "신디", sets: 3, detail: "20분 AMRAP"), title: "신디 설정", onSave: { _ in false })
+        case .dailyItem: DailyItemEditor(item: DailyItem(title: "독서", scheduledDate: date))
+        case .starter: StarterWorkoutView(date: date)
         case .actions: NavigationStack { ScheduledDayEditor(date: date) }
         case nil: entryPoint(screen, model: model)
         }
     }
 
+    func testDetailTutorialScreens() async throws {
+        for variant in [EditorCapture.actions, .copy, .picker, .repetitions, .cindy, .starter, .dailyItem] {
+            try await capture(.planDateDetail, editor: variant, detailTutorial: true)
+            try await capture(.planDateDetail, width: 393, height: 852, editor: variant, detailTutorial: true)
+        }
+        try await capture(.planDateDetail, width: 393, height: 852, accessibility: true, dark: true,
+                          editor: .actions, detailTutorial: true)
+    }
+
     func testPlanEditorAdditionalScreens() async throws {
-        for variant in [EditorCapture.copy, .confirmation, .picker, .repetitions, .name, .actions] {
+        for variant in [EditorCapture.copy, .confirmation, .picker, .repetitions, .starter, .actions] {
             try await capture(.planDateDetail, editor: variant)
             try await capture(.planDateDetail, width: 393, height: 852, editor: variant)
             try await capture(.planDateDetail, width: 393, height: 852, dark: true, editor: variant)

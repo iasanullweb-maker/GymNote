@@ -498,9 +498,11 @@ struct AppData: Codable, Equatable {
     var dailyItems: [DailyItem] = []
     var dailyCompletions: [DailyCompletion] = []
     var dailyReminders = DailyReminderSettings()
+    /// Account-owned, additive completion history; guests never transfer this during import.
+    var completedCoachmarks: [String] = []
 
     enum CodingKeys: String, CodingKey {
-        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, recordWorkouts, bestRecordEntries, dailyItems, dailyCompletions, dailyReminders
+        case week, recordTypes, records, logs, defaultRest, restSound, restStep, scheduledPlans, exerciseLibrary, activeWorkout, workouts, recordWorkouts, bestRecordEntries, dailyItems, dailyCompletions, dailyReminders, completedCoachmarks
     }
 
     init(week: [DayPlan], recordTypes: [RecordType] = RecordType.defaults, records: [RecordEntry] = [],
@@ -534,6 +536,7 @@ struct AppData: Codable, Equatable {
         dailyItems = try c.decodeIfPresent([DailyItem].self, forKey: .dailyItems) ?? []
         dailyCompletions = try c.decodeIfPresent([DailyCompletion].self, forKey: .dailyCompletions) ?? []
         dailyReminders = try c.decodeIfPresent(DailyReminderSettings.self, forKey: .dailyReminders) ?? DailyReminderSettings()
+        completedCoachmarks = try c.decodeIfPresent([String].self, forKey: .completedCoachmarks) ?? []
         padWeek()
         if let saved = try c.decodeIfPresent([String: DayPlan].self, forKey: .scheduledPlans) {
             scheduledPlans = saved

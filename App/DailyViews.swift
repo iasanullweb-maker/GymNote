@@ -337,7 +337,7 @@ private struct DailyLibraryView: View {
     }
 }
 
-private struct DailyItemEditor: View {
+struct DailyItemEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var draft: DailyItem
@@ -370,12 +370,14 @@ private struct DailyItemEditor: View {
                 if saveFailed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
                 Section("내용") {
                     TextField("이름 · 예: 독서, 과제 제출", text: $draft.title)
+                        .coachmarkTarget("daily.content")
                     TextField("메모 (선택)", text: $draft.note, axis: .vertical).lineLimit(3...6)
                 }
                 Section {
                     Picker("반복", selection: $draft.repeatChoice) {
                         ForEach(DailyItem.RepeatChoice.allCases) { Text($0.title).tag($0) }
                     }
+                    .coachmarkTarget("daily.schedule")
                     if draft.isRepeating {
                         DatePicker("시작 날짜", selection: $draft.startDate, displayedComponents: .date)
                         if draft.repeatChoice == .interval {
@@ -421,6 +423,7 @@ private struct DailyItemEditor: View {
                 // 날짜를 정해 둔 일을 반복으로 바꾸면 그 날짜부터 반복
                 if old == .none, new != .none, hasDate { draft.startDate = date }
             }
+            .tabCoachmarks(.dailyEditor)
             .navigationTitle(saved ? "일상 편집" : "일상 추가")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }

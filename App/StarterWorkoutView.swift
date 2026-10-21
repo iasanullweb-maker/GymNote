@@ -30,6 +30,7 @@ struct StarterWorkoutView: View {
                         ForEach([15, 30, 45], id: \.self) { Text("\($0)분").tag($0) }
                     }
                 }
+                .coachmarkTarget("starter.conditions")
                 Section {
                     ForEach(Array(preview.exercises.enumerated()), id: \.offset) { _, exercise in
                         VStack(alignment: .leading, spacing: 4) {
@@ -55,6 +56,7 @@ struct StarterWorkoutView: View {
                     if let failure { Text(failure).foregroundStyle(.red) }
                 }
             }
+            .tabCoachmarks(.starter)
             .navigationTitle("기본 루틴 선택").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }

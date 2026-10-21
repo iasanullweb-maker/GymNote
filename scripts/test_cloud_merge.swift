@@ -133,6 +133,28 @@ struct CloudMergeChecks {
         let decoded = try! JSONDecoder().decode(StoredWorkout.self, from: JSONSerialization.data(withJSONObject: fields))
         check(decoded.syncedBase == nil && decoded.data == base, "기존 저장 파일 호환")
 
+        // Tutorial completion merges without conflicts and never follows a guest import.
+        var tutorialBase = AppData.empty
+        tutorialBase.completedCoachmarks = ["settings"]
+        var tablet = tutorialBase
+        tablet.completedCoachmarks.append("workout.plans")
+        var phone = tutorialBase
+        phone.completedCoachmarks.append("workout.plan.editor")
+        let joined = tablet.mergingCloud(local: phone, base: tutorialBase)!
+        check(Set(joined.completedCoachmarks) == ["settings", "workout.plans", "workout.plan.editor"], "tutorial concurrent union")
+        var legacyClient = tutorialBase
+        legacyClient.completedCoachmarks = []
+        check(Set(legacyClient.mergingCloud(local: legacyClient, base: tutorialBase)!.completedCoachmarks) == ["settings"], "legacy clients cannot erase completion")
+        check(AppData.empty.importingGuest(tablet).completedCoachmarks.isEmpty, "guest history stays out of account")
+        check(tablet.importingGuest(phone).completedCoachmarks == tablet.completedCoachmarks, "import preserves account history")
+        var oldFields = try! JSONSerialization.jsonObject(with: JSONEncoder().encode(tutorialBase)) as! [String: Any]
+        oldFields.removeValue(forKey: "completedCoachmarks")
+        let oldData = try! JSONDecoder().decode(AppData.self, from: JSONSerialization.data(withJSONObject: oldFields))
+        check(oldData.completedCoachmarks.isEmpty, "legacy payload decodes with empty tutorial history")
+        let reloadedTutorial = try! JSONDecoder().decode(AppData.self, from: JSONEncoder().encode(joined))
+        check(reloadedTutorial.completedCoachmarks == joined.completedCoachmarks, "tutorial history survives cloud round trip")
+        check(Set(tablet.applyingEdits(from: tutorialBase, to: phone).completedCoachmarks) == Set(joined.completedCoachmarks), "widget edits preserve completion")
+
         print("cloud merge checks passed")
     }
 }

@@ -108,7 +108,6 @@ struct ScheduledDayEditor: View {
     @State private var showingAdd = false
     @State private var showingCopy = false
     @State private var showingStarter = false
-    @State private var showingName = false
     @State private var editing: Exercise?
     @State private var editMode = EditMode.inactive
 
@@ -141,17 +140,6 @@ struct ScheduledDayEditor: View {
             if let failure = session.failure {
                 Section { Label(failure, systemImage: "exclamationmark.circle").foregroundStyle(.red) }
             }
-            Section("계획 이름") {
-                Button { showingName = true } label: {
-                    HStack {
-                        Text(session.plan.displayTitle)
-                        Spacer()
-                        Image(systemName: "pencil").foregroundStyle(.secondary)
-                    }
-                }
-                .foregroundStyle(.primary).disabled(activeOnDate || !session.isCurrentOwner)
-                .accessibilityHint("계획 이름 변경")
-            }
             if let deletion = session.deletion {
                 Section {
                     Text("\(deletion.before.exercises.first(where: { !deletion.after.exercises.contains($0) })?.name ?? "운동")을 삭제했어요.")
@@ -175,9 +163,11 @@ struct ScheduledDayEditor: View {
             } header: { Text("계획한 운동") } footer: {
                 Text("운동을 누르면 세트·횟수를 수정해요. 왼쪽으로 밀면 삭제하고, ‘순서 편집’에서 순서를 바꿀 수 있어요.")
             }
+            .coachmarkTarget("plan.exercises")
             .disabled(activeOnDate || !session.isCurrentOwner)
             Section {
                 Button { showingAdd = true } label: { Label("운동 선택해서 추가", systemImage: "plus") }
+                    .coachmarkTarget("plan.add")
                 Button { showingStarter = true } label: { Label("기본 루틴 추가", systemImage: "list.bullet.clipboard") }
             } header: { Text("운동 추가") } footer: {
                 Text("지금 계획한 운동을 유지하고 뒤에 추가해요.")
@@ -185,11 +175,13 @@ struct ScheduledDayEditor: View {
             .disabled(activeOnDate || !session.isCurrentOwner)
             Section {
                 Button("다른 계획으로 교체") { showingCopy = true }
+                    .coachmarkTarget("plan.replace")
             } header: { Text("계획 교체") } footer: {
                 Text("다른 날짜나 요일의 계획으로 이 날짜의 운동 전체를 바꿔요. 교체 전에 내용을 확인할 수 있어요.")
             }
             .disabled(activeOnDate || !session.isCurrentOwner)
         }
+        .tabCoachmarks(.planEditor, enabled: session.isCurrentOwner && !activeOnDate)
         .environment(\.editMode, $editMode)
         .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
         .toolbar {
@@ -197,9 +189,6 @@ struct ScheduledDayEditor: View {
                 Button(editMode.isEditing ? "완료" : "순서 편집") { editMode = editMode.isEditing ? .inactive : .active }
                     .disabled(activeOnDate || !session.isCurrentOwner || session.plan.isRestDay)
             }
-        }
-        .sheet(isPresented: $showingName) {
-            PlanNameEditor(plan: session.plan, onSave: session.rename)
         }
         .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: date, expectedOwner: session.ownerGeneration) }
         .sheet(isPresented: $showingAdd) { ExercisePicker(onSave: session.add) }
@@ -218,46 +207,8 @@ struct ScheduledDayEditor: View {
             showingAdd = false
             showingCopy = false
             showingStarter = false
-            showingName = false
             editing = nil
         }
-    }
-}
-
-struct PlanNameEditor: View {
-    @Environment(\.dismiss) private var dismiss
-    let plan: DayPlan
-    let onSave: (String) -> Bool
-    @State private var draft: String
-    @State private var failed = false
-
-    init(plan: DayPlan, onSave: @escaping (String) -> Bool) {
-        self.plan = plan
-        self.onSave = onSave
-        _draft = State(initialValue: plan.title == "휴식" ? "" : plan.title)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("예: 상체", text: $draft)
-                        .accessibilityIdentifier("plan.name")
-                } header: { Text("계획 이름") } footer: {
-                    Text("비워 두면 운동 이름을 요약해서 보여 줘요.")
-                }
-                if failed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
-            }
-            .navigationTitle("계획 이름 변경")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("저장") { if onSave(draft) { dismiss() } else { failed = true } }
-                }
-            }
-        }
-        .protectEditingNavigation()
     }
 }
 
@@ -292,6 +243,7 @@ struct PlanCopyView: View {
                 } header: { Text("교체할 날짜") }
                 Section("다른 날짜의 계획") {
                     DatePicker("가져올 날짜", selection: $sourceDate, displayedComponents: .date)
+                        .coachmarkTarget("plan.source")
                     sourceRow(model.data.plan(for: sourceDate), label: sourceDate.formatted(.dateTime.month().day().weekday()),
                               sameDate: DayKey.key(sourceDate) == DayKey.key(targetDate))
                 }
@@ -301,6 +253,7 @@ struct PlanCopyView: View {
                     }
                 }
             }
+            .tabCoachmarks(.planCopy)
             .navigationTitle("다른 계획으로 교체")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
@@ -446,8 +399,11 @@ struct ExercisePicker: View {
                 } header: { Text("내 운동 목록") } footer: {
                     Text("저장한 세트·횟수로 시작해요. 이 날짜에서 수정해도 원본 목록은 바뀌지 않아요.")
                 }
+                .coachmarkTarget("exercise.library")
                 CatalogExerciseSection { draft = $0.makeExercise() }
+                    .coachmarkTarget("exercise.catalog")
             }
+            .tabCoachmarks(.exercisePicker)
             .navigationTitle("운동 추가")
             .task { await account.refreshRecordCatalog() }
             .refreshable { await account.refreshRecordCatalog() }
@@ -552,6 +508,7 @@ struct ExerciseDraftForm: View {
                             Text("\(exercise.sets)세트").monospacedDigit()
                         }
                     }
+                    .coachmarkTarget("exercise.settings")
                 }
                 Section("1세트 구성") {
                     LabeledContent("풀업", value: "5회")
@@ -568,6 +525,7 @@ struct ExerciseDraftForm: View {
                     }
                 ), in: 1...20)
                 .disabled(invalidReps)
+                .coachmarkTarget("exercise.settings")
                 if exercise.plannedReps != nil {
                     Toggle("세트별 횟수 상세 설정", isOn: Binding(
                         get: { repetitions.usesDetails },
@@ -618,8 +576,10 @@ struct ExerciseDraftForm: View {
                     }
                     if !onSave(saved) { saveFailed = true }
                 }.disabled(!registered || exercise.hasPercentageTarget || invalidReps)
+                    .coachmarkTarget("exercise.save")
             }
         }
+        .tabCoachmarks(.exerciseSettings(cindy: isCindy))
         .onAppear {
             guard !prepared else { return }
             owner = model.selection.generation

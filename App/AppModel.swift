@@ -11,6 +11,15 @@ final class AppModel {
     @ObservationIgnored lazy var account = AccountModel(model: self)
     @ObservationIgnored lazy var social = SocialModel(model: self)
     private(set) var selection = StoreSelection(userID: nil)
+    /// Replay is session-local and never clears another device's account history.
+    var coachmarkReplayGeneration = UUID()
+    var replayingCoachmarks = false
+    var replayCompletedCoachmarks: Set<String> = []
+    func replayCoachmarks() {
+        coachmarkReplayGeneration = UUID()
+        replayCompletedCoachmarks = []
+        replayingCoachmarks = true
+    }
     var storageError: String?
     var requestedDailyPlanDate: Date?
     var data: AppData = .empty {
@@ -198,6 +207,8 @@ final class AppModel {
         savedWorkout = nil
         let next = try SharedStore.activate(userID: userID)
         selection = next
+        replayingCoachmarks = false
+        replayCompletedCoachmarks = []
         replaceData(.empty)
         do { replaceData(try SharedStore.snapshot(userID: userID).data) }
         catch {

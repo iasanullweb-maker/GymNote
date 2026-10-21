@@ -162,6 +162,8 @@ extension AppData {
     /// Apply only the app's edits to the latest disk snapshot, preserving concurrent widget checks.
     func applyingEdits(from base: AppData, to edited: AppData) -> AppData {
         var result = self
+        // Monotonic union survives simultaneous visits and writes from older clients/widgets.
+        result.completedCoachmarks = Array(Set(completedCoachmarks).union(base.completedCoachmarks).union(edited.completedCoachmarks)).sorted()
         if result.recordWorkouts == nil { result.recordWorkouts = base.recordWorkouts ?? edited.recordWorkouts }
         if result.bestRecordEntries == nil { result.bestRecordEntries = base.bestRecordEntries ?? edited.bestRecordEntries }
         result.preserveExistingBestRecords()
