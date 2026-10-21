@@ -2,6 +2,14 @@
 
 마지막 업데이트: 2026-10-21
 
+## AltStore 갱신 실패 재발 방지 장치 (2026-10-21, 검증 완료·미배포)
+
+- 증상(2026-10-21 09:31): 학교 Wi-Fi·VPN 끔 상태에서 iPad AltStore Refresh 실패. iTunes에 iPad가 보이지 않다가 사용자 재연결 후 표시됨. 이후 iPad AltStore 화면에 `HTTP 503`. 배포된 0.1.115 IPA는 크기가 source.json(2,207,359바이트)과 같고 앱/위젯 `0.1.115 (115)`, 113 이후 권한·서명 설정 변경 없음을 확인해 앱 원인은 배제했다. 503은 서버의 요청 거절로, 10/19 사례처럼 학교망 필터/프록시를 우선 의심하고 Apple 서버 일시 장애 가능성도 열어 둔다(장애 여부 미확인). 안내: 노트북·iPad VPN 또는 핫스팟 → USB 연결 → Refresh All, 계속되면 Apple 개발자 시스템 상태 확인. 해결 여부는 사용자 확인 대기.
+- 노트북 진단: 저장소 맨 위 `AltStore 진단.cmd` → `scripts/altstore_doctor.ps1`(읽기 전용, Windows PowerShell 5.1). AltServer·iTunes·iCloud 실행, Store판 감지, Apple Mobile Device·Bonjour 서비스, USB 인식/드라이버 오류, Wi-Fi·VPN·WinHTTP 프록시, AltStore·Apple 인증/서명·GitHub 소스/IPA HEAD 접속, 시계 오차, 오류 문구(AltServer 못 찾음·시간 초과·503·App ID/활성 앱 한도·로그인·anisette·만료·다운로드·기기)를 점검해 해결 순서를 출력하고 `.validation-tools/altstore-doctor/latest.txt`(Git 미추적)에 저장한다. 다음 대화는 이 파일을 먼저 읽는다. UTF-8 BOM·CRLF 필요(`.gitattributes`로 작업 폴더 CRLF). pwsh 7.4 파서·실행 시험만 했고 실제 Windows 5.1 실행은 미확인.
+- 앱: `Shared/SigningExpiry.swift`(embedded.mobileprovision 만료일 파싱·단계·알림 시점·문구), `App/SigningExpiryMonitor.swift`(앱 시작·활성화마다 48/24/3시간 전 알림 재예약, `gymnote.signing.` 접두어, 일상 알림과 무관). 설정 → 진단에 만료일·남은 시간, 48시간 이내/만료 시 설정 맨 위 ‘AltStore 갱신 필요’와 `altstore://` 열기 버튼.
+- 문서: [AltStore 빠른 해결](docs/ALTSTORE_TROUBLESHOOTING.md) — 오류 문구별 원인·해결 표와 1분 순서.
+- 검증: `scripts/test_signing_expiry.swift`를 check.yml·build.yml Swift 회귀에 추가. 검증 브랜치 `codex/altstore-safeguards-20261021` 소스 `6593dbd`의 [Build IPA 39522530225](https://github.com/iasanullweb-maker/GymNote/actions/runs/39522530225) 전체 검사·Release 빌드·release-gate 성공(publish는 main 아님으로 건너뜀). 이후 Codex의 문서 커밋 `24bee2b` 위로 재배치했으며 제품·검사·빌드 입력 트리는 6593dbd와 동일. main push·배포 없음.
+
 ## 실행 탭 시작 상태 바·세트 −/+ 가독성 (0.1.115 배포, 2026-10-21)
 
 2026-10-21 후속 완료: 사용자 노트북에서 `-NoProfile -ExecutionPolicy Bypass -File`로 준비한 배포 스크립트를 실행하여 승인된 `7d3d1fa4e012e948798cb6d1d7d529a432106b8f`를 main에 일반 push하고 정식 [Build #115 / 39521122296](https://github.com/iasanullweb-maker/GymNote/actions/runs/39521122296)를 시작했다. 같은 SHA의 iPad XCTest·Swift 회귀·DB·계정 삭제·tooling·앱/위젯 Release·release-gate·publish 모두 성공을 직접 조회했다. XCTest 148개 중 5개 건너뜀·실패 0. 건너뜀은 고정 시계·인증된 합성 상태가 없는 기존 화면 캡처 검사이며 화면 검증 성공으로 계산하지 않는다.

@@ -2,6 +2,13 @@
 
 마지막 업데이트: 2026-10-21
 
+## AltStore 갱신 실패 재발 방지 (2026-10-21)
+
+- [x] **진단 도구·만료 경고·해결 문서 구현과 CI 검증 — 2026-10-21 기술 완료.** [Build IPA 39522530225](https://github.com/iasanullweb-maker/GymNote/actions/runs/39522530225) 성공. 상세는 HANDOFF의 같은 날짜 기록과 [AltStore 빠른 해결](docs/ALTSTORE_TROUBLESHOOTING.md).
+- [ ] **오늘 Refresh 실패(HTTP 503) 해결 확인.** 노트북·iPad VPN(또는 핫스팟) → USB 연결·잠금 해제 → AltStore → My Apps → Refresh All. 기대 결과: 오류 없이 갱신되고 헬스노트가 열린다. 계속 503이면 Apple 개발자 시스템 상태를 확인한다. 기존 앱은 삭제하지 않는다.
+- [ ] **노트북에서 `AltStore 진단.cmd` 첫 실행.** 더블클릭 → 오류 문구 입력(없으면 Enter). 기대 결과: 한글이 깨지지 않고 [1]~[5] 점검과 해결 순서가 표시되며 `.validation-tools/altstore-doctor/latest.txt`가 생긴다.
+- [ ] **미배포: 다음 배포 후 설정의 서명 만료 표시·알림 확인.** 설정 → 진단에 `앱 서명 만료: 날짜 · 남은 시간`이 AltStore My Apps의 만료 일수와 맞는지, Refresh 후 날짜가 늘어나는지 확인한다. 만료 48시간 이내에는 설정 맨 위 ‘AltStore 갱신 필요’와 ‘AltStore 열기’ 버튼이 보이고, 48·24·3시간 전 알림이 오는지 확인한다.
+
 ## 실행 탭 시작 상태 바·세트 −/+ 개선 (0.1.115 배포, 2026-10-21)
 
 - [x] **통합 코드의 전체 iOS 검사·Release 빌드 — 2026-10-19 기술 완료.** 최종 소스 `7a3acab`의 [검증 Build #114](https://github.com/iasanullweb-maker/GymNote/actions/runs/39193930660)에서 iPad XCTest/Swift 회귀·DB·계정 삭제·tooling·앱/위젯 Release 빌드·release-gate 모두 성공했다. 검증 브랜치이므로 publish는 건너뛰었으며 실제 기기·사용자 확인은 별도다. [결과](docs/ux-simulation/results/execution-controls-20261019.md).
