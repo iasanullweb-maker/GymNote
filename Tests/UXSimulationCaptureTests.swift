@@ -53,6 +53,7 @@ final class UXSimulationCaptureTests: XCTestCase {
                 defaults.set("", forKey: CoachmarkHistory.key)
                 await account.bootstrap()
             }
+            var tutorialPresentation: CoachmarkPresentation?
             let root = Group {
                 if let tutorialTab {
                     RootView(initialTab: tutorialTab, initialDate: UXSimulationFixtures.anchor, runsLifecycle: false)
@@ -61,6 +62,7 @@ final class UXSimulationCaptureTests: XCTestCase {
                 }
             }
                 .environment(model).environment(account)
+                .environment(\.coachmarkCardObserver, { tutorialPresentation = $0 })
                 .environment(\.locale, UXSimulationFixtures.locale)
                 .environment(\.calendar, UXSimulationFixtures.calendar)
                 .environment(\.timeZone, UXSimulationFixtures.timezone)
@@ -89,6 +91,16 @@ final class UXSimulationCaptureTests: XCTestCase {
             }
             XCTAssertEqual(window.bounds.width, CGFloat(width))
             XCTAssertEqual(window.bounds.height, CGFloat(height))
+            if let tutorialTab {
+                let presentation = try XCTUnwrap(tutorialPresentation, "Tutorial card was never measured")
+                XCTAssertGreaterThanOrEqual(presentation.card.minY, window.bounds.minY, "Tutorial card clipped above window")
+                XCTAssertLessThanOrEqual(presentation.card.maxY, window.bounds.maxY, "Tutorial progress button clipped below window")
+                XCTAssertGreaterThanOrEqual(presentation.card.minX, window.bounds.minX)
+                XCTAssertLessThanOrEqual(presentation.card.maxX, window.bounds.maxX)
+                if !accessibility && width < height && tutorialTab != 3 {
+                    XCTAssertTrue(presentation.highlightsTarget, "Actual tutorial control was not highlighted")
+                }
+            }
             let format = UIGraphicsImageRendererFormat()
             format.scale = 1 // PNG pixels equal manifest pt bounds, independent of simulator scale.
             var rendered = false

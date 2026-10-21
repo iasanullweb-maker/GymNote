@@ -61,16 +61,53 @@ enum CoachmarkHistory {
     }
 }
 
-private struct CoachmarkAnchors: PreferenceKey {
-    static var defaultValue: [String: Anchor<CGRect>] { [:] }
-    static func reduce(value: inout [String: Anchor<CGRect>], nextValue: () -> [String: Anchor<CGRect>]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+struct CoachmarkPresentation: Equatable {
+    let card: CGRect
+    let highlightsTarget: Bool
+}
+
+private struct CoachmarkCardObserverKey: EnvironmentKey {
+    static let defaultValue: ((CoachmarkPresentation) -> Void)? = nil
+}
+
+private struct CoachmarkReporterKey: EnvironmentKey {
+    static let defaultValue: ((String, UUID, CGRect?) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    var coachmarkCardObserver: ((CoachmarkPresentation) -> Void)? {
+        get { self[CoachmarkCardObserverKey.self] }
+        set { self[CoachmarkCardObserverKey.self] = newValue }
+    }
+
+    fileprivate var coachmarkReporter: ((String, UUID, CGRect?) -> Void)? {
+        get { self[CoachmarkReporterKey.self] }
+        set { self[CoachmarkReporterKey.self] = newValue }
+    }
+}
+
+/// Toolbar and TabView children do not reliably bubble Anchor preferences to RootView.
+/// Report measured global frames through the environment instead, then convert at the host.
+private struct CoachmarkTarget: ViewModifier {
+    let id: String
+    let enabled: Bool
+    @State private var token = UUID()
+    @Environment(\.coachmarkReporter) private var report
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { proxy in
+                enabled ? proxy.frame(in: .global) : .null
+            } action: { frame in
+                report?(id, token, frame.isNull || frame.isEmpty ? nil : frame)
+            }
+            .onDisappear { report?(id, token, nil) }
     }
 }
 
 extension View {
     func coachmarkTarget(_ id: String, enabled: Bool = true) -> some View {
-        anchorPreference(key: CoachmarkAnchors.self, value: .bounds) { enabled ? [id: $0] : [:] }
+        modifier(CoachmarkTarget(id: id, enabled: enabled))
     }
 
     func tabCoachmarks(_ tour: TabCoachTour) -> some View {
@@ -84,6 +121,7 @@ private struct TabCoachmarkHost: ViewModifier {
     @AppStorage(CoachmarkHistory.key) private var completed = ""
     @State private var progressID = ""
     @State private var index = 0
+    @State private var targets: [String: [UUID: CGRect]] = [:]
 
     private var pending: Bool { !CoachmarkHistory.contains(tour.id, in: completed) }
     private var currentIndex: Int { progressID == tour.id ? index : 0 }
@@ -92,7 +130,13 @@ private struct TabCoachmarkHost: ViewModifier {
         content
             .allowsHitTesting(!pending)
             .accessibilityHidden(pending)
-            .overlayPreferenceValue(CoachmarkAnchors.self) { anchors in
+            .environment(\.coachmarkReporter, { id, token, frame in
+                if targets[id]?[token] != frame {
+                    if let frame { targets[id, default: [:]][token] = frame }
+                    else { targets[id]?[token] = nil }
+                }
+            })
+            .overlay {
                 if pending, tour.steps.indices.contains(currentIndex) {
                     GeometryReader { proxy in
                         let original = tour.steps[currentIndex]
@@ -102,7 +146,9 @@ private struct TabCoachmarkHost: ViewModifier {
                             ? CoachmarkStep(target: "workout.start", title: "먼저 운동을 계획해요", message: "계획 탭에서 오늘 할 운동을 추가하세요.")
                             : original
                         CoachmarkOverlay(step: step, index: currentIndex, count: tour.steps.count,
-                                         target: anchors[step.target].map { proxy[$0] }, size: proxy.size,
+                                         target: (targets[step.target]?.values.first).map {
+                                             $0.offsetBy(dx: -proxy.frame(in: .global).minX, dy: -proxy.frame(in: .global).minY)
+                                         }, size: proxy.size,
                                          accent: tour.id.hasPrefix("daily.") ? .teal : .orange) {
                             if currentIndex + 1 == tour.steps.count {
                                 completed = CoachmarkHistory.completing(tour.id, in: completed)
@@ -154,6 +200,9 @@ private struct CoachmarkOverlay: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AccessibilityFocusState private var headingFocused: Bool
     @State private var cardHeight: CGFloat = 210
+    @State private var explanationHeight: CGFloat = 80
+    @Environment(\.coachmarkCardObserver) private var observeCard
+    @Environment(\.dynamicTypeSize) private var textSize
     @State private var revealed = false
     @State private var pulse = false
 
@@ -164,6 +213,21 @@ private struct CoachmarkOverlay: View {
                 .accessibilityFocused($headingFocused)
             Text(step.message).font(.body).fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var stepCounter: some View {
+        Text("\(index + 1) / \(count)").font(.subheadline).foregroundStyle(.secondary)
+            .monospacedDigit().lineLimit(1)
+            .accessibilityLabel("전체 \(count)단계 중 \(index + 1)단계")
+    }
+
+    private var nextButton: some View {
+        Button(index + 1 == count ? "시작하기" : "다음", action: advance)
+            .font(.headline).foregroundStyle(.black)
+            .frame(minWidth: 104, minHeight: 52)
+            .frame(maxWidth: textSize.isAccessibilitySize ? .infinity : nil)
+            .background(accent, in: RoundedRectangle(cornerRadius: 12))
+            .accessibilityIdentifier("coachmark.next")
     }
 
     var body: some View {
@@ -196,38 +260,37 @@ private struct CoachmarkOverlay: View {
                     .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 16) {
-                ViewThatFits(in: .vertical) {
+                ScrollView {
                     explanation
-                    ScrollView { explanation }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { explanationHeight = $0 }
                 }
-                .frame(maxHeight: max(44, size.height * 0.32))
-                HStack {
-                    Text("\(index + 1) / \(count)").font(.subheadline).foregroundStyle(.secondary)
-                        .monospacedDigit()
-                        .accessibilityLabel("전체 \(count)단계 중 \(index + 1)단계")
-                    Spacer()
-                    Button(index + 1 == count ? "시작하기" : "다음", action: advance)
-                        .font(.headline).foregroundStyle(.black)
-                        .frame(minWidth: 104, minHeight: 52)
-                        .background(accent, in: RoundedRectangle(cornerRadius: 12))
-                        .accessibilityIdentifier("coachmark.next")
+                .frame(height: min(explanationHeight, max(44, size.height * 0.32)))
+                if textSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 8) {
+                        stepCounter
+                        nextButton.frame(maxWidth: .infinity)
+                    }
+                } else {
+                    HStack {
+                        stepCounter
+                        Spacer()
+                        nextButton
+                    }
                 }
             }
             .padding(20)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .frame(width: placement.card.width)
-            .background {
-                GeometryReader { proxy in
-                    Color.clear.preference(key: CoachmarkCardHeight.self, value: proxy.size.height)
-                }
-            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardHeight = $0 }
             .opacity(revealed ? 1 : 0)
             .offset(x: placement.card.midX - size.width / 2,
                     y: placement.card.minY + (revealed || reduceMotion ? 0 : 8))
+            .onGeometryChange(for: CoachmarkPresentation.self) { proxy in
+                CoachmarkPresentation(card: proxy.frame(in: .global), highlightsTarget: spotlight)
+            } action: { observeCard?($0) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .onPreferenceChange(CoachmarkCardHeight.self) { cardHeight = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(.isModal)
         .task(id: reduceMotion) {
@@ -250,9 +313,4 @@ private struct CoachmarkOverlay: View {
             } catch { } // A new step or dismissal cancels the finite attention cue.
         }
     }
-}
-
-private struct CoachmarkCardHeight: PreferenceKey {
-    static var defaultValue: CGFloat { 210 }
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
