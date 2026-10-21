@@ -12,7 +12,8 @@
 - [x] **진단 도구·만료 경고·해결 문서 구현과 CI 검증 — 2026-10-21 기술 완료.** [Build IPA 39522530225](https://github.com/iasanullweb-maker/GymNote/actions/runs/39522530225) 성공. 상세는 HANDOFF의 같은 날짜 기록과 [AltStore 빠른 해결](docs/ALTSTORE_TROUBLESHOOTING.md).
 - [x] **오늘 Refresh 실패(HTTP 503) 해결 — 2026-10-21 iPad 사용자 확인.** 사용자가 노트북·iPad 모두 VPN을 켜고 USB 연결 후 Refresh All 성공을 알렸다. 학교망에서 VPN 없이 발생한 503으로 판단한다. 헬스노트 실행·기록 유지는 이번 확인 범위에 포함하지 않는다.
 - [ ] **노트북에서 `AltStore 진단.cmd` 첫 실행.** 더블클릭 → 오류 문구 입력(없으면 Enter). 기대 결과: 한글이 깨지지 않고 [1]~[5] 점검과 해결 순서가 표시되며 `.validation-tools/altstore-doctor/latest.txt`가 생긴다.
-- [ ] **미배포: 다음 배포 후 설정의 서명 만료 표시·알림 확인.** 설정 → 진단에 `앱 서명 만료: 날짜 · 남은 시간`이 AltStore My Apps의 만료 일수와 맞는지, Refresh 후 날짜가 늘어나는지 확인한다. 만료 48시간 이내에는 설정 맨 위 ‘AltStore 갱신 필요’와 ‘AltStore 열기’ 버튼이 보이고, 48·24·3시간 전 알림이 오는지 확인한다.
+- [x] **정식 배포 — 2026-10-21 기술 완료.** 사용자 승인 후 `b898fee`를 main에 fast-forward하고 정식 [Build #117 / 39533101119](https://github.com/iasanullweb-maker/GymNote/actions/runs/39533101119)를 수동 실행했다. 검사 4종·Release 빌드·release-gate·publish 성공. build-117·latest 태그 = `b898fee`, IPA 앱/위젯 `0.1.117 (117)`, 2,224,580바이트, SHA-256 `ecaeca441244e12ce0940be88cfeb02488001f0cdfc61e8582b218dfe68c485b`, source.json 버전·크기·URL 일치, 바이너리에 만료 경고 문구·알림 접두어 포함.
+- [ ] **0.1.117 설치 후 설정의 서명 만료 표시·알림 확인.** 설정 → 진단에 `앱 서명 만료: 날짜 · 남은 시간`이 AltStore My Apps의 만료 일수와 맞는지, Refresh 후 날짜가 늘어나는지 확인한다. 만료 48시간 이내에는 설정 맨 위 ‘AltStore 갱신 필요’와 ‘AltStore 열기’ 버튼이 보이고, 48·24·3시간 전 알림이 오는지 확인한다.
 
 ## 실행 탭 시작 상태 바·세트 −/+ 개선 (0.1.115 배포, 2026-10-21)
 
