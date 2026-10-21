@@ -79,7 +79,7 @@ final class PlanEditorTests: XCTestCase {
         let exercise = session.plan.exercises[0]
         try await model.switchAccount(nil)
         let afterSwitch = model.data
-        XCTAssertFalse(session.isCurrentOwner, "古いエディタから基本ルーチンを開くことも禁止")
+        XCTAssertFalse(session.isCurrentOwner, "이전 편집기에서 기본 루틴을 여는 경로도 차단")
         XCTAssertFalse(session.rename("이전 화면 이름"))
         XCTAssertFalse(session.add(exercise))
         XCTAssertFalse(session.replace(with: DayPlan(title: "이전 화면 교체", exercises: [exercise])))

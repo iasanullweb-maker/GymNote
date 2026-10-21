@@ -527,16 +527,12 @@ struct ExerciseDraftForm: View {
     let onSave: (Exercise) -> Bool
     @State private var saveFailed = false
     @State private var owner: UUID?
-    @State private var commonReps = ""
-    @State private var detailedReps: [String] = []
+    @State private var repetitions = RepetitionDraft()
     @State private var prepared = false
 
     private var invalidReps: Bool {
         guard prepared, exercise.plannedReps != nil, !isCindy else { return false }
-        if exercise.setReps != nil {
-            return detailedReps.count != exercise.sets || detailedReps.contains { RepetitionInput.value($0) == nil }
-        }
-        return RepetitionInput.value(commonReps) == nil
+        return !repetitions.isValid || (repetitions.usesDetails && repetitions.detailed.count != exercise.sets)
     }
 
     private var registered: Bool { model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) }
@@ -565,32 +561,26 @@ struct ExerciseDraftForm: View {
                     get: { exercise.sets },
                     set: { count in
                         exercise.resizeSetReps(to: count)
-                        if detailedReps.count > count { detailedReps = Array(detailedReps.prefix(count)) }
-                        while detailedReps.count < count { detailedReps.append(detailedReps.last ?? commonReps) }
+                        repetitions.resize(to: count)
                     }
                 ), in: 1...20)
                 .disabled(invalidReps)
-                if let reps = exercise.plannedReps {
+                if exercise.plannedReps != nil {
                     Toggle("세트별 횟수 상세 설정", isOn: Binding(
-                        get: { exercise.setReps != nil },
+                        get: { repetitions.usesDetails },
                         set: { enabled in
-                            guard !invalidReps else { return }
+                            guard repetitions.setDetailed(enabled, count: exercise.sets) else { return }
                             if enabled {
-                                let value = RepetitionInput.value(commonReps) ?? reps
-                                detailedReps = Array(repeating: String(value), count: exercise.sets)
-                                exercise.applySetReps(Array(repeating: value, count: exercise.sets))
-                            } else {
-                                commonReps = detailedReps.first ?? String(reps)
-                                exercise.applySetReps(nil)
-                            }
+                                exercise.applySetReps(repetitions.detailed.compactMap { RepetitionInput.value($0) })
+                            } else { exercise.applySetReps(nil) }
                         }
                     )).disabled(invalidReps)
-                    if exercise.setReps != nil {
-                        ForEach(detailedReps.indices, id: \.self) { index in
-                            RepetitionInputRow(title: "\(index + 1)세트 목표", text: $detailedReps[index])
+                    if repetitions.usesDetails {
+                        ForEach(repetitions.detailed.indices, id: \.self) { index in
+                            RepetitionInputRow(title: "\(index + 1)세트 목표", text: $repetitions.detailed[index])
                         }
                     } else {
-                        RepetitionInputRow(title: "목표 횟수", text: $commonReps)
+                        RepetitionInputRow(title: "목표 횟수", text: $repetitions.common)
                     }
                 } else {
                     TextField("시간·수행 조건", text: $exercise.detail)
@@ -619,8 +609,8 @@ struct ExerciseDraftForm: View {
                     guard !invalidReps else { return }
                     var saved = exercise
                     if !isCindy, exercise.plannedReps != nil {
-                        if exercise.setReps != nil { saved.applySetReps(detailedReps.compactMap { RepetitionInput.value($0) }) }
-                        else if let value = RepetitionInput.value(commonReps) { saved.detail = "\(value)회" }
+                        guard let valid = repetitions.applying(to: exercise) else { return }
+                        saved = valid
                     }
                     if !onSave(saved) { saveFailed = true }
                 }.disabled(!registered || exercise.hasPercentageTarget || invalidReps)
@@ -630,8 +620,10 @@ struct ExerciseDraftForm: View {
             guard !prepared else { return }
             owner = model.selection.generation
             if exercise.hasPercentageTarget { exercise.detail = "10회" }
-            commonReps = String(exercise.plannedReps ?? 10)
-            detailedReps = exercise.setReps?.map(String.init) ?? []
+            if exercise.setReps != nil {
+                exercise.resizeSetReps(to: min(max(exercise.sets, 1), 20))
+            }
+            repetitions = RepetitionDraft(exercise: exercise)
             prepared = true
         }
     }

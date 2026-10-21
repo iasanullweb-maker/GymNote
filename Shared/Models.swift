@@ -1149,3 +1149,61 @@ enum RepetitionInput {
         return value
     }
 }
+
+
+/// UI-only raw input. The plan is updated only after all fields pass validation.
+struct RepetitionDraft {
+    var common = "10"
+    var detailed: [String] = []
+    var usesDetails = false
+
+    init() {}
+
+    init(exercise: Exercise) {
+        common = String(exercise.plannedReps ?? 10)
+        usesDetails = exercise.setReps != nil
+        if let values = exercise.setReps {
+            detailed = values.map(String.init)
+            let count = min(max(exercise.sets, 1), 20)
+            detailed = Array(detailed.prefix(count))
+            while detailed.count < count { detailed.append(detailed.last ?? common) }
+        }
+    }
+
+    var isValid: Bool {
+        usesDetails
+            ? !detailed.isEmpty && detailed.allSatisfy { RepetitionInput.value($0) != nil }
+            : RepetitionInput.value(common) != nil
+    }
+
+    @discardableResult
+    mutating func setDetailed(_ enabled: Bool, count: Int) -> Bool {
+        guard isValid, (1...20).contains(count) else { return false }
+        if enabled { detailed = Array(repeating: common, count: count) }
+        else { common = detailed.first ?? common }
+        usesDetails = enabled
+        return true
+    }
+
+    @discardableResult
+    mutating func resize(to count: Int) -> Bool {
+        guard isValid, (1...20).contains(count) else { return false }
+        detailed = Array(detailed.prefix(count))
+        while detailed.count < count { detailed.append(detailed.last ?? common) }
+        return true
+    }
+
+    func applying(to exercise: Exercise) -> Exercise? {
+        guard isValid, (1...20).contains(exercise.sets) else { return nil }
+        var saved = exercise
+        if usesDetails {
+            guard detailed.count == exercise.sets else { return nil }
+            saved.applySetReps(detailed.compactMap { RepetitionInput.value($0) })
+        } else {
+            saved.setReps = nil
+            guard let value = RepetitionInput.value(common) else { return nil }
+            saved.detail = "\(value)회"
+        }
+        return saved
+    }
+}

@@ -29,6 +29,26 @@ struct ModelChecks {
             assert(RepetitionInput.value(text) == nil, "잘못된 숫자를 자동 보정해 저장하지 않음")
         }
         assert(RepetitionInput.value("1") == 1 && RepetitionInput.value("9999") == 9999)
+        var input = RepetitionDraft(exercise: b)
+        input.common = "15"
+        assert(input.setDetailed(true, count: b.sets))
+        input.detailed[1] = "8"
+        assert(input.resize(to: 3) && input.detailed == ["15", "8", "8"])
+        var resized = b
+        resized.sets = 3
+        assert(input.applying(to: resized)?.setReps == [15, 8, 8])
+        input.detailed[0] = ""
+        let invalid = input
+        assert(!input.resize(to: 1) && !input.setDetailed(false, count: 3))
+        assert(input.detailed == invalid.detailed && input.applying(to: resized) == nil)
+        input.detailed[0] = "12"
+        assert(input.resize(to: 2))
+        assert(input.setDetailed(false, count: 2) && input.common == "12")
+        assert(input.applying(to: b)?.detail == "12회" && input.applying(to: b)?.setReps == nil)
+        var malformed = b
+        malformed.setReps = [7]
+        let recovered = RepetitionDraft(exercise: malformed)
+        assert(recovered.detailed == ["7", "7"] && recovered.applying(to: b)?.setReps == [7, 7])
         print("Plan editor model checks passed")
     }
 
