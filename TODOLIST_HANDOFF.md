@@ -2,6 +2,11 @@
 
 마지막 업데이트: 2026-10-21
 
+## 짧은 밀기 삭제 화면 깨짐 수정 (미배포, 2026-10-21)
+
+- [x] **수정·CI 검증 — 2026-10-21 기술 완료.** [Build IPA 39539487372](https://github.com/iasanullweb-maker/GymNote/actions/runs/39539487372) 성공, 열린 버튼 캡처 확인. [결과](docs/ux-simulation/results/swipe-delete-fix-20261021.md).
+- [ ] **다음 배포 후 실기기 확인.** 계획 탭 → 날짜 길게 누르기 → 운동 행을 왼쪽으로 조금 밀면 운동 이름은 그대로 보이고 오른쪽에 둥근 빨간 ‘삭제’ 버튼이 행 안에 맞게 나타나는지, 버튼을 누르거나 더 길게(약 120pt) 밀면 삭제되는지, 오른쪽으로 밀거나 행을 탭하면 닫히는지 확인한다. 운동 일지·운동 목록·일상 완료 취소에서도 같은 모양인지, 세로 스크롤이 방해받지 않는지, 라이트/다크 모두 확인한다.
+
 ## 디자인 스킬·DESIGN.md·iPhone/다크 캡처 (미배포, 2026-10-21)
 
 - [x] **스킬 설치·PRODUCT.md/DESIGN.md 작성·캡처 확장과 CI 검증 — 2026-10-21 기술 완료.** [Build IPA 39537037520](https://github.com/iasanullweb-maker/GymNote/actions/runs/39537037520) 성공, 캡처 17장 직접 확인. [결과](docs/ux-simulation/results/design-skills-20261021.md).

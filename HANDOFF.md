@@ -2,6 +2,11 @@
 
 마지막 업데이트: 2026-10-21
 
+## 짧은 밀기 삭제 화면 깨짐 수정 (2026-10-21, 미배포)
+
+- 사용자 제보: 날짜 계획 시트에서 운동 행을 왼쪽으로 밀면 이름이 사라지고 빨간 버튼이 깨져 보임. `App/ShortSwipeAction.swift`가 행 여백 안에서만 그려진 것이 원인. 행 여백을 직접 그리고, 글자는 제자리에 둔 채 둥근 빨간 버튼이 오른쪽에서 자라도록 고쳤다. 이동 거리·편집 모드·접근성 동작은 유지. 같은 modifier의 운동 일지·운동 목록·일상 완료 취소에도 적용.
+- 검증: 소스 `8d13320`의 [Build IPA 39539487372](https://github.com/iasanullweb-maker/GymNote/actions/runs/39539487372) 전체 검사·Release·release-gate 성공, 열린 상태 캡처 4장 직접 확인. main push·배포 없음. [상세](docs/ux-simulation/results/swipe-delete-fix-20261021.md).
+
 ## 디자인 스킬·PRODUCT.md·DESIGN.md·iPhone/다크 캡처 (2026-10-21, 미배포)
 
 - 화면 작업 전에 루트 `PRODUCT.md`(제품·사용자)와 `DESIGN.md`(색·글자·모양·컴포넌트 규칙, 콘셉트 "기록을 깨는 코치")를 읽는다(AGENTS.md `## 디자인`). 디자인 스킬은 `.claude/skills/`·`.agents/skills/`의 impeccable과 Emil Kowalski 7종이며 사용법은 [docs/GYMNOTE_SKILLS.md](docs/GYMNOTE_SKILLS.md#외부-디자인-스킬).

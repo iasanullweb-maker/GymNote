@@ -1,74 +1,185 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-21T12:00:00+09:00",
+  "generatedAt": "2026-10-21T13:00:00+09:00",
   "title": "Design System: 헬스노트 (GymNote)",
   "extensions": {
     "colorMeta": {
-      "workout-orange": { "role": "primary", "displayName": "Workout Orange", "canonical": "UIColor.systemOrange (light #FF9500 / dark #FF9F0A)" },
-      "daily-teal": { "role": "secondary", "displayName": "Daily Teal", "canonical": "UIColor.systemTeal (light #30B0C7 / dark #40CBE0)" },
-      "done-green": { "role": "tertiary", "displayName": "Done Green", "canonical": "UIColor.systemGreen (light #34C759 / dark #30D158)" },
-      "alert-red": { "role": "tertiary", "displayName": "Alert Red", "canonical": "UIColor.systemRed (light #FF3B30 / dark #FF453A)" },
-      "grouped-background": { "role": "neutral", "displayName": "Grouped Background", "canonical": "UIColor.systemGroupedBackground (light #F2F2F7 / dark #000000)" },
-      "grouped-surface": { "role": "neutral", "displayName": "Grouped Surface", "canonical": "UIColor.secondarySystemGroupedBackground (light #FFFFFF / dark #1C1C1E)" },
-      "label": { "role": "neutral", "displayName": "Label", "canonical": "UIColor.label" },
-      "secondary-label": { "role": "neutral", "displayName": "Secondary Label", "canonical": "UIColor.secondaryLabel" }
+      "workout-orange": {
+        "role": "primary",
+        "displayName": "Workout Orange",
+        "canonical": "UIColor.systemOrange (light #FF9500 / dark #FF9F0A)"
+      },
+      "daily-teal": {
+        "role": "secondary",
+        "displayName": "Daily Teal",
+        "canonical": "UIColor.systemTeal (light #30B0C7 / dark #40CBE0)"
+      },
+      "done-green": {
+        "role": "tertiary",
+        "displayName": "Done Green",
+        "canonical": "UIColor.systemGreen (light #34C759 / dark #30D158)"
+      },
+      "alert-red": {
+        "role": "tertiary",
+        "displayName": "Alert Red",
+        "canonical": "UIColor.systemRed (light #FF3B30 / dark #FF453A)"
+      },
+      "grouped-background": {
+        "role": "neutral",
+        "displayName": "Grouped Background",
+        "canonical": "UIColor.systemGroupedBackground (light #F2F2F7 / dark #000000)"
+      },
+      "grouped-surface": {
+        "role": "neutral",
+        "displayName": "Grouped Surface",
+        "canonical": "UIColor.secondarySystemGroupedBackground (light #FFFFFF / dark #1C1C1E)"
+      },
+      "label": {
+        "role": "neutral",
+        "displayName": "Label",
+        "canonical": "UIColor.label"
+      },
+      "secondary-label": {
+        "role": "neutral",
+        "displayName": "Secondary Label",
+        "canonical": "UIColor.secondaryLabel"
+      }
     },
     "typographyMeta": {
-      "large-title": { "displayName": "Large Title", "purpose": "최상위 화면 제목" },
-      "title": { "displayName": "Title", "purpose": "운동 이름, 상태 카드의 큰 숫자" },
-      "headline": { "displayName": "Headline", "purpose": "목록 행·카드 제목, compact에서 title 대체" },
-      "body": { "displayName": "Body", "purpose": "설명과 입력값" },
-      "label": { "displayName": "Footnote / Caption", "purpose": "보조 정보, 11pt 하한" },
-      "numeric": { "displayName": "Monospaced Digits", "purpose": "타이머·횟수·기록" }
+      "large-title": {
+        "displayName": "Large Title",
+        "purpose": "최상위 화면 제목"
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "운동 이름, 상태 카드의 큰 숫자"
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "목록 행·카드 제목, compact에서 title 대체"
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "설명과 입력값"
+      },
+      "label": {
+        "displayName": "Footnote / Caption",
+        "purpose": "보조 정보, 11pt 하한"
+      },
+      "numeric": {
+        "displayName": "Monospaced Digits",
+        "purpose": "타이머·횟수·기록"
+      }
     },
     "shadows": [
-      { "name": "status-float", "value": ".shadow(color: .black.opacity(0.12), radius: 10, y: 4)", "purpose": "떠 있는 운동·휴식 상태 카드 전용" }
+      {
+        "name": "status-float",
+        "value": ".shadow(color: .black.opacity(0.12), radius: 10, y: 4)",
+        "purpose": "떠 있는 운동·휴식 상태 카드 전용"
+      }
     ],
     "motion": [
-      { "name": "state-change", "value": ".easeInOut(duration: 0.18–0.3)", "purpose": "상태 전환, 완료 표시" },
-      { "name": "content-swap", "value": ".contentTransition(.opacity) / .symbolEffect(.replace)", "purpose": "버튼 글자·아이콘 교체" }
+      {
+        "name": "state-change",
+        "value": ".easeInOut(duration: 0.18–0.3)",
+        "purpose": "상태 전환, 완료 표시"
+      },
+      {
+        "name": "content-swap",
+        "value": ".contentTransition(.opacity) / .symbolEffect(.replace)",
+        "purpose": "버튼 글자·아이콘 교체"
+      }
     ],
     "breakpoints": [
-      { "name": "compact", "value": "600pt (gymnoteCompactLayout)" }
+      {
+        "name": "compact",
+        "value": "600pt (gymnoteCompactLayout)"
+      }
     ]
   },
   "components": [
     {
-      "name": "Set Complete Button", "kind": "button", "refersTo": "button-primary",
+      "name": "Set Complete Button",
+      "kind": "button",
+      "refersTo": "button-primary",
       "description": "실행 화면 가운데의 세트 완료 버튼. 화면에서 유일한 주황 채움.",
       "html": "<button class=\"ds-btn-primary\">세트 완료</button>",
       "css": ".ds-btn-primary { background: #FF9500; color: #000; min-height: 56px; padding: 0 20px; border: none; border-radius: 12px; font: 600 17px -apple-system, system-ui, sans-serif; } .ds-btn-primary:active { opacity: .7; } .ds-btn-primary:focus-visible { outline: 3px solid #FF950066; outline-offset: 2px; }"
     },
     {
-      "name": "Rep Stepper Button", "kind": "button", "refersTo": "button-stepper",
+      "name": "Rep Stepper Button",
+      "kind": "button",
+      "refersTo": "button-stepper",
       "description": "세트 횟수 −/+ 독립 테두리 버튼 52×56pt.",
       "html": "<button class=\"ds-btn-stepper\" aria-label=\"하나 줄이기\">−</button>",
       "css": ".ds-btn-stepper { width: 52px; height: 56px; background: transparent; color: #FF9500; border: 1.5px solid #FF950066; border-radius: 12px; font: 700 24px -apple-system, system-ui, sans-serif; } .ds-btn-stepper:active { background: #FF95001F; } .ds-btn-stepper:focus-visible { outline: 3px solid #FF950066; outline-offset: 2px; }"
     },
     {
-      "name": "Status Card", "kind": "card", "refersTo": "status-card",
+      "name": "Status Card",
+      "kind": "card",
+      "refersTo": "status-card",
       "description": "탭 공통으로 떠 있는 휴식 중 상태 카드.",
       "html": "<div class=\"ds-status\"><span class=\"ds-status-title\">휴식 중</span><span class=\"ds-status-time\">1:24</span></div>",
       "css": ".ds-status { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-radius: 28px; background: rgba(242,242,247,.85); backdrop-filter: blur(20px); border: 1px solid #FF950066; box-shadow: 0 4px 10px rgba(0,0,0,.12); font-family: -apple-system, system-ui, sans-serif; } .ds-status-title { font-weight: 600; font-size: 17px; } .ds-status-time { font-weight: 700; font-size: 28px; font-variant-numeric: tabular-nums; }"
     },
     {
-      "name": "Workspace Switcher", "kind": "nav", "refersTo": "workspace-switcher",
+      "name": "Workspace Switcher",
+      "kind": "nav",
+      "refersTo": "workspace-switcher",
       "description": "운동(주황)/일상(청록) 두 칸 전환.",
       "html": "<div class=\"ds-switch\"><button class=\"ds-switch-item ds-on\">운동</button><button class=\"ds-switch-item\">일상</button></div>",
       "css": ".ds-switch { display: flex; gap: 4px; padding: 4px; border-radius: 22px; background: rgba(60,60,67,.08); } .ds-switch-item { flex: 1; min-height: 52px; border: none; border-radius: 17px; background: transparent; font: 600 17px -apple-system, system-ui, sans-serif; color: #3C3C43; } .ds-switch-item.ds-on { background: #FF95001F; color: #FF9500; } .ds-switch-item:focus-visible { outline: 3px solid #FF950066; }"
+    },
+    {
+      "name": "Short Swipe Delete",
+      "kind": "custom",
+      "refersTo": "short-swipe-delete",
+      "description": "짧게 밀면 오른쪽에서 자라는 둥근 빨간 삭제 버튼. 행 글자는 제자리.",
+      "html": "<div class=\"ds-swipe\"><span>푸쉬업</span><button class=\"ds-swipe-btn\">삭제</button></div>",
+      "css": ".ds-swipe { display:flex; align-items:stretch; justify-content:space-between; min-height:44px; padding:0 8px 0 20px; background:#fff; font:17px -apple-system, system-ui, sans-serif; } .ds-swipe span { align-self:center; } .ds-swipe-btn { margin:6px 0; width:80px; border:none; border-radius:12px; background:#FF3B30; color:#fff; font:12px -apple-system, system-ui, sans-serif; } .ds-swipe-btn:focus-visible { outline:3px solid #FF3B3066; }"
     }
   ],
   "narrative": {
     "northStar": "기록을 깨는 코치",
     "overview": "헬스노트는 옆에서 세트를 세어 주는 코치처럼 행동한다. 평소에는 iOS 기본 목록과 컨트롤 뒤로 조용히 물러나 있고, 사용자가 해야 할 바로 그 한 가지(다음 세트, 휴식, 완료)만 주황으로 크게 밝힌다. 기록을 깨거나 루틴을 끝낸 순간에는 숨기지 않고 확실하게 알려 준다. 동기 부여는 화려한 장식이 아니라 숫자와 정확한 피드백에서 나온다.",
-    "keyCharacteristics": ["iOS 기본 컨트롤·그룹 목록 위주, 직접 만든 컨트롤은 운동 실행 화면에만", "작업 공간별 단일 포인트 색: 운동 = 주황, 일상 = 청록", "운동 중 핵심 버튼 52–56pt 높이", "숫자(횟수·시간·기록)는 고정폭 숫자로 흔들리지 않게", "성취 순간(세트 완료, 운동 저장, 최고 기록)에만 분명한 피드백"],
+    "keyCharacteristics": [
+      "iOS 기본 컨트롤·그룹 목록 위주, 직접 만든 컨트롤은 운동 실행 화면에만",
+      "작업 공간별 단일 포인트 색: 운동 = 주황, 일상 = 청록",
+      "운동 중 핵심 버튼 52–56pt 높이",
+      "숫자(횟수·시간·기록)는 고정폭 숫자로 흔들리지 않게",
+      "성취 순간(세트 완료, 운동 저장, 최고 기록)에만 분명한 피드백"
+    ],
     "rules": [
-      { "name": "The One Workspace, One Color Rule", "body": "한 화면에는 그 작업 공간의 포인트 색 하나만 쓴다. 운동 화면에 청록, 일상 화면에 주황을 섞지 않는다.", "section": "colors" },
-      { "name": "The Semantic Only Rule", "body": "색은 시스템 색 이름으로만 지정한다. hex 직접 지정은 다크 모드·고대비에서 깨지므로 쓰지 않는다.", "section": "colors" },
-      { "name": "The Spotlight Rule", "body": "주황 채움(배경)은 화면에서 지금 누를 단 하나의 동작에만 쓴다. 나머지는 테두리(.bordered)나 글자색으로 낮춘다.", "section": "colors" },
-      { "name": "The Dynamic Type Rule", "body": "새 코드는 .font(.headline)처럼 텍스트 스타일만 쓴다. .system(size:) 고정 크기는 기존 코드에 일부 남아 있지만(달력 셀 등) 새로 추가하지 않는다.", "section": "typography" },
-      { "name": "The Steady Numbers Rule", "body": "바뀌는 숫자(타이머, 횟수, 기록)에는 .monospacedDigit()를 붙인다.", "section": "typography" },
-      { "name": "The Flat By Default Rule", "body": "목록·패널·버튼에는 그림자를 넣지 않는다. 그림자는 화면 위에 떠서 상태를 알리는 카드에만 쓴다.", "section": "elevation" }
+      {
+        "name": "The One Workspace, One Color Rule",
+        "body": "한 화면에는 그 작업 공간의 포인트 색 하나만 쓴다. 운동 화면에 청록, 일상 화면에 주황을 섞지 않는다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Semantic Only Rule",
+        "body": "색은 시스템 색 이름으로만 지정한다. hex 직접 지정은 다크 모드·고대비에서 깨지므로 쓰지 않는다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Spotlight Rule",
+        "body": "주황 채움(배경)은 화면에서 지금 누를 단 하나의 동작에만 쓴다. 나머지는 테두리(.bordered)나 글자색으로 낮춘다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dynamic Type Rule",
+        "body": "새 코드는 .font(.headline)처럼 텍스트 스타일만 쓴다. .system(size:) 고정 크기는 기존 코드에 일부 남아 있지만(달력 셀 등) 새로 추가하지 않는다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Steady Numbers Rule",
+        "body": "바뀌는 숫자(타이머, 횟수, 기록)에는 .monospacedDigit()를 붙인다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat By Default Rule",
+        "body": "목록·패널·버튼에는 그림자를 넣지 않는다. 그림자는 화면 위에 떠서 상태를 알리는 카드에만 쓴다.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do iOS 기본 컨트롤(Toggle, Stepper, Picker, 스와이프 동작, 컨텍스트 메뉴, 시트)을 먼저 쓴다.",
@@ -80,7 +191,7 @@
     "donts": [
       "Don't hex 색이나 커스텀 그라데이션을 쓰지 않는다. 시스템 색과 머티리얼만 쓴다.",
       "Don't 한 화면에 운동 주황과 일상 청록을 함께 쓰지 않는다.",
-      "Don't 탭 바·뒤로 가기 제스처·시스템 컨트롤을 직접 다시 만들지 않는다.",
+      "Don't 탭 바·뒤로 가기 제스처·시스템 컨트롤을 직접 다시 만들지 않는다. (예외: Short Swipe Delete)",
       "Don't .system(size:) 고정 글자 크기를 새로 추가하지 않는다.",
       "Don't 목록·패널·버튼에 그림자를 넣지 않는다.",
       "Don't 자주 누르는 동작(세트 체크, −/+)에 긴 애니메이션을 넣지 않는다. 하루 수십 번 누르는 동작은 즉각 반응이 우선이다."
