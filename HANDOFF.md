@@ -2,6 +2,13 @@
 
 마지막 업데이트: 2026-10-21
 
+## 누를 수 없는 버튼 회색 표시 (2026-10-21, 0.1.119 배포)
+
+- 요청: 휴식일 ‘운동 시작’이 눌러도 반응이 없어 버그처럼 보이므로 회색 비활성으로, 같은 유형의 주황 버튼도 함께 수정.
+- 변경: `AppModel.startWorkout`이 날짜를 갱신해 화면과 같은 날짜로 판정(휴식일이면 시작하지 않고 화면이 휴식일로 갱신), 실행 탭 휴식일 안내 문구·VoiceOver 힌트, 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’를 가져올 운동이 없으면 비활성. 회귀 테스트 1개. 상세 [결과](docs/ux-simulation/results/disabled-button-state-20261021.md).
+- 검증: 작업 브랜치 `92ee3a1` [Build IPA 39534442670](https://github.com/iasanullweb-maker/GymNote/actions/runs/39534442670) 성공(게시 건너뜀).
+- 배포: 사용자 승인 후 main `ff7e509`(AltStore 진단 3840 규칙 포함) push, 맨 위가 `[skip ci]`라 workflow_dispatch로 [Build #119 / 39536893764](https://github.com/iasanullweb-maker/GymNote/actions/runs/39536893764) 실행 — iOS·DB·계정 삭제·도구 검사, Release, release-gate, publish 모두 성공. build-119 릴리스 target `ff7e509`, IPA 2,223,419바이트, altstore 브랜치 `67b63ee` source.json `0.1.119`/`119`/build-119 URL 확인. 이후 다른 대화의 로컬 main 커밋(Apple Developer 준비 등)은 push하지 않았다.
+
 ## 유료 Apple Developer 계정 전환 준비 (2026-10-21, 계정 대기·미배포)
 
 - 요청: 사용자가 Apple Developer 계정이 생기면 할 일을 핸드오프에 추가하고 지금 할 수 있는 준비를 해 두라고 했다. 가입·결제·TestFlight 전환 지시는 아니다. 현재 할 일은 TODOLIST의 같은 제목 항목에서 관리한다.

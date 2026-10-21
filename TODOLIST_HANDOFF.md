@@ -18,10 +18,11 @@
 - [ ] **8. TestFlight 설치 확인(사용자, iPad·iPhone).** 내부 테스터 추가 → 설치 → 로그인 후 기록 동기화·위젯 데이터 공유·잠금화면 휴식 타이머(Live Activity) 확인. AltStore 판은 삭제하지 않고 별도 앱으로 유지한다(기기 저장소가 달라 기록은 계정 동기화로 넘어옴).
 - [ ] **후속 결정(사용자):** Sign in with Apple 켜기(앱 ID capability·Supabase Apple provider·엔타이틀먼트 코드 작업), AltStore 게시·서명 만료 경고 유지 여부, App Store 정식 출시.
 
-## 누를 수 없는 버튼 회색 표시 (미배포, 2026-10-21)
+## 누를 수 없는 버튼 회색 표시 (0.1.119 배포, 2026-10-21)
 
 - [x] **전체 iOS 빌드·XCTest — 2026-10-21 기술 완료.** 소스 `92ee3a1`의 [Build IPA 39534442670](https://github.com/iasanullweb-maker/GymNote/actions/runs/39534442670)(작업 브랜치 수동 실행)에서 iOS·DB·계정 삭제·도구 검사, Release 빌드, release-gate 성공. 게시는 건너뜀(미배포). 상세는 [결과](docs/ux-simulation/results/disabled-button-state-20261021.md).
-- [ ] **미배포: 다음 배포 후 사용자 확인.** 휴식일 실행 탭의 ‘운동 시작’이 회색이고 아래 안내가 보이는지, 자정을 넘겨 앱을 켜 둔 채 휴식일이 된 경우 눌러도 화면이 휴식일로 바뀌는지, 지난 운동 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’가 가져올 운동이 없을 때 회색인지 확인한다.
+- [x] **승인된 정식 배포 — 2026-10-21 완료.** 사용자 승인 후 main `ff7e509` push·workflow_dispatch로 [Build #119 / 39536893764](https://github.com/iasanullweb-maker/GymNote/actions/runs/39536893764) 전체 검사·Release·release-gate·publish 성공. [build-119](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-119) 대상 SHA 일치, AltStore 소스 `0.1.119 (119)`.
+- [ ] **0.1.119 설치 후 사용자 확인.** 휴식일 실행 탭의 ‘운동 시작’이 회색이고 아래 안내가 보이는지, 자정을 넘겨 앱을 켜 둔 채 휴식일이 된 경우 눌러도 화면이 휴식일로 바뀌는지, 지난 운동 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’가 가져올 운동이 없을 때 회색인지 확인한다.
 
 ## AltStore 갱신 실패 재발 방지 (2026-10-21)
 
