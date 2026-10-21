@@ -5,7 +5,7 @@
 ## AltStore 갱신 실패 재발 방지 (2026-10-21)
 
 - [x] **진단 도구·만료 경고·해결 문서 구현과 CI 검증 — 2026-10-21 기술 완료.** [Build IPA 39522530225](https://github.com/iasanullweb-maker/GymNote/actions/runs/39522530225) 성공. 상세는 HANDOFF의 같은 날짜 기록과 [AltStore 빠른 해결](docs/ALTSTORE_TROUBLESHOOTING.md).
-- [ ] **오늘 Refresh 실패(HTTP 503) 해결 확인.** 노트북·iPad VPN(또는 핫스팟) → USB 연결·잠금 해제 → AltStore → My Apps → Refresh All. 기대 결과: 오류 없이 갱신되고 헬스노트가 열린다. 계속 503이면 Apple 개발자 시스템 상태를 확인한다. 기존 앱은 삭제하지 않는다.
+- [x] **오늘 Refresh 실패(HTTP 503) 해결 — 2026-10-21 iPad 사용자 확인.** 사용자가 노트북·iPad 모두 VPN을 켜고 USB 연결 후 Refresh All 성공을 알렸다. 학교망에서 VPN 없이 발생한 503으로 판단한다. 헬스노트 실행·기록 유지는 이번 확인 범위에 포함하지 않는다.
 - [ ] **노트북에서 `AltStore 진단.cmd` 첫 실행.** 더블클릭 → 오류 문구 입력(없으면 Enter). 기대 결과: 한글이 깨지지 않고 [1]~[5] 점검과 해결 순서가 표시되며 `.validation-tools/altstore-doctor/latest.txt`가 생긴다.
 - [ ] **미배포: 다음 배포 후 설정의 서명 만료 표시·알림 확인.** 설정 → 진단에 `앱 서명 만료: 날짜 · 남은 시간`이 AltStore My Apps의 만료 일수와 맞는지, Refresh 후 날짜가 늘어나는지 확인한다. 만료 48시간 이내에는 설정 맨 위 ‘AltStore 갱신 필요’와 ‘AltStore 열기’ 버튼이 보이고, 48·24·3시간 전 알림이 오는지 확인한다.
 
