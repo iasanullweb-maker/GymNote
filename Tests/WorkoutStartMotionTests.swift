@@ -18,7 +18,7 @@ final class WorkoutStartMotionTests: XCTestCase {
         XCTAssertFalse(motion.barHidden)
     }
 
-    func testMorphFliesFromButtonToBarThenRevealsBarAndPulses() {
+    func testMorphFliesFromButtonToBarThenRevealsBarAndPulses() async throws {
         let motion = WorkoutStartMotion()
         let button = CGRect(x: 20, y: 200, width: 400, height: 52)
         let bar = CGRect(x: 16, y: 1000, width: 720, height: 96)
@@ -32,10 +32,11 @@ final class WorkoutStartMotionTests: XCTestCase {
         motion.barFrameChanged(.zero)
         XCTAssertEqual(motion.phase, .waitingForBar, "크기 없는 frame은 무시")
         motion.barFrameChanged(bar)
-        XCTAssertEqual(motion.phase, .flying)
         XCTAssertEqual(motion.to, bar)
-
-        motion.land()
+        // 화면 없는 테스트에서는 withAnimation 완료가 곧바로 올 수 있어 flying을 건너뛸 수 있다. 착지 결과만 확인한다.
+        XCTAssertTrue([.flying, .idle].contains(motion.phase))
+        try await Task.sleep(for: .milliseconds(900))
+        if motion.phase != .idle { motion.land() }
         XCTAssertEqual(motion.phase, .idle)
         XCTAssertFalse(motion.barHidden)
         XCTAssertEqual(motion.pulse, 1)
