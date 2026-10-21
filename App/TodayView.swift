@@ -187,7 +187,9 @@ struct ExerciseRow: View {
 
     private var finished: Bool { done >= exercise.sets }
     private var canComplete: Bool { isEnabled && session != nil && !finished && (!requiresMeasurement || measuredValue != nil) }
-    private var actualReps: Int? { draftReps ?? exercise.plannedReps ?? (recordType.map { AppData.acceptsWorkoutRepetitions($0) } == true ? 0 : nil) }
+    /// 직전 세트에서 바꾼 횟수를 다음 세트에 이어 간다(세트별 상세 계획이 있으면 그 값).
+    private var suggestedReps: Int? { session?.suggestedReps(exercise, set: done) ?? exercise.plannedReps(forSet: done) }
+    private var actualReps: Int? { draftReps ?? suggestedReps ?? (recordType.map { AppData.acceptsWorkoutRepetitions($0) } == true ? 0 : nil) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -368,12 +370,13 @@ struct CompletedRepetitionRows: View {
                         Text(type.display(entry))
                     }.font(.subheadline).monospacedDigit()
                 }
-                if exercise.plannedReps != nil || actual != nil {
+                let planned = exercise.plannedReps(forSet: index)
+                if planned != nil || actual != nil {
                     Button { editingSet = index } label: {
                         HStack {
                             Text("\(index + 1)세트")
                             Spacer()
-                            if let actual, let planned = exercise.plannedReps {
+                            if let actual, let planned {
                                 Text("\(actual) / \(planned)회")
                             } else if let actual {
                                 Text("\(actual)회")
@@ -401,7 +404,7 @@ struct CompletedRepetitionRows: View {
         .sheet(isPresented: Binding(get: { editingSet != nil }, set: { if !$0 { editingSet = nil } })) {
             if let index = editingSet {
                 RepetitionEditor(title: "\(index + 1)세트 실제 횟수",
-                                 initialValue: session.repetitions(exercise, set: index) ?? exercise.plannedReps ?? 0) {
+                                 initialValue: session.repetitions(exercise, set: index) ?? exercise.plannedReps(forSet: index) ?? 0) {
                     model.data.updateRepetitions(sessionID: session.id, exerciseID: exercise.id, set: index, value: $0, creditRecords: model.data.activeWorkout?.id == session.id)
                 }
             }

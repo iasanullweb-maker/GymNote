@@ -259,7 +259,9 @@ struct ModelChecks {
         repetitions.changeSets(first.id, by: -1, on: today)
         assert(repetitions.activeWorkout!.actualReps[first.id.uuidString] == [8])
         repetitions.changeSets(first.id, by: 1, on: today)
-        assert(repetitions.activeWorkout!.repetitions(first, set: 1) == 10, "다음 세트는 계획 기준")
+        assert(repetitions.activeWorkout!.repetitions(first, set: 1) == 8, "다음 세트는 직전 세트 실제 횟수를 이어 감")
+        assert(repetitions.activeWorkout!.suggestedReps(first, set: 2) == 8)
+        assert(repetitions.activeWorkout!.suggestedReps(first, set: 0) == 10, "첫 세트는 계획 횟수")
         repetitions.updateRepetitions(sessionID: sessionID, exerciseID: first.id, set: 0, value: 0)
         assert(repetitions.activeWorkout!.repetitions(first, set: 0) == 0)
         repetitions.changeSets(second.id, by: 1, on: today)
@@ -271,8 +273,49 @@ struct ModelChecks {
         oldSession.removeValue(forKey: "actualReps")
         let legacySession = try decoder.decode(WorkoutSession.self, from: JSONSerialization.data(withJSONObject: oldSession))
         assert(legacySession.done == 3 && legacySession.repetitions(first, set: 0) == nil, "예전 일지 실제 횟수는 미기록")
+        try setRepsChecks(encoder: encoder, decoder: decoder)
         try executionOrderChecks(encoder: encoder, decoder: decoder)
         print("Model checks passed: migration, calendars, workout sessions, journals, persistence, repetitions, stale/twice/widget/repeat, execution order")
+    }
+
+    /// 계획의 세트별 상세 횟수: 표시 문구·세트 수 동기화, 저장 호환, 실행 시 세트별 값 사용.
+    static func setRepsChecks(encoder: JSONEncoder, decoder: JSONDecoder) throws {
+        let today = Date()
+        let key = DayKey.key(today)
+        var pyramid = Exercise(name: "푸쉬업", sets: 3, detail: "10회")
+        assert(pyramid.setReps == nil && pyramid.plannedReps(forSet: 2) == 10)
+        pyramid.applySetReps([12, 10, 8])
+        assert(pyramid.detail == "12·10·8회" && pyramid.sets == 3 && pyramid.plannedReps == 12)
+        assert(pyramid.plannedReps(forSet: 1) == 10 && pyramid.plannedReps(forSet: 5) == 8)
+        pyramid.resizeSetReps(to: 4)
+        assert(pyramid.setReps == [12, 10, 8, 8] && pyramid.sets == 4)
+        pyramid.resizeSetReps(to: 2)
+        assert(pyramid.setReps == [12, 10] && pyramid.detail == "12·10회")
+        var simple = pyramid
+        simple.applySetReps(nil)
+        assert(simple.setReps == nil && simple.detail == "12회" && simple.plannedReps == 12)
+        simple.resizeSetReps(to: 5)
+        assert(simple.sets == 5 && simple.setReps == nil)
+
+        // 예전 저장 파일(setReps 없음)과 새 파일 모두 읽힌다. 공통 목표는 setReps 키를 쓰지 않는다.
+        let simpleJSON = try JSONSerialization.jsonObject(with: encoder.encode(simple)) as! [String: Any]
+        assert(simpleJSON["setReps"] == nil)
+        let simpleReload = try decoder.decode(Exercise.self, from: encoder.encode(simple))
+        assert(simpleReload == simple)
+        pyramid.applySetReps([12, 10, 8])
+        let pyramidReload = try decoder.decode(Exercise.self, from: encoder.encode(pyramid))
+        assert(pyramidReload == pyramid && pyramidReload.setReps == [12, 10, 8])
+
+        // 실행: 상세 계획은 세트마다 그 값, 위젯 완료(횟수 미지정)도 같은 규칙을 따른다.
+        var data = AppData(week: [])
+        data.scheduledPlans[key] = DayPlan(title: "세트별", exercises: [pyramid])
+        data.startWorkout(at: today)
+        data.changeSets(pyramid.id, by: 1, on: today, actualReps: 11)
+        assert(data.activeWorkout!.suggestedReps(pyramid, set: 1) == 10, "상세 계획은 직전 값보다 계획 우선")
+        data.changeSets(pyramid.id, by: 1, on: today)
+        assert(data.activeWorkout!.actualReps[pyramid.id.uuidString] == [11, 10])
+        data.changeSets(pyramid.id, by: 1, on: today)
+        assert(data.workouts[0].actualReps[pyramid.id.uuidString] == [11, 10, 8], "마지막 세트 후 일지 저장")
     }
 
     /// 실행 탭: 끌어서 순서 바꾸기(위·아래·맨 끝), 완료 운동 하단 표시, 진행 기록 보존.

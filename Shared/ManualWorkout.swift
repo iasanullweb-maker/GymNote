@@ -41,7 +41,7 @@ struct ManualWorkoutDraft: Codable, Equatable {
         let count = session.map { $0.doneSets(exercise) } ?? exercise.sets
         guard count > 0 else { return }
         let entries = (0..<min(count, 100)).map { index in
-            let reps = session != nil ? session?.repetitions(exercise, set: index) : exercise.plannedReps
+            let reps = session != nil ? session?.repetitions(exercise, set: index) : exercise.plannedReps(forSet: index)
             let weights = session?.actualWeights[exercise.id.uuidString] ?? []
             let weight = index < weights.count ? weights[index] : nil
             return SetEntry(reps: reps.map { String($0) } ?? "", weight: weight.map { RecordType.number($0) } ?? "")
