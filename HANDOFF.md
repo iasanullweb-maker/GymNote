@@ -2,6 +2,13 @@
 
 마지막 업데이트: 2026-10-21
 
+## 날짜 계획 시트 UX 개선 (2026-10-21, 미배포)
+
+- 지정 프롬프트의 1~6번 구현. 휴식/동일 날짜 교체 비활성+이유, 추가/전체 교체 분리와 확인 시트, saveEdit 저장 실패·이름 draft·삭제 되돌리기, 내 운동 목록 설정 복사, 새 계획 이름, 과거 계획 편집/기록 링크·진행 중 차단·숫자 직접 입력을 적용했다. 교체 방식은 예시 설명 후 사용자 승인받았다. 실제 사용자 확인은 다음 배포 후 대기.
+- 기준 main a776f8b, 최종 제품·검사 소스 ab82b71. [Build IPA 39555785924](https://github.com/iasanullweb-maker/GymNote/actions/runs/39555785924) 전체 검사·앱/위젯 Release·release-gate 성공, publish skipped. XCTest 177개(기존 4개 건너뜀·실패 0), 새 PlanEditorTests 8개 통과. 최종 iPad/iPhone·다크·큰 글자 캡처 16장 직접 확인. 중간 캡처의 숫자 라벨 줄바꿈·확인 제목 잘림을 고쳤다.
+- 독립 critique/코드 리뷰에서 계정 전환 후 기본 루틴 저장 우회와 구버전 세트별 배열 길이 복구 문제를 찾아 고쳤다. 원래 generation을 저장 직전까지 확인하고, undo는 현재 해당 날짜 계획이 삭제 후 내용과 같을 때만 복원한다. 다른 날짜/일지/원본 목록은 보존한다.
+- 검증 브랜치 codex/plan-editor-ux-20261021만 push. 이후 문서만 커밋하고 공통 잠금·양쪽 상태·기준 SHA/제품 입력 동일성 확인 아래 기존 main에 로컬 fast-forward 통합한다. main push·배포·운영 변경 없음. 실제 터치·숫자 키보드·VoiceOver·두 시트 종료는 미확인. [상세 결과](docs/ux-simulation/results/plan-editor-ux-20261021.md), 현재 대기는 TODOLIST의 같은 항목.
+
 ## 운동 시작 애니메이션: 버튼이 운동 중 바로 변신 (2026-10-21, 미배포)
 
 - 사용자: 운동 시작 시 아래 '운동 중' 바가 갑자기 튀어나와 개연성이 없다 → B(버튼이 바로 변신) 기본, A(아래에서 올라오기)로 바꿀 수 있게. 설정 → 화면 → '운동 시작 애니메이션'(기기별 AppStorage `workoutStartAnimationStyle`). 코드는 `App/WorkoutStartMotion.swift`, TodayView 시작 버튼, RootView overlay·`workoutStatus`. 동작 줄이기에서는 페이드만.
