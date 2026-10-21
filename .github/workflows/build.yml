@@ -56,6 +56,8 @@ jobs:
           /tmp/record-checks
           swiftc Shared/Models.swift Shared/WorkoutRecords.swift Shared/RecordCatalog.swift Shared/SocialRanking.swift scripts/test_social_ranking.swift -o /tmp/social-checks
           /tmp/social-checks
+          swiftc Shared/SigningExpiry.swift scripts/test_signing_expiry.swift -o /tmp/signing-checks
+          /tmp/signing-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_accounts.swift -o /tmp/gymnote-account-checks
           /tmp/gymnote-account-checks
           swiftc Shared/Models.swift Shared/AccountData.swift scripts/test_cloud_merge.swift -o /tmp/gymnote-cloud-merge-checks

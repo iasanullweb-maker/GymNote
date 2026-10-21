@@ -149,6 +149,7 @@ struct RootView: View {
                 model.refreshCurrentDate()
                 model.reload()
                 account.scheduleSync()
+                Task { await SigningExpiryMonitor.refreshReminders() }
                 Task { await model.social.publish(force: false) }
                 Task { await model.social.refresh(quiet: true) }
             }
@@ -167,6 +168,7 @@ struct RootView: View {
             await account.bootstrap()
             model.reload()
             await RestController.requestPermissions()
+            await SigningExpiryMonitor.refreshReminders()
             await model.social.refresh(quiet: true)
         }
         .task(id: scenePhase) {

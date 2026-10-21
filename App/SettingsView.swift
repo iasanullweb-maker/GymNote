@@ -20,11 +20,41 @@ struct SettingsView: View {
     /// 기기별 설정. 같은 계정의 다른 기기와 공유하지 않는다.
     @AppStorage(DailyReminderScheduler.devicePreferenceKey) private var remindersOnThisDevice = false
     @Environment(\.openURL) private var openURL
+    /// 설치된 앱의 AltStore 서명 만료 상태. 개발/시뮬레이터 빌드에서는 nil.
+    @State private var signing: SigningExpiry.Status? = SigningExpiryMonitor.status()
+
+    private var signingDescription: String {
+        guard let signing else { return "확인 불가(개발 빌드)" }
+        let date = signing.expiration.formatted(.dateTime.month().day().hour().minute())
+        return signing.level == .expired ? "\(date) · 만료됨" : "\(date) · \(SigningExpiry.remainingText(signing.remaining)) 남음"
+    }
+
+    /// 만료 48시간 이내·만료 시 설정 맨 위에 보이는 갱신 안내.
+    @ViewBuilder private func signingWarningSection(_ signing: SigningExpiry.Status) -> some View {
+        Section {
+            Label(signing.level == .expired
+                  ? "앱 서명이 만료됐어요"
+                  : "앱 서명 만료까지 \(SigningExpiry.remainingText(signing.remaining))",
+                  systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundStyle(.orange)
+            Button("AltStore 열기") {
+                if let url = URL(string: "altstore://") { openURL(url) }
+            }
+        } header: {
+            Text("AltStore 갱신 필요")
+        } footer: {
+            Text("노트북에서 AltServer와 iTunes를 켜고, 학교 Wi-Fi라면 노트북 VPN을 켠 뒤 iPad를 USB로 연결해요. AltStore → My Apps → Refresh All. 안 되면 노트북에서 'AltStore 진단.cmd'를 실행해요.")
+        }
+    }
 
     var body: some View {
         @Bindable var model = model
         NavigationStack {
             Form {
+                if let signing, signing.level != .ok {
+                    signingWarningSection(signing)
+                }
                 Section("저장 상태") {
                     Label(account.modeDescription, systemImage: account.isOnline ? "icloud" : "wifi.slash")
                 }
@@ -61,6 +91,8 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("앱 서명 만료", value: signingDescription)
+                        .font(.caption)
                     LabeledContent("위젯 공유 저장소", value: SharedStore.diagnostics)
                         .font(.caption)
                 } header: {
@@ -78,6 +110,7 @@ struct SettingsView: View {
             .navigationTitle("설정")
             .task(id: account.user?.id) { await account.refreshRecordCatalog() }
             .task { notificationStatus = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
+            .task { signing = SigningExpiryMonitor.status() }
             .sheet(isPresented: $showingAccount, onDismiss: { account.closeAccountScreen() }) {
                 AccountView()
                     .environment(model)

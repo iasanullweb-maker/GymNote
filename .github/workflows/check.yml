@@ -44,6 +44,8 @@ jobs:
           /tmp/record-checks
           swiftc Shared/Models.swift Shared/WorkoutRecords.swift Shared/RecordCatalog.swift Shared/SocialRanking.swift scripts/test_social_ranking.swift -o /tmp/social-checks
           /tmp/social-checks
+          swiftc Shared/SigningExpiry.swift scripts/test_signing_expiry.swift -o /tmp/signing-checks
+          /tmp/signing-checks
       - name: Select available iPad simulator
         run: |
           python3 - <<'PY'
