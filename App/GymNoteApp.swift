@@ -76,6 +76,7 @@ struct GymNoteApp: App {
 }
 
 struct RootView: View {
+    private let runsLifecycle: Bool
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.scenePhase) private var scenePhase
@@ -90,6 +91,12 @@ struct RootView: View {
     @AppStorage("selectedWorkspace") private var workspace = "운동"
     @AppStorage(WorkoutStartAnimationStyle.storageKey) private var startStyle = WorkoutStartAnimationStyle.defaultStyle
     @State private var startMotion = WorkoutStartMotion()
+
+    init(initialTab: Int = 0, initialDate: Date = Date(), runsLifecycle: Bool = true) {
+        self.runsLifecycle = runsLifecycle
+        _selectedTab = State(initialValue: initialTab)
+        _selectedDate = State(initialValue: initialDate)
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -147,7 +154,7 @@ struct RootView: View {
             } catch { /* A new session/account cancels the previous completion animation. */ }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
+            if runsLifecycle, phase == .active {
                 model.refreshCurrentDate()
                 model.reload()
                 account.scheduleSync()
@@ -167,6 +174,7 @@ struct RootView: View {
             model.refreshCurrentDate()
         }
         .task {
+            guard runsLifecycle else { return } // Isolated RootView captures never reload fixtures or request permissions.
             await account.bootstrap()
             model.reload()
             await RestController.requestPermissions()
@@ -177,7 +185,7 @@ struct RootView: View {
             // 앱이 화면에 있는 동안만 60초마다 운동 종목을 갱신한다. 백그라운드·비활성으로 바뀌면 반복을 멈춘다.
             // 진행 중인 요청은 끊지 않고 끝까지 받는다(취소 오류를 '갱신 실패'로 보이지 않게).
             // 동시에 들어온 요청은 AccountModel.catalogLoading이 걸러 낸다.
-            guard scenePhase == .active else { return }
+            guard runsLifecycle, scenePhase == .active else { return }
             while !Task.isCancelled {
                 // 잠깐 비활성(제어 센터·알림 등)됐다 돌아올 때 곧바로 다시 요청하지 않는다.
                 if lastCatalogRefresh.map({ Date().timeIntervalSince($0) >= 30 }) ?? true {

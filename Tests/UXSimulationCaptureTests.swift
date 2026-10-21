@@ -30,7 +30,9 @@ final class UXSimulationCaptureTests: XCTestCase {
     }
 
     private func capture(_ screen: Screen, width: Int = 834, height: Int = 1194,
-                         accessibility: Bool = false, dark: Bool = false, editor: EditorCapture? = nil) async throws {
+                         accessibility: Bool = false, dark: Bool = false, editor: EditorCapture? = nil,
+                         tutorialTab: Int? = nil, daily: Bool = false,
+                         captureDelay: UInt64 = 700_000_000) async throws {
         if let reason = screen.blockedReason { throw XCTSkip(reason) }
         if screen == .workoutReady, !UXSimulationFixtures.calendar.isDate(Date(), inSameDayAs: UXSimulationFixtures.anchor) {
             throw XCTSkip("TodayView uses AppModel.todayPlan/workoutDate Date() when idle. Run this entry point on the anchor day; no fixed-clock injection exists.")
@@ -46,7 +48,18 @@ final class UXSimulationCaptureTests: XCTestCase {
             defaults.set(String(decoding: try JSONEncoder().encode(UXSimulationFixtures.makeDraft()), as: UTF8.self),
                          forKey: ManualWorkoutDraft.storageKey(userID: UXSimulationFixtures.id(90)))
             if editor == .copy || editor == .copyRest { model.data.week[0] = DayPlan(title: "휴식", exercises: []) }
-            let root = editorEntryPoint(editor, screen: screen, model: model)
+            if tutorialTab != nil {
+                defaults.set(daily ? "일상" : "운동", forKey: "selectedWorkspace")
+                defaults.set("", forKey: CoachmarkHistory.key)
+                await account.bootstrap()
+            }
+            let root = Group {
+                if let tutorialTab {
+                    RootView(initialTab: tutorialTab, initialDate: UXSimulationFixtures.anchor, runsLifecycle: false)
+                } else {
+                    editorEntryPoint(editor, screen: screen, model: model)
+                }
+            }
                 .environment(model).environment(account)
                 .environment(\.locale, UXSimulationFixtures.locale)
                 .environment(\.calendar, UXSimulationFixtures.calendar)
@@ -68,7 +81,7 @@ final class UXSimulationCaptureTests: XCTestCase {
             }
             window.makeKeyAndVisible()
             window.layoutIfNeeded()
-            try await Task.sleep(nanoseconds: 700_000_000)
+            try await Task.sleep(nanoseconds: captureDelay)
             if (editor == .actions || editor == .copyRest), let scroll = findScroll(in: window) {
                 scroll.setContentOffset(CGPoint(x: 0, y: max(-scroll.adjustedContentInset.top,
                     scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
@@ -91,15 +104,16 @@ final class UXSimulationCaptureTests: XCTestCase {
             }
             let png = try XCTUnwrap(image.pngData())
             // Dark captures add a "--dark" suffix for design review; UX collect.mjs maps receipts explicitly and ignores them.
-            let name = "\(editor?.rawValue ?? screen.rawValue)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")" + (dark ? "--dark" : "")
+            let captureID = tutorialTab.map { "tutorial-\(daily ? "daily" : "workout")-\($0)-\(captureDelay / 1_000_000)ms" } ?? editor?.rawValue ?? screen.rawValue
+            let name = "\(captureID)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")" + (dark ? "--dark" : "")
             let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
             attachment.name = name + ".png"
             attachment.lifetime = .keepAlways
             add(attachment)
-            let metadata: [String: String] = ["captureId": editor?.rawValue ?? screen.rawValue, "fixtureId": "demo-v1",
+            let metadata: [String: String] = ["captureId": captureID, "fixtureId": "demo-v1",
                 "anchorTime": UXSimulationFixtures.anchorISO8601,
                 "renderedAt": ISO8601DateFormatter().string(from: Date()),
-                "clock": "system-clock-not-frozen", "scope": editor == nil ? "direct-product-view-without-root-tab-chrome" : "plan-editor-design-review",
+                "clock": "system-clock-not-frozen", "scope": tutorialTab != nil ? "product-root-with-tab-chrome-and-tutorial" : editor == nil ? "direct-product-view-without-root-tab-chrome" : "plan-editor-design-review",
                 "appearance": dark ? "dark" : "light"]
             let receipt = XCTAttachment(data: try JSONSerialization.data(withJSONObject: metadata, options: [.sortedKeys]),
                                         uniformTypeIdentifier: "public.json")
@@ -109,6 +123,22 @@ final class UXSimulationCaptureTests: XCTestCase {
             XCTAssertNil(account.user)
             XCTAssertFalse(account.configured)
         }
+    }
+
+    func testTutorialRootScreens() async throws {
+        // Real RootView: preferences must cross TabView and toolbar hosting boundaries.
+        for tab in 0...4 {
+            try await capture(.planMonth, tutorialTab: tab)
+            try await capture(.planMonth, width: 393, height: 852, tutorialTab: tab)
+        }
+        for tab in 0...2 {
+            try await capture(.planMonth, width: 393, height: 852, tutorialTab: tab, daily: true)
+        }
+        try await capture(.planMonth, width: 393, height: 852, accessibility: true, dark: true, tutorialTab: 0)
+        try await capture(.planMonth, width: 393, height: 852, dark: true, tutorialTab: 0, daily: true)
+        try await capture(.planMonth, width: 852, height: 393, tutorialTab: 1)
+        try await capture(.planMonth, tutorialTab: 0, captureDelay: 200_000_000)
+        try await capture(.planMonth, tutorialTab: 0, captureDelay: 1_600_000_000)
     }
 
     private func findScroll(in view: UIView) -> UIScrollView? {
