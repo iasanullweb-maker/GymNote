@@ -67,6 +67,14 @@ final class WorkoutFlowTests: XCTestCase {
         XCTAssertTrue(try SharedStore.snapshot(userID: originalSelection.userID).data.dailyItems.contains { $0.id == item.id })
     }
 
+    func testRestDayStartIsNoOpAndShowsRestPlan() {
+        // 실행 탭은 휴식일에 '운동 시작'을 비활성(회색)으로 보여 준다. 모델도 시작하지 않아야 한다.
+        let model = AppModel(previewData: AppData(week: []))
+        model.startWorkout()
+        XCTAssertTrue(model.todayPlan.isRestDay)
+        XCTAssertNil(model.data.activeWorkout)
+    }
+
     func testDayChangeRefreshesIdlePlanAndPreservesActiveWorkout() throws {
         let firstDay = try XCTUnwrap(DayKey.date(fromKey: "2026-10-10"))
         let nextDay = try XCTUnwrap(DayKey.date(fromKey: "2026-10-11"))

@@ -19,6 +19,20 @@ struct ManualWorkoutView: View {
         _savedDraft = AppStorage(wrappedValue: "", ManualWorkoutDraft.storageKey(userID: userID))
     }
 
+    /// 선택한 날짜 루틴에서 실제로 가져올 수 있는 운동(등록 종목·세트 1개 이상)
+    private var importablePlanExercises: [Exercise] {
+        model.data.plan(for: draft.date).exercises.filter {
+            $0.sets > 0 && model.data.isRegisteredExercise($0, catalog: account.catalogTypes)
+        }
+    }
+
+    /// 지난 일지에서 실제로 가져올 수 있는 운동(등록 종목·완료 세트 1개 이상)
+    private func importableExercises(_ workout: WorkoutSession) -> [Exercise] {
+        workout.plan.exercises.filter {
+            workout.doneSets($0) > 0 && model.data.isRegisteredExercise($0, catalog: account.catalogTypes)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -29,19 +43,20 @@ struct ManualWorkoutView: View {
                     Text("운동을 마친 뒤 한 번에 기록하세요. 입력 내용은 이 기기에 임시 저장돼요.")
                 }
                 Section("불러오기 · 현재 입력에 추가") {
+                    // 눌러도 가져올 운동이 없으면(휴식일·미등록 종목만·완료 세트 없음) 회색으로 비활성화한다.
                     Button("선택한 날짜의 루틴") {
                         let plan = model.data.plan(for: draft.date)
                         if draft.moves.isEmpty { draft.title = plan.title }
-                        for exercise in plan.exercises where model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) { draft.append(exercise) }
-                    }.disabled(model.data.plan(for: draft.date).isRestDay)
+                        for exercise in importablePlanExercises { draft.append(exercise) }
+                    }.disabled(importablePlanExercises.isEmpty)
                     Menu("이전 운동 일지") {
                         ForEach(model.data.workouts.sorted { $0.startedAt > $1.startedAt }) { workout in
                             Button("\(workout.startedAt.formatted(.dateTime.year().month().day())) · \(workout.plan.title)") {
                                 if draft.moves.isEmpty { draft.title = workout.plan.title }
-                                for exercise in workout.plan.exercises where model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) { draft.append(exercise, session: workout) }
-                            }
+                                for exercise in importableExercises(workout) { draft.append(exercise, session: workout) }
+                            }.disabled(importableExercises(workout).isEmpty)
                         }
-                    }.disabled(model.data.workouts.isEmpty)
+                    }.disabled(!model.data.workouts.contains { !importableExercises($0).isEmpty })
                     Menu("운동 목록") {
                         Section("운동 종목") {
                             ForEach(CatalogRecordType.sorted(account.catalogTypes).filter(\.active)) { type in

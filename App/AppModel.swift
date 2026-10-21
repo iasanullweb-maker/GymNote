@@ -83,11 +83,15 @@ final class AppModel {
     var savedToday: Bool { data.hasSavedWorkout(on: currentDate) }
 
     func startWorkout(catalog: [CatalogRecordType]? = nil) {
+        // 화면이 보여 준 날짜와 실제로 시작하는 날짜를 맞춘다. 자정이 지나 휴식일이 됐으면
+        // 시작하지 않고 날짜만 갱신해 실행 화면이 휴식일(회색 버튼)로 바뀌게 한다.
+        refreshCurrentDate()
+        guard data.activeWorkout == nil, !todayPlan.isRestDay else { return }
         if let catalog, !todayPlan.exercises.allSatisfy({ data.isRegisteredExercise($0, catalog: catalog) }) {
             storageError = "운동 종목을 불러온 뒤 등록된 종목으로 계획을 확인해 주세요."
             return
         }
-        data.startWorkout()
+        data.startWorkout(at: currentDate)
         if data.activeWorkout != nil { savedWorkout = nil }
     }
 

@@ -54,7 +54,11 @@ struct TodayView: View {
                         }
                         .buttonStyle(.borderless)
                         .disabled(!canStart)
-                        if !plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) {
+                        .accessibilityHint(plan.isRestDay ? "휴식일이라 운동을 시작할 수 없어요" : "")
+                        if plan.isRestDay {
+                            Text("휴식일에는 운동을 시작할 수 없어요. 계획 탭에서 이 날짜에 운동을 추가하면 시작할 수 있어요.")
+                                .font(.footnote).foregroundStyle(.secondary)
+                        } else if !plan.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) {
                             Text("운동 종목을 불러오면 미등록 운동을 계획과 기록에서 정리해요. 인터넷 연결 후 다시 확인해 주세요.")
                                 .font(.footnote).foregroundStyle(.secondary)
                         }
