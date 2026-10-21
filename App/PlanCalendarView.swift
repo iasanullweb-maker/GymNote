@@ -7,6 +7,7 @@ struct PlanCalendarView: View {
     @Binding var selectedDate: Date
     var content: Content = .workout
     var onShowDateDetails: ((Date) -> Void)?
+    @AppStorage("selectedWorkspace") private var workspace = "운동"
     @State private var displayedMonth: Date
     private let weekdayOrder = [1, 2, 3, 4, 5, 6, 0]
 
@@ -55,6 +56,7 @@ struct PlanCalendarView: View {
                     }
                 }
             }
+            .coachmarkTarget(workspace == "일상" ? "daily.calendar" : "workout.calendar")
             if compact, content != .journal {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(selectedDate, format: .dateTime.month().day().weekday())

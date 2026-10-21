@@ -17,7 +17,9 @@ struct Exercise: Codable, Identifiable, Hashable {
     var hasPercentageTarget: Bool { detail.contains("%") || detail.contains("％") }
 
     /// Only an unambiguous repetition target supplies the default; time/ranges stay free-form.
+    /// 세트별 상세 횟수가 있으면 첫 세트 값을 대표 값으로 쓴다.
     var plannedReps: Int? {
+        if let first = setReps?.first { return first }
         guard detail.range(of: "[0-9]\\s*[-~–]\\s*[0-9]", options: .regularExpression) == nil,
               let regex = try? NSRegularExpression(pattern: "(?<![0-9.−-])([0-9]+)\\s*회") else { return nil }
         let matches = regex.matches(in: detail, range: NSRange(detail.startIndex..., in: detail))
@@ -32,16 +34,53 @@ struct Exercise: Codable, Identifiable, Hashable {
     /// 예전 버전의 운동별 휴식. 지금은 쓰지 않고 설정의 기본 휴식(AppData.defaultRest) 하나로 통일.
     /// 예전 저장 파일·계정 동기화와 호환되도록 필드만 유지한다.
     var restSeconds: Int = 0
+    /// 계획의 '세트별 횟수' 상세 설정. nil이면 모든 세트가 같은 목표(detail의 N회)다.
+    var setReps: [Int]? = nil
 
-    init(id: UUID = UUID(), name: String, sets: Int, detail: String, restSeconds: Int = 0) {
+    init(id: UUID = UUID(), name: String, sets: Int, detail: String, restSeconds: Int = 0, setReps: [Int]? = nil) {
         self.id = id
         self.name = name
         self.sets = sets
         self.detail = detail
         self.restSeconds = restSeconds
+        if let setReps { applySetReps(setReps) }
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, sets, detail, restSeconds }
+    /// 세트별 목표 횟수. 상세 설정이면 그 세트의 값, 아니면 공통 목표 횟수.
+    func plannedReps(forSet index: Int) -> Int? {
+        if let detailed = detailedReps(forSet: index) { return detailed }
+        return plannedReps
+    }
+
+    /// 상세 설정에서 지정한 그 세트의 횟수(상세 설정이 아니면 nil).
+    func detailedReps(forSet index: Int) -> Int? {
+        guard let values = setReps, !values.isEmpty, index >= 0 else { return nil }
+        return values[min(index, values.count - 1)]
+    }
+
+    /// 세트별 횟수를 저장하고 표시 문구(예: "12·10·8회")와 세트 수를 맞춘다. nil이면 공통 목표로 돌아간다.
+    mutating func applySetReps(_ values: [Int]?) {
+        guard var values, !values.isEmpty else {
+            if let first = setReps?.first { detail = "\(first)회" }
+            setReps = nil
+            return
+        }
+        values = values.prefix(20).map { min(max($0, 1), 9999) }
+        setReps = values
+        sets = values.count
+        detail = values.map(String.init).joined(separator: "·") + "회"
+    }
+
+    /// 세트 수가 바뀌면 상세 횟수 칸도 늘리거나(마지막 값 복사) 줄인다.
+    mutating func resizeSetReps(to count: Int) {
+        guard var values = setReps, !values.isEmpty else { sets = count; return }
+        let count = min(max(count, 1), 20)
+        if values.count > count { values = Array(values.prefix(count)) }
+        while values.count < count { values.append(values.last ?? 10) }
+        applySetReps(values)
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, sets, detail, restSeconds, setReps }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -50,6 +89,18 @@ struct Exercise: Codable, Identifiable, Hashable {
         sets = try c.decode(Int.self, forKey: .sets)
         detail = try c.decode(String.self, forKey: .detail)
         restSeconds = try c.decodeIfPresent(Int.self, forKey: .restSeconds) ?? 0
+        let decoded = try c.decodeIfPresent([Int].self, forKey: .setReps)
+        setReps = decoded?.isEmpty == false ? decoded : nil
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(sets, forKey: .sets)
+        try c.encode(detail, forKey: .detail)
+        try c.encode(restSeconds, forKey: .restSeconds)
+        try c.encodeIfPresent(setReps, forKey: .setReps)
     }
 }
 
@@ -324,7 +375,7 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
             let values = (0..<doneSets(original)).compactMap { repetitions(original, set: $0) }
             guard let best = values.max() else { continue }
             var exercise = original
-            exercise.sets = 1; exercise.detail = ""; exercise.restSeconds = 0
+            exercise.sets = 1; exercise.detail = ""; exercise.restSeconds = 0; exercise.setReps = nil
             result.plan.exercises.append(exercise)
             let key = exercise.id.uuidString
             result.completedSets[key] = 1
@@ -346,6 +397,13 @@ struct WorkoutSession: Codable, Identifiable, Hashable {
         guard index >= 0, index < doneSets(exercise),
               let values = actualReps[exercise.id.uuidString], index < values.count else { return nil }
         return values[index]
+    }
+
+    /// 다음 세트에 미리 채울 횟수: 세트별 상세 계획이 있으면 그 값, 없으면 직전 세트의 실제 횟수, 첫 세트는 계획 횟수.
+    func suggestedReps(_ exercise: Exercise, set index: Int) -> Int? {
+        if let planned = exercise.detailedReps(forSet: index) { return planned }
+        if index > 0, let previous = repetitions(exercise, set: index - 1) { return previous }
+        return exercise.plannedReps
     }
 }
 
@@ -629,7 +687,11 @@ extension AppData {
             values = Array(values.prefix(count))
             while values.count < current && values.count < count { values.append(nil) }
             while values.count < count {
-                values.append((actualReps ?? exercise.plannedReps).map { min(max($0, 0), 9999) })
+                // 세트별 상세 계획 → 직전 세트 실제 횟수 → 계획 횟수 순으로 이어 간다.
+                let index = values.count
+                let previous = index > 0 ? values[index - 1] : nil
+                let suggested = exercise.detailedReps(forSet: index) ?? previous ?? exercise.plannedReps
+                values.append((actualReps ?? suggested).map { min(max($0, 0), 9999) })
             }
             activeWorkout?.actualReps[exerciseID.uuidString] = values
             var credited = Array((activeWorkout?.recordReps[exerciseID.uuidString] ?? []).prefix(count))

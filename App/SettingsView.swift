@@ -62,6 +62,7 @@ struct SettingsView: View {
                 Section {
                     Stepper("세트 사이 휴식: \(RestDuration.text(seconds: model.data.defaultRest))", value: $model.data.defaultRest,
                             in: Self.restRange, step: 5)
+                        .coachmarkTarget("settings.rest")
                     Stepper("−/+ 버튼 간격: \(RestDuration.text(seconds: model.data.restStep))", value: $model.data.restStep,
                             in: Self.stepRange, step: 5)
                     Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
