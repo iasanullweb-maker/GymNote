@@ -2,6 +2,11 @@
 
 마지막 업데이트: 2026-10-21
 
+## 0.1.137 튜토리얼 정식 배포 완료 (2026-10-21)
+
+- 사용자 전체 검사·화면 확인 후 배포 승인으로 `950417f`를 원격 main에 push했다. [Build #137 / 39566093366](https://github.com/iasanullweb-maker/GymNote/actions/runs/39566093366)의 전체 검사·앱/위젯 Release·게이트·게시 성공. XCTest 181개(177 통과·기존 캡처 4개 건너뜀·실패 0). 검증 `4be7d8c`와 배포의 제품·검사·CI 트리 동일, 실제 RootView 18개 PNG 직접 확인.
+- build-137/latest SHA·앱/위젯 0.1.137(137)·IPA 해시와 AltStore 버전·빌드·URL·크기 모두 대조 완료. [배포 근거](docs/ux-simulation/results/release-137-20261021.md). 사용자 설치·실기기/VoiceOver는 대기. 병행 위젯 수정은 로컬에 보존하고 이번 배포에서 제외했다. 배포 기록은 로컬 통합만 하며 추가 main push 없음.
+
 ## 튜토리얼 전체 검증·시뮬레이터 화면 확인 (2026-10-21)
 
 - 사용자 전체 검사·화면 확인 후 배포 승인. 제품/검사 소스 `4be7d8c`의 [Build IPA 39564868505](https://github.com/iasanullweb-maker/GymNote/actions/runs/39564868505) 전체 검사·앱/위젯 Release·게이트 성공. XCTest 181개(기존 4개 건너뜀·실패 0), 실제 RootView 18개 캡처 직접 확인. 초기 컴파일 오류와 캡처에서 발견한 카드 잘림·TabView/toolbar 대상 강조 누락을 수정한 뒤 재검증했다.
