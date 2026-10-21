@@ -377,27 +377,43 @@ struct ExerciseDraftForm: View {
     @State private var saveFailed = false
 
     private var registered: Bool { model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) }
+    private var isCindy: Bool { AppData.exerciseKey(exercise.name) == AppData.exerciseKey("신디") }
 
     var body: some View {
         Form {
             if saveFailed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
             if !registered { Text("현재 등록되지 않은 운동이에요. 운동 종목에서 다시 선택해 주세요.").foregroundStyle(.secondary) }
-            LabeledContent("운동 종목", value: exercise.name)
-            Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
-            if let reps = exercise.plannedReps {
-                Stepper("목표 횟수: \(reps)회", value: Binding(
-                    get: { exercise.plannedReps ?? reps },
-                    set: { exercise.detail = "\($0)회" }
-                ), in: 1...9999)
+            if isCindy {
+                Section {
+                    Stepper(value: $exercise.sets, in: 1...20) {
+                        LabeledContent("목표 세트 수") {
+                            Text("\(exercise.sets)세트").monospacedDigit()
+                        }
+                    }
+                }
+                Section("1세트 구성") {
+                    LabeledContent("풀업", value: "5회")
+                    LabeledContent("푸쉬업", value: "10회")
+                    LabeledContent("에어 스쿼트", value: "15회")
+                }
             } else {
-                TextField("시간·수행 조건", text: $exercise.detail)
-            }
-            if exercise.hasPercentageTarget {
-                Text("비율 대신 횟수를 입력해 주세요. 예: 10회")
-                    .font(.footnote).foregroundStyle(.secondary)
+                LabeledContent("운동 종목", value: exercise.name)
+                Stepper("세트: \(exercise.sets)", value: $exercise.sets, in: 1...20)
+                if let reps = exercise.plannedReps {
+                    Stepper("목표 횟수: \(reps)회", value: Binding(
+                        get: { exercise.plannedReps ?? reps },
+                        set: { exercise.detail = "\($0)회" }
+                    ), in: 1...9999)
+                } else {
+                    TextField("시간·수행 조건", text: $exercise.detail)
+                }
+                if exercise.hasPercentageTarget {
+                    Text("비율 대신 횟수를 입력해 주세요. 예: 10회")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
             }
         }
-        .navigationTitle(title)
+        .navigationTitle(isCindy ? "신디 설정" : title)
         .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("취소", action: onCancel) }
