@@ -26,7 +26,7 @@ final class UXSimulationCaptureTests: XCTestCase {
     }
 
     private func capture(_ screen: Screen, width: Int = 834, height: Int = 1194,
-                         accessibility: Bool = false) async throws {
+                         accessibility: Bool = false, dark: Bool = false) async throws {
         if let reason = screen.blockedReason { throw XCTSkip(reason) }
         if screen == .workoutReady, !UXSimulationFixtures.calendar.isDate(Date(), inSameDayAs: UXSimulationFixtures.anchor) {
             throw XCTSkip("TodayView uses AppModel.todayPlan/workoutDate Date() when idle. Run this entry point on the anchor day; no fixed-clock injection exists.")
@@ -48,12 +48,13 @@ final class UXSimulationCaptureTests: XCTestCase {
                 .environment(\.timeZone, UXSimulationFixtures.timezone)
                 .environment(\.gymnoteCompactLayout, width < 600)
                 .environment(\.dynamicTypeSize, accessibility ? .accessibility3 : .large)
-                .defaultAppStorage(defaults).preferredColorScheme(.light).tint(.orange)
+                .defaultAppStorage(defaults).preferredColorScheme(dark ? .dark : .light).tint(.orange)
                 .frame(width: CGFloat(width), height: CGFloat(height))
             let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
             let previousKeyWindow = scene.windows.first { $0.isKeyWindow }
             let window = UIWindow(windowScene: scene)
             window.frame = CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height))
+            window.overrideUserInterfaceStyle = dark ? .dark : .light
             window.rootViewController = UIHostingController(rootView: root)
             defer {
                 window.isHidden = true
@@ -79,7 +80,8 @@ final class UXSimulationCaptureTests: XCTestCase {
                 XCTFail("Empty/solid render; no PNG attachment emitted"); return
             }
             let png = try XCTUnwrap(image.pngData())
-            let name = "\(screen.rawValue)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")"
+            // Dark captures add a "--dark" suffix for design review; UX collect.mjs maps receipts explicitly and ignores them.
+            let name = "\(screen.rawValue)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")" + (dark ? "--dark" : "")
             let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
             attachment.name = name + ".png"
             attachment.lifetime = .keepAlways
@@ -87,7 +89,8 @@ final class UXSimulationCaptureTests: XCTestCase {
             let metadata: [String: String] = ["captureId": screen.rawValue, "fixtureId": "demo-v1",
                 "anchorTime": UXSimulationFixtures.anchorISO8601,
                 "renderedAt": ISO8601DateFormatter().string(from: Date()),
-                "clock": "system-clock-not-frozen", "scope": "direct-product-view-without-root-tab-chrome"]
+                "clock": "system-clock-not-frozen", "scope": "direct-product-view-without-root-tab-chrome",
+                "appearance": dark ? "dark" : "light"]
             let receipt = XCTAttachment(data: try JSONSerialization.data(withJSONObject: metadata, options: [.sortedKeys]),
                                         uniformTypeIdentifier: "public.json")
             receipt.name = name + ".metadata.json"
@@ -105,9 +108,12 @@ final class UXSimulationCaptureTests: XCTestCase {
         case .planMonth: RoutineView(selectedDate: .constant(UXSimulationFixtures.anchor))
         case .planDateDetail: NavigationStack { ScheduledDayEditor(date: UXSimulationFixtures.anchor) }
         case .recordsOverview: RecordsView()
+        case .journalCalendar:
+            // Select the fixture's journal day so the calendar month and the day's entry list are both populated.
+            NavigationStack { WorkoutJournalView(initialDate: model.data.workouts.first?.startedAt ?? UXSimulationFixtures.anchor) }
         case .journalEntry:
             ManualWorkoutView(date: UXSimulationFixtures.makeDraft().date, userID: UXSimulationFixtures.id(90), onSave: { _ in })
-        case .workoutRest, .journalCalendar, .friendsHome, .friendsRanking:
+        case .workoutRest, .friendsHome, .friendsRanking:
             // capture() skips BEFORE entering this branch; no placeholder screenshot.
             EmptyView()
         }
@@ -130,6 +136,19 @@ final class UXSimulationCaptureTests: XCTestCase {
     func testWorkoutSplitView() async throws {
         try await capture(.workoutActive, width: 417, height: 1194)
     }
+
+    // iPhone (393×852pt, compact layout) design-review captures. Same fixtures and isolation as the iPad set.
+    func testWorkoutActiveIPhone() async throws { try await capture(.workoutActive, width: 393, height: 852) }
+    func testPlanMonthIPhone() async throws { try await capture(.planMonth, width: 393, height: 852) }
+    func testPlanDateDetailIPhone() async throws { try await capture(.planDateDetail, width: 393, height: 852) }
+    func testRecordsOverviewIPhone() async throws { try await capture(.recordsOverview, width: 393, height: 852) }
+    func testJournalCalendarIPhone() async throws { try await capture(.journalCalendar, width: 393, height: 852) }
+    func testJournalEntryIPhone() async throws { try await capture(.journalEntry, width: 393, height: 852) }
+
+    // Dark-mode design-review captures (DESIGN.md: system colors must hold in both appearances).
+    func testWorkoutActiveDark() async throws { try await capture(.workoutActive, dark: true) }
+    func testRecordsOverviewDark() async throws { try await capture(.recordsOverview, dark: true) }
+    func testWorkoutActiveIPhoneDark() async throws { try await capture(.workoutActive, width: 393, height: 852, dark: true) }
 
     func testFixtureIsStableAndCopiesAreIndependent() async throws {
         try await isolated { _ in

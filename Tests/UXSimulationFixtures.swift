@@ -28,8 +28,6 @@ enum UXSimulationFixtures {
             switch self {
             case .workoutRest:
                 return "WorkoutStatusBanner reads TimelineView context.date and Text(timer). No clock injection exists; fixed rest dates cannot reliably render a resting state."
-            case .journalCalendar:
-                return "WorkoutJournalView privately initializes selectedDate with Date(). No fixed-date initializer exists; do not substitute a calendar component for the full journal screen."
             case .friendsHome, .friendsRanking:
                 return "FriendsView / FriendRankingView require private authenticated SocialModel overview and ranking state. No offline fixture injection exists; a guest gate is not a populated management/ranking capture."
             default: return nil

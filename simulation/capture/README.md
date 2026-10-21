@@ -12,7 +12,7 @@ This directory defines captures, not completed screenshots. The checked-in manif
 | plan-month | RoutineView(selectedDate: anchor) | Fixed selected date/month; Calendar.current.isDateInToday highlight still follows actual day. |
 | plan-date-detail | NavigationStack + ScheduledDayEditor(date: anchor) | Fixed selected date and exercises. |
 | records-overview | RecordsView + offline unconfigured account | Actual common-record cards using bundle defaults, no server refresh. |
-| journal-calendar | WorkoutJournalView | Skipped: private selectedDate=Date() prevents the fixed initial month/day. A standalone calendar is not substituted. |
+| journal-calendar | NavigationStack + WorkoutJournalView(initialDate: fixture journal day 2026-10-08) | Fixed selected month/day via the `initialDate` initializer (default stays `Date()` in the product). Calendar.current.isDateInToday highlight still follows actual day. |
 | journal-entry | ManualWorkoutView + isolated UserDefaults suite | Seeded synthetic draft for 2026-10-08. DatePicker maximum/validation still use real Date(). |
 | friends-home | FriendsView in separate friend tab | Skipped: authenticated profile/friend/group state has no safe offline injection. Guest gate is not substituted for populated management. |
 | friends-ranking | FriendRankingView in records | Skipped: same private authenticated state/entries limitation. It is a separate entry point from FriendsView. |

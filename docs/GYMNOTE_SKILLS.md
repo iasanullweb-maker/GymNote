@@ -1,6 +1,6 @@
 # GymNote 작업 스킬
 
-프로젝트 원본은 `.agents/skills/`의 일곱 폴더다. 상시 규칙은 AGENTS.md, 상황별 절차는 스킬, 실행은 기존 검사·통합 도구가 담당한다. 배정표·워크플로·검사 명령은 실행 시 현재 저장소에서 확인하며 과거 경로·커밋을 스킬에 고정하지 않는다. HANDOFF 상단에 앞으로 적용할 스킬을 명시했다.
+프로젝트 원본은 `.agents/skills/`의 일곱 gymnote-* 폴더다(외부 디자인 스킬은 아래 [외부 디자인 스킬](#외부-디자인-스킬) 참고). 상시 규칙은 AGENTS.md, 상황별 절차는 스킬, 실행은 기존 검사·통합 도구가 담당한다. 배정표·워크플로·검사 명령은 실행 시 현재 저장소에서 확인하며 과거 경로·커밋을 스킬에 고정하지 않는다. HANDOFF 상단에 앞으로 적용할 스킬을 명시했다.
 
 | 스킬 | 사용 예 |
 |---|---|
@@ -33,3 +33,26 @@ Claude Code와 공유하려면 스킬 폴더 전체를 해당 프로젝트 `.cla
 skill-creator의 quick_validate.py로 각 SKILL.md의 이름·frontmatter를 검사하고 UI YAML, 내부 참조와 저장소 경로를 확인한다. 작은 문서·스킬 변경이므로 앱 코드 변경, 전체 iOS 빌드·XCTest, 원격 실행·배포를 요구하지 않는다. 구조 검사는 실제 사용 시 판단 품질을 보장하지 않으므로 첫 작업 결과를 보고 필요한 부분만 개선한다.
 
 2026-10-09 작성 검사: 처음 세 스킬에 이어 배포·오류 조사·데이터 변경·인수인계 네 스킬을 추가했다. 일곱 스킬의 공식 구조 검사, UI YAML·호출 이름·자동 선택 설정, 내부 링크·검사 경로, HANDOFF 적용 표 확인을 통과했다. 개인 Codex 설치/갱신 후 원본과 파일별 SHA-256 일치를 확인했다. 앱 코드·전체 iOS 빌드·XCTest·원격 push·배포·운영 DB·Claude 설치/호출은 수행하지 않았다. 최종 커밋·로컬 통합 결과는 작업 완료 응답에 기록한다.
+
+## 외부 디자인 스킬
+
+2026-10-21 추가. 화면 디자인 판단을 돕는 외부 스킬이며 gymnote-* 일곱 스킬의 검증 범위와 별개다. 같은 내용을 Claude Code용 `.claude/skills/`와 Codex용 `.agents/skills/`에 둔다. 디자인 기준 문서는 저장소 루트의 `PRODUCT.md`(제품·사용자)와 `DESIGN.md`(색·글자·모양·컴포넌트 규칙), `.impeccable/design.json`(보조 메타데이터)이다.
+
+| 스킬 | 출처 | 언제 쓰나 | 호출 예 |
+|---|---|---|---|
+| impeccable | [pbakaus/impeccable](https://github.com/pbakaus/impeccable) `dad8dbb`, Apache-2.0 | 새 화면 설계(shape), 디자인 리뷰(critique), 접근성·기술 점검(audit, 네이티브용 audit.native), 아이폰/아이패드 적응(adapt), 출시 전 마무리(polish) | `/impeccable critique 실행 탭`, `$impeccable shape 친구 탭` |
+| emil-design-eng | [emilkowalski/skills](https://github.com/emilkowalski/skills) `2d22863`, MIT | UI 다듬기·애니메이션 결정의 기본 철학 | `/emil-design-eng` |
+| apple-design | 같은 저장소 | 스프링·제스처·시트·머티리얼 같은 애플식 동작 원칙(웹 예시는 SwiftUI로 옮겨 적용) | `/apple-design` |
+| review-animations | 같은 저장소 | 애니메이션 변경 리뷰(직접 호출 전용) | `/review-animations` |
+| find-animation-opportunities | 같은 저장소 | 애니메이션을 넣을 곳/넣지 말 곳 찾기(읽기 전용) | `/find-animation-opportunities` |
+| improve-animations | 같은 저장소 | 전체 모션 점검과 개선 계획(읽기 전용) | `/improve-animations` |
+| break-ui | 같은 저장소 | 긴 이름·0개·큰 숫자 같은 최악의 데이터로 화면 깨짐 찾기 | `/break-ui 기록 탭` |
+| write-swift | 같은 저장소 | 최신 Swift 작성·동시성 오류·성능 문제 | `/write-swift` |
+
+사용 원칙:
+
+- 앱은 SwiftUI 네이티브다. 스킬의 CSS·웹 예시는 원칙만 가져와 SwiftUI로 옮기고, `DESIGN.md`의 규칙(시스템 색, Dynamic Type, 큰 버튼)이 우선한다.
+- impeccable은 처음 실행할 때 `.claude/skills/impeccable/scripts/impeccable context`(Windows는 `impeccable.cmd`)가 실행 파일을 사용자 홈 `~/.impeccable/`에 한 번 내려받는다. 저장소에는 실행 파일을 넣지 않는다. 내려받기가 막히면 PRODUCT.md·DESIGN.md를 직접 읽고 진행한다.
+- impeccable의 live·generate 명령과 `detect`는 웹 페이지용이라 이 앱에는 쓰지 않는다.
+- 화면 확인은 브라우저가 아니라 CI의 시뮬레이터 캡처(`Tests/UXSimulationCaptureTests.swift`, Build IPA/Validate run의 `iPad-test-results` 아티팩트 `build/test-attachments`)로 한다. iPad 834×1194, iPhone 393×852, 다크 모드 변형이 있다.
+- 스킬 갱신 시 출처 저장소의 해당 폴더 전체를 두 위치에 다시 복사하고, 출처 커밋을 이 표에 갱신한다.

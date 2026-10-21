@@ -7,6 +7,11 @@ struct WorkoutJournalView: View {
     @State private var detailDay: JournalDay?
     @State private var addingWorkout = false
 
+    /// initialDate는 처음 선택할 날짜다. 기본은 오늘이고, 화면 캡처 테스트가 고정 날짜를 넣는다.
+    init(initialDate: Date = Date()) {
+        _selectedDate = State(initialValue: initialDate)
+    }
+
     private struct JournalDay: Identifiable {
         let date: Date
         var id: String { DayKey.key(date) }

@@ -60,7 +60,7 @@
       "width": 834,
       "height": 1194,
       "textScale": "standard",
-      "error": "iOS render not run on Windows. WorkoutJournalView initial selectedDate is private Date()."
+      "error": "iOS render not run on Windows."
     },
     {
       "id": "journal-entry",
