@@ -2,6 +2,12 @@
 
 마지막 업데이트: 2026-10-21
 
+## 디자인 스킬·PRODUCT.md·DESIGN.md·iPhone/다크 캡처 (2026-10-21, 미배포)
+
+- 화면 작업 전에 루트 `PRODUCT.md`(제품·사용자)와 `DESIGN.md`(색·글자·모양·컴포넌트 규칙, 콘셉트 "기록을 깨는 코치")를 읽는다(AGENTS.md `## 디자인`). 디자인 스킬은 `.claude/skills/`·`.agents/skills/`의 impeccable과 Emil Kowalski 7종이며 사용법은 [docs/GYMNOTE_SKILLS.md](docs/GYMNOTE_SKILLS.md#외부-디자인-스킬).
+- 캡처 테스트에 iPhone 393×852 6개·다크 3개 추가, journal-calendar는 `WorkoutJournalView(initialDate:)`로 건너뜀 해소. 결과 이미지는 Build IPA run의 `iPad-test-results` 아티팩트 `test-attachments/`(manifest.json의 `suggestedHumanReadableName`으로 화면 식별).
+- 검증: 소스 `f2c8d36`의 [Build IPA 39537037520](https://github.com/iasanullweb-maker/GymNote/actions/runs/39537037520) 전체 검사·Release·release-gate 성공(publish 건너뜀). 이후 main(`29979d2`) 병합은 제품·테스트·빌드 입력 변경 없음을 확인. main push·배포 없음. [상세 결과](docs/ux-simulation/results/design-skills-20261021.md).
+
 ## 누를 수 없는 버튼 회색 표시 (2026-10-21, 0.1.119 배포)
 
 - 요청: 휴식일 ‘운동 시작’이 눌러도 반응이 없어 버그처럼 보이므로 회색 비활성으로, 같은 유형의 주황 버튼도 함께 수정.
