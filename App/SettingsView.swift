@@ -83,8 +83,10 @@ struct SettingsView: View {
                     Text("‘버튼이 바로 변신’은 누른 운동 시작 버튼이 아래 운동 중 바로 날아가 바뀌어요. ‘아래에서 올라오기’는 바가 화면 아래에서 올라와요. 이 기기에만 적용되고, 동작 줄이기를 켜면 둘 다 부드럽게 나타나기만 해요.")
                 }
 
-                Section("사용 안내") {
+                Section {
                     Button("튜토리얼 다시 보기") { completedCoachmarks = "" }
+                } header: {
+                    Text("사용 안내")
                 } footer: {
                     Text("각 탭의 짧은 안내를 이 기기에서 다시 표시해요.")
                 }
