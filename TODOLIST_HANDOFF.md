@@ -2,10 +2,27 @@
 
 마지막 업데이트: 2026-10-21
 
-## 누를 수 없는 버튼 회색 표시 (미배포, 2026-10-21)
+## 유료 Apple Developer 계정 생기면 할 일 (2026-10-21 준비, 계정 대기)
+
+사용자가 계정이 생기면 할 일을 정리해 두라고 요청했다. 가입·결제·전환 지시는 아니며, 계정이 확인되기 전에는 아래 항목을 실행하지 않는다. 순서·명령·막혔을 때는 [Apple Developer 전환 준비](docs/APPLE_DEVELOPER_SETUP.md)를 따른다.
+
+- [x] **미리 준비 — 2026-10-21 기술 완료(로컬).** 준비 문서, Windows 서명 도구 `scripts/apple_signing_setup.ps1`(CSR·.p12·시크릿 파일), 수동 실행 전용 `.github/workflows/testflight.yml`(시크릿 사전 점검 → check.yml 전체 → 서명 archive → 프로파일·App Group 검사 → TestFlight 업로드). 기존 Build IPA·AltStore 게시·제품 코드는 바꾸지 않았다. main push 전이라 Actions에 아직 보이지 않는다.
+- [ ] **기술 검증 대기: 실제 첫 실행.** testflight.yml은 actionlint·bash 문법·임시 spec/ExportOptions 생성만 확인했다. XcodeGen include 병합·키체인 서명·export·업로드는 계정·시크릿이 생긴 뒤 첫 수동 실행으로 확인한다. 서명 도구는 pwsh 7.4(Linux)에서 Csr·P12·Secrets 흐름을 가짜 인증서로 시험했고 Windows PowerShell 5.1 실제 실행은 미확인이다.
+- [ ] **1. 가입·활성화(사용자).** 가입 명의 확인(법적 성인 명의, 아니면 보호자 명의 + 팀 초대) → 멤버십 Active → Team ID를 GitHub Variables `APPLE_TEAM_ID`로 저장. 가입 Apple ID를 HANDOFF 계정별 용도 표에 기록.
+- [ ] **2. 번들 ID·App Group 등록(사용자).** `group.com.gymnote.app`, `com.gymnote.app`, `com.gymnote.app.widget`(둘 다 App Groups 켬). 이미 사용 중이라 등록되지 않으면 멈추고 번들 ID 변경 코드 작업을 새로 만든다(변경 지점은 준비 문서 2번).
+- [ ] **3. 배포 인증서(노트북).** `-Mode Csr` → Apple Distribution 인증서 발급 → `-Mode P12`. 기대 결과: `.validation-tools/apple-signing/`에 .p12 생성, 개인키 백업.
+- [ ] **4. App Store 프로파일 2개(사용자).** 앱·위젯 각각 App Store Connect용, 정해진 파일 이름으로 저장.
+- [ ] **5. App Store Connect 앱 레코드·API 키(사용자).** 번들 ID `com.gymnote.app` 새 앱 → 팀 API 키(App Manager) 발급, `.p8` 저장.
+- [ ] **6. GitHub 시크릿 등록(노트북).** `-Mode Secrets`(필요 시 `-Upload`) → 시크릿 7개 + `APPLE_TEAM_ID` Variable.
+- [ ] **7. main 반영 후 TestFlight 첫 실행(배포 승인 필요).** testflight.yml이 main에 있어야 수동 실행된다. main push는 AltStore 공개 배포를 시작하므로 사용자 승인 범위에서 진행. 기대 결과: preflight·checks·서명·업로드 성공, App Store Connect TestFlight에 `0.2.N` 표시.
+- [ ] **8. TestFlight 설치 확인(사용자, iPad·iPhone).** 내부 테스터 추가 → 설치 → 로그인 후 기록 동기화·위젯 데이터 공유·잠금화면 휴식 타이머(Live Activity) 확인. AltStore 판은 삭제하지 않고 별도 앱으로 유지한다(기기 저장소가 달라 기록은 계정 동기화로 넘어옴).
+- [ ] **후속 결정(사용자):** Sign in with Apple 켜기(앱 ID capability·Supabase Apple provider·엔타이틀먼트 코드 작업), AltStore 게시·서명 만료 경고 유지 여부, App Store 정식 출시.
+
+## 누를 수 없는 버튼 회색 표시 (0.1.119 배포, 2026-10-21)
 
 - [x] **전체 iOS 빌드·XCTest — 2026-10-21 기술 완료.** 소스 `92ee3a1`의 [Build IPA 39534442670](https://github.com/iasanullweb-maker/GymNote/actions/runs/39534442670)(작업 브랜치 수동 실행)에서 iOS·DB·계정 삭제·도구 검사, Release 빌드, release-gate 성공. 게시는 건너뜀(미배포). 상세는 [결과](docs/ux-simulation/results/disabled-button-state-20261021.md).
-- [ ] **미배포: 다음 배포 후 사용자 확인.** 휴식일 실행 탭의 ‘운동 시작’이 회색이고 아래 안내가 보이는지, 자정을 넘겨 앱을 켜 둔 채 휴식일이 된 경우 눌러도 화면이 휴식일로 바뀌는지, 지난 운동 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’가 가져올 운동이 없을 때 회색인지 확인한다.
+- [x] **승인된 정식 배포 — 2026-10-21 완료.** 사용자 승인 후 main `ff7e509` push·workflow_dispatch로 [Build #119 / 39536893764](https://github.com/iasanullweb-maker/GymNote/actions/runs/39536893764) 전체 검사·Release·release-gate·publish 성공. [build-119](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-119) 대상 SHA 일치, AltStore 소스 `0.1.119 (119)`.
+- [ ] **0.1.119 설치 후 사용자 확인.** 휴식일 실행 탭의 ‘운동 시작’이 회색이고 아래 안내가 보이는지, 자정을 넘겨 앱을 켜 둔 채 휴식일이 된 경우 눌러도 화면이 휴식일로 바뀌는지, 지난 운동 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’가 가져올 운동이 없을 때 회색인지 확인한다.
 
 ## AltStore 갱신 실패 재발 방지 (2026-10-21)
 
@@ -179,7 +196,7 @@
 - [ ] **앱 내 대화형 에이전트·맞춤형 알림:** 기존 사용자 아이디어이며 미구현이다. 범위·환경을 정한 뒤 착수한다.
 - [ ] **가상 사용자·기획자 평가 시스템 확장:** 아래 휴리봇 적용 개선 과제 순서로 진행한다. 기존 파일럿의 상세 화면·USB 확인 대기는 위 검증 환경 항목에서 계속 관리한다. 상세: [UX 작업 이력](HANDOFF.md).
 - **보류:** Mac/Xcode 개발 환경 준비. 사용자 재개 요청 전 현재 실행 과제로 올리지 않는다.
-- **장기 검토:** TestFlight/App Store 전환. 유료 가입·결제·배포 방식 변경은 별도 결정이 필요하다.
+- **장기 검토:** TestFlight/App Store 전환. 유료 가입·결제·배포 방식 변경은 별도 결정이 필요하다. 2026-10-21: 계정이 생겼을 때의 순서와 도구를 맨 위 ‘유료 Apple Developer 계정 생기면 할 일’에 준비했다.
 
 ### 휴리봇 사례를 반영한 가상 사용자 개선 (2026-10-11)
 

@@ -2,6 +2,22 @@
 
 마지막 업데이트: 2026-10-21
 
+## 누를 수 없는 버튼 회색 표시 (2026-10-21, 0.1.119 배포)
+
+- 요청: 휴식일 ‘운동 시작’이 눌러도 반응이 없어 버그처럼 보이므로 회색 비활성으로, 같은 유형의 주황 버튼도 함께 수정.
+- 변경: `AppModel.startWorkout`이 날짜를 갱신해 화면과 같은 날짜로 판정(휴식일이면 시작하지 않고 화면이 휴식일로 갱신), 실행 탭 휴식일 안내 문구·VoiceOver 힌트, 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’를 가져올 운동이 없으면 비활성. 회귀 테스트 1개. 상세 [결과](docs/ux-simulation/results/disabled-button-state-20261021.md).
+- 검증: 작업 브랜치 `92ee3a1` [Build IPA 39534442670](https://github.com/iasanullweb-maker/GymNote/actions/runs/39534442670) 성공(게시 건너뜀).
+- 배포: 사용자 승인 후 main `ff7e509`(AltStore 진단 3840 규칙 포함) push, 맨 위가 `[skip ci]`라 workflow_dispatch로 [Build #119 / 39536893764](https://github.com/iasanullweb-maker/GymNote/actions/runs/39536893764) 실행 — iOS·DB·계정 삭제·도구 검사, Release, release-gate, publish 모두 성공. build-119 릴리스 target `ff7e509`, IPA 2,223,419바이트, altstore 브랜치 `67b63ee` source.json `0.1.119`/`119`/build-119 URL 확인. 이후 다른 대화의 로컬 main 커밋(Apple Developer 준비 등)은 push하지 않았다.
+
+## 유료 Apple Developer 계정 전환 준비 (2026-10-21, 계정 대기·미배포)
+
+- 요청: 사용자가 Apple Developer 계정이 생기면 할 일을 핸드오프에 추가하고 지금 할 수 있는 준비를 해 두라고 했다. 가입·결제·TestFlight 전환 지시는 아니다. 현재 할 일은 TODOLIST의 같은 제목 항목에서 관리한다.
+- 추가: [준비 문서](docs/APPLE_DEVELOPER_SETUP.md)(가입 → 번들 ID·App Group → 인증서 → 프로파일 → App Store Connect·API 키 → 시크릿 → TestFlight, 막혔을 때 표), `scripts/apple_signing_setup.ps1`(PowerShell 5.1 호환 목표, UTF-8 BOM·CRLF, Git for Windows openssl 사용, 비밀 파일은 `.validation-tools/apple-signing/`에만 저장, 기존 개인키 덮어쓰기 거부, .p12는 macOS `security import` 호환 3DES/SHA1), `.github/workflows/testflight.yml`(workflow_dispatch 전용, 시크릿 사전 점검 → check.yml 전체 → project.yml을 include한 임시 spec으로 수동 서명 → archive/export → 번들 ID·버전·App Group·서명 검사 → altool 업로드, 키체인·키 정리). 버전은 `0.2.<실행 번호>`로 AltStore `0.1.N`과 구분.
+- 바꾸지 않은 것: project.yml·앱/위젯 코드·build.yml·check.yml·AltStore 게시. 따라서 제품·검사·빌드 입력은 동일하며 앱 검사 대기를 새로 만들지 않는다.
+- 판단 근거: 번들 ID는 전 세계 고유라 `com.gymnote.app`이 등록되지 않을 수 있다(미확인). 이 경우 번들 ID·App Group·로그인 복귀 주소·AltStore 소스를 함께 바꾸는 코드 작업이 필요하다. AltStore 판은 팀 ID가 붙은 번들·App Group을 쓰므로 TestFlight 판과 별도 앱으로 공존하고 기기 내 기록은 공유되지 않는다.
+- 검증: actionlint 1.7.7(새 워크플로·기존 두 워크플로 모두 통과, 첫 실행에서 job env의 `runner` 컨텍스트 오류를 발견해 수정), 각 run 블록 `bash -n`, 임시 XcodeGen spec·ExportOptions.plist 생성 결과 파싱. pwsh 7.4.6(Linux)에서 서명 도구 파싱 오류 0, Csr·기존 키 거부·P12(자체 서명 DER 인증서, 비밀번호 입력만 대체)·Secrets(base64 왕복 일치) 시험. 미실행: Windows PowerShell 5.1 실행, macOS 키체인 가져오기, XcodeGen include 병합·실제 서명·업로드(계정·시크릿 필요).
+- 작업: `claude/apple-developer-prep` 워크트리에서 main 기준으로 작업해 main에 로컬 fast-forward 통합. 원격 push·배포 없음.
+
 ## AltStore 갱신 실패 재발 방지 장치 (2026-10-21, 0.1.117 배포)
 
 - 배포: 사용자 승인 후 `b898fee` main push(fast-forward, `[skip ci]` 문서 커밋이 맨 위라 Build IPA를 workflow_dispatch로 실행) → [Build #117 / 39533101119](https://github.com/iasanullweb-maker/GymNote/actions/runs/39533101119) 전체 검사·Release·release-gate·publish 성공. build-117/latest = `b898fee`, IPA 앱/위젯 `0.1.117 (117)`·2,224,580바이트·SHA-256 `ecaeca44…c485b`, source.json 일치. 116은 검증 브랜치 run 번호로 쓰였다. 설치·화면 확인은 사용자 대기.
