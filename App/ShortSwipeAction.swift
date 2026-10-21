@@ -3,8 +3,8 @@ import SwiftUI
 /// 화면/행 너비와 관계없이 일정 거리만 밀면 실행한다.
 /// (사용자 요청 2026-10-09: 가로 iPad에서도 짧게 밀어 삭제. 시스템 swipeActions는 전체 밀기 거리를 바꿀 수 없어 직접 구현한다.)
 ///
-/// 모양: 행 전체(목록 기본 여백 포함)가 왼쪽으로 밀리고, 오른쪽 빈자리에 둥근 빨간 버튼이 나타난다.
-/// 행 여백을 이 modifier가 직접 그려서, 밀린 내용·버튼이 행 높이 전체를 덮고 목록 여백에 잘리지 않는다.
+/// 모양: 행 내용은 제자리에 두고(어느 운동을 지우는지 읽히도록), 오른쪽에서 둥근 빨간 버튼이 밀린 거리만큼 자라며 내용 위를 덮는다.
+/// 행 여백을 이 modifier가 직접 그려서 버튼이 행 높이 전체를 쓰고 목록 여백에 잘리지 않는다.
 private struct ShortSwipeAction: ViewModifier {
     @Environment(\.editMode) private var editMode
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -15,7 +15,7 @@ private struct ShortSwipeAction: ViewModifier {
 
     /// 기본 목록 행 여백(iOS inset grouped 기준). 이 modifier가 listRowInsets를 0으로 바꾸고 대신 그린다.
     static let rowInsets = EdgeInsets(top: 11, leading: 20, bottom: 11, trailing: 20)
-    /// 버튼이 열렸을 때 행이 밀리는 거리.
+    /// 버튼이 열렸을 때 버튼 영역 너비.
     static let revealWidth: CGFloat = 88
     static let maxTravel: CGFloat = 160
 
@@ -48,9 +48,19 @@ private struct ShortSwipeAction: ViewModifier {
         .padding(Self.rowInsets)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground))
-        .offset(x: -travel)
-        .background(alignment: .trailing) {
-            if travel > 0 { deleteButton(width: travel) }
+        .overlay(alignment: .trailing) {
+            if travel > 0 {
+                HStack(spacing: 0) {
+                    // 버튼 아래로 들어가는 긴 글자는 잘린 모서리 대신 부드럽게 사라진다.
+                    LinearGradient(colors: [Color(.secondarySystemGroupedBackground).opacity(0), Color(.secondarySystemGroupedBackground)],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 16)
+                        .allowsHitTesting(false)
+                    deleteButton(width: travel)
+                        .background(Color(.secondarySystemGroupedBackground))
+                }
+                .transition(.opacity)
+            }
         }
         .clipped()
         .contentShape(Rectangle())
