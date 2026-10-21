@@ -116,22 +116,17 @@ struct GymWidgetView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
-            Spacer(minLength: 0)
+            // iPad Lock Screen can offer a taller systemSmall container.
+            // Keep the records with the heading instead of stretching the gap.
             ForEach(records) { summary in
-                HStack {
-                    Text(summary.name)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Spacer()
-                    Text(summary.dayText.map { "\(summary.setText)·\($0)" } ?? summary.setText)
-                        .font(.caption.bold())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                }
-                .accessibilityLabel("\(summary.name) 최고기록 \(recordValue(summary))")
+                Text("\(summary.name) · \(recordValue(summary))")
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .accessibilityLabel("\(summary.name) 최고기록 \(recordValue(summary))")
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func list(maxItems: Int) -> some View {
