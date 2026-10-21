@@ -16,6 +16,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @State private var showingAccount = false
+    @AppStorage(WorkoutStartAnimationStyle.storageKey) private var startStyle = WorkoutStartAnimationStyle.defaultStyle
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     /// 기기별 설정. 같은 계정의 다른 기기와 공유하지 않는다.
     @AppStorage(DailyReminderScheduler.devicePreferenceKey) private var remindersOnThisDevice = false
@@ -68,6 +69,16 @@ struct SettingsView: View {
                     Text("휴식 타이머")
                 } footer: {
                     Text("세트 완료를 누르면 모든 운동에 이 휴식이 자동으로 시작돼. '−/+ 버튼 간격'은 운동 탭 휴식 타이머 옆 −/+를 한 번 누를 때 바뀌는 시간이야. 5초 단위, 최소 5초. 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
+                }
+
+                Section {
+                    Picker("운동 시작 애니메이션", selection: $startStyle) {
+                        ForEach(WorkoutStartAnimationStyle.allCases) { Text($0.title).tag($0) }
+                    }
+                } header: {
+                    Text("화면")
+                } footer: {
+                    Text("‘버튼이 바로 변신’은 누른 운동 시작 버튼이 아래 운동 중 바로 날아가 바뀌어요. ‘아래에서 올라오기’는 바가 화면 아래에서 올라와요. 이 기기에만 적용되고, 동작 줄이기를 켜면 둘 다 부드럽게 나타나기만 해요.")
                 }
 
                 dailyReminderSection

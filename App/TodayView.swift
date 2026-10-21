@@ -6,7 +6,29 @@ struct TodayView: View {
     @Environment(\.gymnoteCompactLayout) private var compact
     @Environment(\.dynamicTypeSize) private var textSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.workoutStartMotion) private var startMotion
+    @AppStorage(WorkoutStartAnimationStyle.storageKey) private var startStyle = WorkoutStartAnimationStyle.defaultStyle
+    @State private var startTaps = 0
     private var orderAnimation: Animation? { reduceMotion ? nil : .easeInOut(duration: 0.25) }
+
+    /// 운동 시작: 누른 곳이 먼저 반응하고(눌림·진동·글자 교체), 아래 운동 중 바가 이어서 나타난다.
+    /// B(변신)는 RootView 맨 위 층의 판이 버튼 자리에서 바 자리로 날아가고, A(올라오기)는 바가 아래에서 올라온다.
+    private func startWorkoutWithMotion() {
+        startTaps += 1
+        let start = { model.startWorkout(catalog: account.catalogTypes) }
+        guard !reduceMotion, let startMotion else {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.2) : nil) { start() }
+            return
+        }
+        if startStyle == .morph, startMotion.beginMorph() {
+            withAnimation(WorkoutStartMotion.rise) { start() }
+            if model.data.activeWorkout == nil { startMotion.reset() } // 시작이 거절되면(휴식일 전환 등) 판을 띄우지 않는다.
+        } else {
+            withAnimation(WorkoutStartMotion.rise) { start() } completion: {
+                if model.data.activeWorkout != nil { startMotion.risen() }
+            }
+        }
+    }
 
     var body: some View {
         let plan = model.todayPlan
@@ -42,8 +64,9 @@ struct TodayView: View {
                                     .allowsHitTesting(false)
                             }
                             .accessibilityValue("\(progress.total)세트 중 \(progress.done)세트 완료")
+                            .transition(.opacity)
                     } else {
-                        Button { model.startWorkout(catalog: account.catalogTypes) } label: {
+                        Button { startWorkoutWithMotion() } label: {
                             Label(startTitle, systemImage: "play.fill")
                                 .font(.headline)
                                 .foregroundStyle(canStart ? Color.black : Color.secondary)
@@ -51,9 +74,14 @@ struct TodayView: View {
                                 .background(canStart ? Color.orange : Color.secondary.opacity(0.15),
                                             in: RoundedRectangle(cornerRadius: 12))
                                 .contentShape(RoundedRectangle(cornerRadius: 12))
+                                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                                    startMotion?.startFrame = $0
+                                }
                         }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(PressScaleButtonStyle())
+                        .sensoryFeedback(.impact(weight: .medium), trigger: startTaps)
                         .disabled(!canStart)
+                        .transition(.opacity)
                         .accessibilityHint(plan.isRestDay ? "휴식일이라 운동을 시작할 수 없어요" : "")
                         if plan.isRestDay {
                             Text("휴식일에는 운동을 시작할 수 없어요. 계획 탭에서 이 날짜에 운동을 추가하면 시작할 수 있어요.")
@@ -423,6 +451,9 @@ struct WorkoutStatusBanner: View {
     let onFinish: () -> Void
     var doneSets = 0
     var totalSets = 0
+    /// 값이 바뀌면 테두리를 한 번 진하게 반짝인다(운동 시작 직후 "방금 시작한 그것" 표시).
+    var pulse = 0
+    @State private var glowing = false
 
     private var tight: Bool { compact || verticalSizeClass == .compact }
 
@@ -445,11 +476,17 @@ struct WorkoutStatusBanner: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .strokeBorder(Color.orange.opacity(resting ? 0.5 : 0.25), lineWidth: 1)
+                    .strokeBorder(Color.orange.opacity(glowing ? 0.9 : (resting ? 0.5 : 0.25)), lineWidth: glowing ? 2 : 1)
                     .allowsHitTesting(false)
             }
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: resting)
+        }
+        .task(id: pulse) {
+            guard pulse > 0, !reduceMotion else { return }
+            withAnimation(.easeOut(duration: 0.15)) { glowing = true }
+            try? await Task.sleep(for: .milliseconds(150))
+            withAnimation(.easeOut(duration: 0.4)) { glowing = false }
         }
     }
 

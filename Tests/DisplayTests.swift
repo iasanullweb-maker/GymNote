@@ -152,4 +152,19 @@ final class DisplayTests: XCTestCase {
             window.isHidden = true
         }
     }
+
+    /// B(변신)의 날아가는 판: 시작(버튼 모양)·중간·도착(바 모양). 움직임 자체는 실기기에서 확인.
+    func testWorkoutStartFlightRendersButtonToBarStages() async throws {
+        let from = CGRect(x: 40, y: 120, width: 420, height: 52)
+        let to = CGRect(x: 16, y: 520, width: 520, height: 96)
+        for (progress, name) in [(0.0, "start"), (0.5, "middle"), (1.0, "end")] {
+            let view = ZStack(alignment: .topLeading) {
+                Color(uiColor: .systemGroupedBackground)
+                WorkoutStartFlight(progress: progress, from: from, to: to)
+            }
+            .frame(width: 560, height: 700)
+            let window = try await host(view, name: "workout-start-flight--\(name)", width: 560)
+            window.isHidden = true
+        }
+    }
 }

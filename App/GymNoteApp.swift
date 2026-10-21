@@ -88,6 +88,8 @@ struct RootView: View {
     @State private var completion: (id: UUID, phase: Int)?
     @State private var lastCatalogRefresh: Date?
     @AppStorage("selectedWorkspace") private var workspace = "운동"
+    @AppStorage(WorkoutStartAnimationStyle.storageKey) private var startStyle = WorkoutStartAnimationStyle.defaultStyle
+    @State private var startMotion = WorkoutStartMotion()
 
     var body: some View {
         GeometryReader { geometry in
@@ -224,7 +226,7 @@ struct RootView: View {
                     if workspace == "일상" { DailyTodayView() }
                     else { TodayView() }
                 }
-                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact) }
+                .safeAreaInset(edge: .bottom, spacing: 0) { workoutStatus(compact: compact, isRunTab: true) }
                 .id("today-\(tabScreenVersions[0])")
                 .tabItem { Label("실행", systemImage: "checkmark.circle") }.tag(0)
                 Group {
@@ -254,6 +256,19 @@ struct RootView: View {
             }
             .toolbar(editingNavigation.isEditing ? .hidden : .automatic, for: .tabBar)
         }
+        .overlay {
+            // B(변신): 시작 버튼 자리에서 운동 중 바 자리로 날아가는 판. 탭 콘텐츠와 safeAreaInset 위의 맨 위 층.
+            // 바 위치를 기다리는 첫 프레임에도 버튼 자리에 그려 깜빡임이 없게 한다.
+            if startMotion.phase != .idle {
+                GeometryReader { geometry in
+                    WorkoutStartFlight(progress: startMotion.progress, from: startMotion.from, to: startMotion.to,
+                                       origin: geometry.frame(in: .global).origin)
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
+        }
+        .environment(\.workoutStartMotion, startMotion)
         .id(model.selection.generation)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !account.isOnline {
@@ -269,7 +284,7 @@ struct RootView: View {
     /// 각 탭 콘텐츠의 하단 safeAreaInset에 놓여 탭 막대 위에 붙는다. 목록은 이 높이만큼 아래 여백을 받아
     /// 마지막 버튼까지 스크롤해 누를 수 있다. 큰 글자에서도 화면을 덮지 않도록 글자 크기 상한을 둔다.
     @ViewBuilder
-    private func workoutStatus(compact: Bool) -> some View {
+    private func workoutStatus(compact: Bool, isRunTab: Bool = false) -> some View {
         if let saved = model.savedWorkout {
             WorkoutCompletionBanner(session: saved,
                                     phase: completion?.id == saved.id ? completion?.phase ?? 0 : 0)
@@ -282,14 +297,33 @@ struct RootView: View {
                 startedAt: model.data.activeWorkout?.startedAt,
                 restStart: model.restStart, restEnd: model.restEnd,
                 finishTitle: model.workoutProgress.done == 0 ? "시작 취소" : "운동 마치기",
-                onSkip: { model.stopRest() }, onFinish: { model.finishWorkout() },
-                doneSets: model.workoutProgress.done, totalSets: model.workoutProgress.total
+                onSkip: { model.stopRest() },
+                onFinish: {
+                    startMotion.reset()
+                    // 들어온 길(아래)로 더 빠르게 나간다.
+                    withAnimation(reduceMotion ? .easeOut(duration: 0.2) : WorkoutStartMotion.exit) { model.finishWorkout() }
+                },
+                doneSets: model.workoutProgress.done, totalSets: model.workoutProgress.total,
+                pulse: startMotion.pulse
             )
             .disabled(editingNavigation.isEditing)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 10)
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            .opacity(startMotion.barHidden ? 0 : 1)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                if isRunTab { startMotion.barFrameChanged(frame) }
+            }
+            .transition(statusTransition)
         }
+    }
+
+    /// A(올라오기)는 아래에서 올라오며 나타나고, B(변신)는 판이 대신 날아오므로 제자리에서 나타난다.
+    /// 사라질 때는 두 방식 모두 아래로 내려간다. 동작 줄이기에서는 페이드만.
+    private var statusTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        let down = AnyTransition.move(edge: .bottom).combined(with: .opacity)
+        return .asymmetric(insertion: startStyle == .rise ? down : .opacity, removal: down)
     }
 
     private func protectedSelection<Value: Equatable>(_ selection: Binding<Value>) -> Binding<Value> {
