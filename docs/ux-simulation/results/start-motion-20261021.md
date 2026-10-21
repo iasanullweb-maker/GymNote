@@ -23,6 +23,6 @@
 - 단위: `Tests/WorkoutStartMotionTests.swift`(기본값, 버튼 위치 없음, 변신 흐름·반짝임 1회, 무시·취소, 바 위치 미도착 대비).
 - 렌더: `DisplayTests.testWorkoutStartFlightRendersButtonToBarStages`(시작·중간·도착) — CI 캡처로 판 모양 확인.
 - 기준 main `6ede94e`. 1차 소스 `00bfbec`의 run 39545880848은 단위 테스트 1개 실패(화면 없는 테스트에서 withAnimation 완료가 즉시 와 flying 상태를 건너뜀 — 앱 동작 문제 아님). 테스트만 고친 최종 소스 `999d88a`의 [Build IPA 39546432147](https://github.com/iasanullweb-maker/GymNote/actions/runs/39546432147): iPad XCTest·Swift 회귀·DB·계정 삭제·tooling·앱/위젯 Release·release-gate 성공, publish 건너뜀.
-- 통합 직전 main `b12b4f4`(신디 운동 설정 `App/RoutineView.swift` 포함)를 병합한 소스 `beeff54`로 [Build IPA 39547230881](https://github.com/iasanullweb-maker/GymNote/actions/runs/39547230881) 재실행: 전체 검사·Release·release-gate 성공(publish 건너뜀). 이 run은 신디 설정 변경도 포함한 결과다.
+- 통합 직전 main `b12b4f4`(신디 운동 설정 `App/RoutineView.swift` 포함)를 병합한 소스 `beeff54`로 [Build IPA 39547230881](https://github.com/iasanullweb-maker/GymNote/actions/runs/39547230881) 재실행: 전체 검사·Release·release-gate 성공(publish 건너뜀). 이 run은 신디 설정 변경도 포함한 결과다. 이어서 main `3f0bd7f`(탭 첫 방문 안내 `TabCoachmarks`, 세트 횟수 이어받기 포함; `GymNoteApp.swift` overlay 충돌은 변신 판 overlay 뒤에 `.tabCoachmarks`를 두어 해결)를 병합한 소스 `84112cd`로 [Build IPA 39548150803](https://github.com/iasanullweb-maker/GymNote/actions/runs/39548150803) 전체 검사·Release·release-gate 성공. 이것이 통합 대상 검증이다.
 - 판 캡처 3장(시작·중간·도착)을 직접 열어 시작=주황 버튼과 같은 모양·글자, 중간=주황이 반쯤 빠지며 커짐, 도착=반투명 둥근 바 모양·주황 테두리임을 확인했다. 기존 workout-active 캡처(TodayView, 환경 없이 렌더)도 통과.
 - 미실행: 실제 움직임(속도·튕김·교대 순간의 깜빡임, 목록 스크롤 중 시작, 가로 iPad, iPhone)은 시뮬레이터 캡처로 확인할 수 없어 실기기 확인 대기.

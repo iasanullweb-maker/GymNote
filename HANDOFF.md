@@ -5,7 +5,7 @@
 ## 운동 시작 애니메이션: 버튼이 운동 중 바로 변신 (2026-10-21, 미배포)
 
 - 사용자: 운동 시작 시 아래 '운동 중' 바가 갑자기 튀어나와 개연성이 없다 → B(버튼이 바로 변신) 기본, A(아래에서 올라오기)로 바꿀 수 있게. 설정 → 화면 → '운동 시작 애니메이션'(기기별 AppStorage `workoutStartAnimationStyle`). 코드는 `App/WorkoutStartMotion.swift`, TodayView 시작 버튼, RootView overlay·`workoutStatus`. 동작 줄이기에서는 페이드만.
-- 검증: 소스 `999d88a`의 [Build IPA 39546432147](https://github.com/iasanullweb-maker/GymNote/actions/runs/39546432147) 전체 검사·Release·release-gate 성공, 판 캡처 확인. main `b12b4f4`(신디 설정 포함) 병합 소스 `beeff54`의 [Build IPA 39547230881](https://github.com/iasanullweb-maker/GymNote/actions/runs/39547230881)도 전체 성공. 실제 움직임은 실기기 확인 대기. main push·배포 없음. [상세](docs/ux-simulation/results/start-motion-20261021.md).
+- 검증: 소스 `999d88a`의 [Build IPA 39546432147](https://github.com/iasanullweb-maker/GymNote/actions/runs/39546432147) 전체 검사·Release·release-gate 성공, 판 캡처 확인. main `b12b4f4`(신디 설정 포함) 병합 소스 `beeff54`의 [Build IPA 39547230881](https://github.com/iasanullweb-maker/GymNote/actions/runs/39547230881), main `3f0bd7f`(탭 안내·세트 횟수 이어받기 포함) 병합 소스 `84112cd`의 [Build IPA 39548150803](https://github.com/iasanullweb-maker/GymNote/actions/runs/39548150803)도 전체 성공. 실제 움직임은 실기기 확인 대기. main push·배포 없음. [상세](docs/ux-simulation/results/start-motion-20261021.md).
 
 ## 날짜 계획 시트 디자인 리뷰 → 할 일 등록 (2026-10-21)
 
