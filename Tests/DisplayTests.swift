@@ -129,4 +129,27 @@ final class DisplayTests: XCTestCase {
             window.isHidden = true
         }
     }
+
+    /// 짧은 밀기 삭제 버튼이 열린 모양(2026-10-21 깨짐 수정): 행 높이 전체, 둥근 빨간 버튼, 글자 잘림 없음.
+    func testShortSwipeDeleteRevealRendersFullRowAtBothWidthsAndAppearances() async throws {
+        let push = Exercise(name: "푸쉬업", sets: 3, detail: "5회")
+        let pull = Exercise(name: "아주 긴 이름의 맨몸 운동 종목 예시", sets: 4, detail: "12회")
+        for (width, dark) in [(CGFloat(834), false), (834, true), (393, false), (393, true)] {
+            let view = NavigationStack {
+                Form {
+                    Section {
+                        ExerciseSummary(exercise: push).shortSwipeAction(startsRevealed: true) {}
+                        ExerciseSummary(exercise: pull).shortSwipeAction {}
+                        ExerciseSummary(exercise: pull).shortSwipeAction("완료 취소", startsRevealed: true) {}
+                        Label("운동 추가", systemImage: "plus")
+                    } header: { Text("운동") }
+                }
+                .navigationTitle("10월 21일 (수)")
+            }
+            .environment(\.gymnoteCompactLayout, width < 600)
+            .preferredColorScheme(dark ? .dark : .light)
+            let window = try await host(view, name: "short-swipe-revealed--\(Int(width))--\(dark ? "dark" : "light")", width: width)
+            window.isHidden = true
+        }
+    }
 }

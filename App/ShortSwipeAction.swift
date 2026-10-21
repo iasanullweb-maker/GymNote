@@ -1,49 +1,60 @@
 import SwiftUI
 
 /// 화면/행 너비와 관계없이 일정 거리만 밀면 실행한다.
+/// (사용자 요청 2026-10-09: 가로 iPad에서도 짧게 밀어 삭제. 시스템 swipeActions는 전체 밀기 거리를 바꿀 수 없어 직접 구현한다.)
+///
+/// 모양: 행 전체(목록 기본 여백 포함)가 왼쪽으로 밀리고, 오른쪽 빈자리에 둥근 빨간 버튼이 나타난다.
+/// 행 여백을 이 modifier가 직접 그려서, 밀린 내용·버튼이 행 높이 전체를 덮고 목록 여백에 잘리지 않는다.
 private struct ShortSwipeAction: ViewModifier {
     @Environment(\.editMode) private var editMode
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let title: String
     let action: () -> Void
-    @State private var revealed = false
+    @State private var revealed: Bool
     @GestureState private var drag: CGFloat = 0
 
+    /// 기본 목록 행 여백(iOS inset grouped 기준). 이 modifier가 listRowInsets를 0으로 바꾸고 대신 그린다.
+    static let rowInsets = EdgeInsets(top: 11, leading: 20, bottom: 11, trailing: 20)
+    /// 버튼이 열렸을 때 행이 밀리는 거리.
+    static let revealWidth: CGFloat = 88
+    static let maxTravel: CGFloat = 160
+
+    init(title: String, startsRevealed: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.action = action
+        _revealed = State(initialValue: startsRevealed)
+    }
+
     private var editing: Bool { editMode?.wrappedValue.isEditing == true }
-    private var offset: CGFloat { min(0, max(-160, (revealed ? -80 : 0) + drag)) }
+    /// 0(닫힘) ... maxTravel. 양수 = 왼쪽으로 밀린 거리.
+    private var travel: CGFloat {
+        guard !editing else { return 0 }
+        return min(Self.maxTravel, max(0, (revealed ? Self.revealWidth : 0) - drag))
+    }
 
     func body(content: Content) -> some View {
-        ZStack(alignment: .trailing) {
-            if !editing && offset < 0 {
+        let travel = travel
+        HStack(spacing: 12) {
+            if editing {
                 Button(role: .destructive, action: perform) {
-                    VStack(spacing: 4) {
-                        Image(systemName: "trash")
-                        Text(title).font(.caption)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 12)
-                    .frame(width: 80)
-                    .background(Color.red)
+                    Image(systemName: "minus.circle.fill").foregroundStyle(.red)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(title)
             }
-            HStack(spacing: 12) {
-                if editing {
-                    Button(role: .destructive, action: perform) {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(.red)
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel(title)
-                }
-                content.frame(maxWidth: .infinity, alignment: .leading)
-                    .allowsHitTesting(!revealed || editing)
-            }
-            .background(Color(.secondarySystemGroupedBackground))
-            .offset(x: editing ? 0 : offset)
+            content.frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(!revealed || editing)
+        }
+        .padding(Self.rowInsets)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground))
+        .offset(x: -travel)
+        .background(alignment: .trailing) {
+            if travel > 0 { deleteButton(width: travel) }
         }
         .clipped()
         .contentShape(Rectangle())
+        .listRowInsets(EdgeInsets())
         .simultaneousGesture(
             DragGesture(minimumDistance: 16)
                 .updating($drag) { value, state, _ in
@@ -67,8 +78,34 @@ private struct ShortSwipeAction: ViewModifier {
         .simultaneousGesture(TapGesture().onEnded {
             if revealed { revealed = false }
         })
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: revealed)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: revealed)
         .accessibilityAction(named: Text(title)) { perform() }
+    }
+
+    /// 밀린 거리만큼 커지는 둥근 빨간 버튼. 행 위아래·오른쪽에 6~8pt 여백을 두어 둥근 목록 모서리에 닿지 않는다.
+    private func deleteButton(width: CGFloat) -> some View {
+        let buttonWidth = max(0, width - 8)
+        return Button(role: .destructive, action: perform) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.red)
+                if buttonWidth >= 56 {
+                    VStack(spacing: 2) {
+                        Image(systemName: "trash")
+                        Text(title).font(.caption).lineLimit(1)
+                    }
+                    .foregroundStyle(.white)
+                    .fixedSize()
+                } else if buttonWidth >= 28 {
+                    Image(systemName: "trash").foregroundStyle(.white)
+                }
+            }
+            .frame(width: buttonWidth)
+            .frame(maxHeight: .infinity)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.borderless)
+        .padding(.trailing, 8)
+        .accessibilityLabel(title)
     }
 
     private func perform() {
@@ -78,7 +115,8 @@ private struct ShortSwipeAction: ViewModifier {
 }
 
 extension View {
-    func shortSwipeAction(_ title: String = "삭제", action: @escaping () -> Void) -> some View {
-        modifier(ShortSwipeAction(title: title, action: action))
+    /// startsRevealed는 화면 캡처 테스트에서 버튼이 열린 모양을 그리기 위한 값이다. 앱에서는 기본값(false)을 쓴다.
+    func shortSwipeAction(_ title: String = "삭제", startsRevealed: Bool = false, action: @escaping () -> Void) -> some View {
+        modifier(ShortSwipeAction(title: title, startsRevealed: startsRevealed, action: action))
     }
 }
