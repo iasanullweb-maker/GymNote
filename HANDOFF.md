@@ -1,8 +1,14 @@
 # 헬스노트 (GymNote) 작업 인계
 
-마지막 업데이트: 2026-10-19
+마지막 업데이트: 2026-10-21
 
-## 실행 탭 시작 상태 바·세트 −/+ 가독성 (2026-10-19, 검증 완료·정식 배포 대기)
+## 실행 탭 시작 상태 바·세트 −/+ 가독성 (0.1.115 배포, 2026-10-21)
+
+2026-10-21 후속 완료: 사용자 노트북에서 `-NoProfile -ExecutionPolicy Bypass -File`로 준비한 배포 스크립트를 실행하여 승인된 `7d3d1fa4e012e948798cb6d1d7d529a432106b8f`를 main에 일반 push하고 정식 [Build #115 / 39521122296](https://github.com/iasanullweb-maker/GymNote/actions/runs/39521122296)를 시작했다. 같은 SHA의 iPad XCTest·Swift 회귀·DB·계정 삭제·tooling·앱/위젯 Release·release-gate·publish 모두 성공을 직접 조회했다. XCTest 148개 중 5개 건너뜀·실패 0. 건너뜀은 고정 시계·인증된 합성 상태가 없는 기존 화면 캡처 검사이며 화면 검증 성공으로 계산하지 않는다.
+
+[build-115 릴리스](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-115)·latest 태그는 위 SHA와 일치한다. 실제 IPA의 앱/위젯 모두 `0.1.115 (115)`, App Group `group.com.gymnote.app`, 크기 2,207,359바이트, SHA-256 `470ff90f6db58b8d0ae006e0f253d90ed21e441b2626be9fc967eea4cf0369f2`. 릴리스 두 자산의 크기/해시와 AltStore source.json의 버전·빌드·고정 URL·크기를 대조했다. 기존 배포 차단은 해소됐으며 사용자 설치·새 UI 확인과 Siri는 미확인으로 유지한다. 아래 미실행·승인 차단 내용은 당시 이력이다.
+
+PowerShell 시작 때 `Microsoft.PowerShell_profile.ps1` 실행 차단이 표시되는 것은 개인 시작 설정 파일과 실행 정책의 문제다. 사용자 실행의 `-NoProfile`은 그 파일 로드를 생략하고, `-ExecutionPolicy Bypass`는 해당 프로세스에서만 적용된다. 시스템 실행 정책을 영구 변경하지 않았다. 이 경고와 별개로 위 push·dispatch·게시가 성공했다. Git의 저장소 이동 안내는 원격 URL의 gymnote/GymNote 표기 안내였으며 강제 push·원격 설정 변경은 하지 않았다.
 
 사용자 요청으로 `App/TodayView.swift`의 시작 바를 실제 운동 시작 후 같은 위치의 ‘운동 중’ 표시로 바꾸고, 세트 횟수 −/+를 굵은 아이콘·독립 테두리 버튼으로 분리했다. 시작 바 높이 52pt, 조절 버튼 52×56pt/아이콘 24pt, 가운데 완료 버튼은 주황 배경·검정 글씨와 줄바꿈을 적용했다. 상태는 기존 activeWorkout을 그대로 따르며 시작·저장·되돌리기 모델은 변경하지 않았다.
 

@@ -24,3 +24,12 @@
 - 이후 검증한 같은 SHA의 main 일반 push를 실행 요청했지만 자동 승인 검토가 제한 시간 내 끝나지 않아 프로세스 생성 전에 거절됐다. 도구가 허용한 한 차례 재시도도 같은 사유로 거절됐다. 실행이 위험하다고 판정한 결과는 아니다.
 - main push·정식 workflow_dispatch·릴리스·AltStore 소스 갱신은 미실행이다. 마지막 확인한 원격 main은 `ee37d269c40d0a4d4e2d78aadd4e2ee96d77a8d3`. 재개 시 원격/로컬 상태·공개 릴리스를 재조회하고 main push 실행 권한을 확보한다. 검증용 #114 IPA를 정식 배포 완료로 안내하지 않는다.
 - 이 후속 기록은 문서 변경만이며 제품·테스트·설정·서버·빌드/CI 입력은 검증 SHA와 같다. 정식 배포가 가능해지면 고정 SHA와 승인 범위를 다시 확인하고 정식 run의 게이트·IPA 버전/크기/해시·릴리스·AltStore source.json을 대조한다.
+
+## 정식 배포 완료 (2026-10-21)
+
+- 사용자가 노트북에서 준비한 스크립트를 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ...`로 실행한 결과 main 일반 push·dispatch HTTP 204와 [정식 Build #115 / 39521122296](https://github.com/iasanullweb-maker/GymNote/actions/runs/39521122296)를 공유했다. 해당 run·job 결과와 공개 파일을 API로 재조회했다. 배포 SHA는 `7d3d1fa4e012e948798cb6d1d7d529a432106b8f`이며 검증 SHA `7a3acab`과 차이는 인수인계 Markdown뿐임을 Git diff로 확인했다.
+- 정식 run의 iOS·DB·계정 삭제·tooling·Release build·release-gate·publish 모두 success. XCTest 148개 중 5개 건너뜀·실패 0(`TEST SUCCEEDED`). 친구 2개·일지 1개·운동 준비 1개·휴식 1개의 기존 화면 캡처 검사는 고정 시계/인증된 fixture 부족으로 건너뛰었으며 시각 검증 성공으로 취급하지 않는다.
+- [build-115 릴리스](https://github.com/iasanullweb-maker/GymNote/releases/tag/build-115)와 latest의 태그 SHA는 배포 SHA와 같다. 실제 고정 IPA를 내려받아 기존 `.validation-tools/verify_release_ipa.py`로 검사: 앱/위젯 `0.1.115 (115)`, App Group `group.com.gymnote.app`, 2,207,359바이트, SHA-256 `470ff90f6db58b8d0ae006e0f253d90ed21e441b2626be9fc967eea4cf0369f2`.
+- build-115/latest 자산의 API 크기·digest가 실제 IPA와 일치한다. AltStore source.json의 번들 ID·버전·빌드·크기·`https://github.com/iasanullweb-maker/GymNote/releases/download/build-115/GymNote.ipa`를 대조했다. 검증 명령: `verify_release_ipa.py .validation-tools/execution115.ipa .validation-tools/execution115-source.json 0.1.115 115`, 태그/자산 비교, `git diff --check`.
+- PowerShell profile 경고는 시작 설정 파일 실행 정책 문제이며 `-NoProfile`로 건너뛰었다. 정책은 해당 자식 프로세스에서만 적용했고 영구 설정을 바꾸지 않았다. 원격 URL의 gymnote/GymNote 이동 안내에도 일반 push는 성공했다.
+- 위 main push·정식 게시까지 완료. 이 완료 기록은 문서만 수정·커밋 후 기존 main에 로컬 통합하며 추가 원격 push/새 배포를 하지 않는다. 운영 SQL/서버 변경 없음. 115 설치·새 UI의 실제 터치·큰 글자/작은 화면·Siri 확인은 사용자 대기로 유지한다.
