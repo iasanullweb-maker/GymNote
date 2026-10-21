@@ -110,6 +110,59 @@ struct DayPlan: Codable, Hashable {
 
     var isRestDay: Bool { exercises.isEmpty }
     var totalSets: Int { exercises.reduce(0) { $0 + max($1.sets, 0) } }
+
+    /// Legacy generic names are displayed as a summary without changing the stored schema.
+    var displayTitle: String {
+        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name.isEmpty || name == "휴식" else { return name }
+        guard !isRestDay else { return "휴식" }
+        var names: [String] = []
+        for exercise in exercises where !names.contains(exercise.name) { names.append(exercise.name) }
+        return names.prefix(3).joined(separator: "·") + (names.count > 3 ? " 외 \(names.count - 3)개" : "")
+    }
+}
+
+/// Transient undo data. Never restore an entire account to undo one date's edit.
+struct PlannedExerciseDeletion {
+    let day: String
+    let before: DayPlan
+    let after: DayPlan
+}
+
+extension AppData {
+    mutating func removePlannedExercise(_ id: UUID, on date: Date) -> PlannedExerciseDeletion? {
+        let before = plan(for: date)
+        guard before.exercises.contains(where: { $0.id == id }) else { return nil }
+        var after = before
+        after.exercises.removeAll { $0.id == id }
+        let day = DayKey.key(date)
+        scheduledPlans[day] = after
+        return PlannedExerciseDeletion(day: day, before: before, after: after)
+    }
+
+    func canRestorePlannedExercise(_ deletion: PlannedExerciseDeletion) -> Bool {
+        scheduledPlans[deletion.day] == deletion.after
+    }
+
+    @discardableResult
+    mutating func restorePlannedExercise(_ deletion: PlannedExerciseDeletion) -> Bool {
+        guard canRestorePlannedExercise(deletion) else { return false }
+        scheduledPlans[deletion.day] = deletion.before
+        return true
+    }
+
+    @discardableResult
+    mutating func replacePlannedWorkout(with source: DayPlan, on date: Date) -> Bool {
+        guard !source.isRestDay else { return false }
+        var copy = source
+        copy.exercises = source.exercises.map { exercise in
+            var next = exercise
+            next.id = UUID()
+            return next
+        }
+        scheduledPlans[DayKey.key(date)] = copy
+        return true
+    }
 }
 
 // MARK: - 실행 탭 순서
@@ -1084,5 +1137,15 @@ extension AppData {
         guard let index = dailyItems.firstIndex(where: { $0.id == id && $0.kind == .habit }),
               !isDailyComplete(dailyItems[index], on: date) else { return }
         dailyItems[index].skippedDays.insert(DayKey.key(date))
+    }
+}
+
+/// Reject invalid raw input instead of silently clamping a different value into the plan.
+enum RepetitionInput {
+    static func value(_ text: String) -> Int? {
+        let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty, raw.utf8.allSatisfy({ (48...57).contains($0) }),
+              let value = Int(raw), (1...9999).contains(value) else { return nil }
+        return value
     }
 }

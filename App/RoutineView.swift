@@ -73,27 +73,23 @@ struct RoutineView: View {
                     } label: {
                         Label("이 주 계획을 다음 주에도 반복", systemImage: "arrow.triangle.2.circlepath")
                     }
-                    Text("반복하면 이후 주의 같은 요일 계획을 덮어써. 오늘과 지난 날짜는 바뀌지 않아.")
+                    Text("반복하면 이후 주의 같은 요일 계획을 덮어써요. 오늘과 지난 날짜는 바뀌지 않아요.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("계획")
             .sheet(item: $calendarDay) { day in
                 NavigationStack {
-                    if model.data.workouts(on: day.date).isEmpty {
-                        ScheduledDayEditor(date: day.date)
-                            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { calendarDay = nil } } }
-                    } else {
-                        WorkoutJournalDayDetail(date: day.date)
-                    }
+                    ScheduledDayEditor(date: day.date)
+                        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { calendarDay = nil } } }
                 }
             }
-            .confirmationDialog("이 주 계획을 몇 주 동안 반복할까?", isPresented: $confirmingRepeat, titleVisibility: .visible) {
+            .confirmationDialog("이 주 계획을 몇 주 동안 반복할까요?", isPresented: $confirmingRepeat, titleVisibility: .visible) {
                 ForEach([1, 2, 4, 8], id: \.self) { weeks in
                     Button("다음 \(weeks)주") { model.data.repeatWeek(containing: selectedDate, weeks: weeks) }
                 }
             } message: {
-                Text("이후 주의 계획을 이 주와 같게 덮어써.")
+                Text("이후 주의 계획을 이 주와 같게 덮어써요.")
             }
         }
     }
@@ -108,90 +104,157 @@ struct ScheduledDayEditor: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     let date: Date
+    @State private var session: PlanEditorSession?
     @State private var showingAdd = false
     @State private var showingCopy = false
     @State private var showingStarter = false
+    @State private var showingName = false
     @State private var editing: Exercise?
+    @State private var editMode = EditMode.inactive
 
-    private var plan: Binding<DayPlan> {
-        Binding(get: { model.data.plan(for: date) }, set: { model.data.scheduledPlans[DayKey.key(date)] = $0 })
+    private var activeOnDate: Bool { model.data.activeWorkout?.day == DayKey.key(date) }
+
+    var body: some View {
+        Group {
+            if let session { editor(session) }
+            else { ProgressView() }
+        }
+        .onAppear { if session == nil { session = PlanEditorSession(model: model, date: date) } }
+    }
+
+    private func editor(_ session: PlanEditorSession) -> some View {
+        Form {
+            if activeOnDate || !model.data.workouts(on: date).isEmpty || Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: model.currentDate) {
+                Section {
+                    Text(activeOnDate
+                         ? "이 날짜의 운동을 진행 중이에요. 운동을 마친 뒤 계획을 수정해 주세요."
+                         : "지난 날짜도 계획을 수정할 수 있어요. 이미 저장한 운동 기록은 바뀌지 않아요.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    if !model.data.workouts(on: date).isEmpty {
+                        NavigationLink("이 날짜 운동 기록 보기") { WorkoutJournalDayDetail(date: date) }
+                    }
+                }
+            }
+            if let failure = session.failure {
+                Section { Label(failure, systemImage: "exclamationmark.circle").foregroundStyle(.red) }
+            }
+            Section("계획 이름") {
+                Button { showingName = true } label: {
+                    HStack {
+                        Text(session.plan.displayTitle)
+                        Spacer()
+                        Image(systemName: "pencil").foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary).disabled(activeOnDate)
+                .accessibilityHint("계획 이름 변경")
+            }
+            if let deletion = session.deletion {
+                Section {
+                    Text("\(deletion.before.exercises.first(where: { !deletion.after.exercises.contains($0) })?.name ?? "운동")을 삭제했어요.")
+                    Button("삭제 되돌리기") { session.undoDeletion() }.disabled(!session.canUndo)
+                    if !session.canUndo { Text("계획이 바뀌어 이전 삭제를 되돌릴 수 없어요.").font(.footnote).foregroundStyle(.secondary) }
+                }
+            }
+            Section {
+                if session.plan.isRestDay { Text("아직 계획한 운동이 없어요. 아래에서 운동을 추가해 주세요.").foregroundStyle(.secondary) }
+                ForEach(session.plan.exercises) { exercise in
+                    Button { editing = exercise } label: {
+                        HStack {
+                            ExerciseSummary(exercise: exercise)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }.foregroundStyle(.primary)
+                    .shortSwipeAction { session.remove(exercise) }
+                }
+                .onMove { session.move(from: $0, to: $1) }
+            } header: { Text("계획한 운동") } footer: {
+                Text("운동을 누르면 세트·횟수를 수정해요. 왼쪽으로 밀면 삭제하고, ‘순서 편집’에서 순서를 바꿀 수 있어요.")
+            }
+            .disabled(activeOnDate)
+            Section {
+                Button { showingAdd = true } label: { Label("운동 선택해서 추가", systemImage: "plus") }
+                Button { showingStarter = true } label: { Label("기본 루틴 추가", systemImage: "list.bullet.clipboard") }
+            } header: { Text("운동 추가") } footer: {
+                Text("지금 계획한 운동을 유지하고 뒤에 추가해요.")
+            }
+            .disabled(activeOnDate)
+            Section {
+                Button("다른 계획으로 교체") { showingCopy = true }
+            } header: { Text("계획 교체") } footer: {
+                Text("다른 날짜나 요일의 계획으로 이 날짜의 운동 전체를 바꿔요. 교체 전에 내용을 확인할 수 있어요.")
+            }
+            .disabled(activeOnDate)
+        }
+        .environment(\.editMode, $editMode)
+        .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(editMode.isEditing ? "완료" : "순서 편집") { editMode = editMode.isEditing ? .inactive : .active }
+                    .disabled(activeOnDate || session.plan.isRestDay)
+            }
+        }
+        .sheet(isPresented: $showingName) {
+            PlanNameEditor(plan: session.plan, onSave: session.rename)
+        }
+        .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: date) }
+        .sheet(isPresented: $showingAdd) { ExercisePicker(onSave: session.add) }
+        .sheet(item: $editing) { exercise in
+            ExerciseDraftView(exercise: exercise, title: "운동 수정") { saved in
+                guard session.plan.exercises.contains(where: { $0.id == saved.id }) else { return false }
+                return session.save { data in
+                    var plan = data.plan(for: date)
+                    if let i = plan.exercises.firstIndex(where: { $0.id == saved.id }) { plan.exercises[i] = saved }
+                    data.scheduledPlans[DayKey.key(date)] = plan
+                }
+            }
+        }
+        .sheet(isPresented: $showingCopy) { PlanCopyView(targetDate: date, onCopy: session.replace) }
+    }
+}
+
+struct PlanNameEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    let plan: DayPlan
+    let onSave: (String) -> Bool
+    @State private var draft: String
+    @State private var failed = false
+
+    init(plan: DayPlan, onSave: @escaping (String) -> Bool) {
+        self.plan = plan
+        self.onSave = onSave
+        _draft = State(initialValue: plan.title == "휴식" ? "" : plan.title)
     }
 
     var body: some View {
-        Form {
-            Section("계획 이름") {
-                TextField("예: 상체", text: plan.title)
-            }
-            Section {
-                ForEach(plan.wrappedValue.exercises) { exercise in
-                    Button { editing = exercise } label: {
-                        ExerciseSummary(exercise: exercise)
-                    }.foregroundStyle(.primary)
-                    .shortSwipeAction {
-                        var updated = plan.wrappedValue
-                        updated.exercises.removeAll { $0.id == exercise.id }
-                        plan.wrappedValue = updated
-                    }
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("예: 상체", text: $draft)
+                        .accessibilityIdentifier("plan.name")
+                } header: { Text("계획 이름") } footer: {
+                    Text("비워 두면 운동 이름을 요약해서 보여 줘요.")
                 }
-                .onMove { source, destination in
-                    var updated = plan.wrappedValue
-                    updated.exercises.move(fromOffsets: source, toOffset: destination)
-                    plan.wrappedValue = updated
-                }
-                Button { showingAdd = true } label: {
-                    Label("운동 추가", systemImage: "plus")
-                }
-            } header: {
-                Text("운동")
-            } footer: {
-                Text("운동 종목을 선택하고 이 날짜의 세트·횟수를 정하세요. 실행할 때 계획한 횟수로 시작해요.")
+                if failed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
             }
-            Section {
-                Button("기본 루틴 선택해서 추가") { showingStarter = true }
-                Button("다른 날짜 / 기존 요일 계획 가져오기") { showingCopy = true }
-            }
-        }
-        .navigationTitle(date.formatted(.dateTime.month().day().weekday()))
-        .toolbar { EditButton() }
-        .sheet(isPresented: $showingStarter) { StarterWorkoutView(date: date) }
-        .sheet(isPresented: $showingAdd) {
-            ExercisePicker { exercise, saveToLibrary in
-                model.saveEdit { data in
-                    var updated = data.plan(for: date)
-                    if updated.isRestDay && updated.title == "휴식" { updated.title = "운동" }
-                    updated.exercises.append(exercise)
-                    data.scheduledPlans[DayKey.key(date)] = updated
-                    if saveToLibrary {
-                        var template = exercise
-                        template.id = UUID()
-                        data.exerciseLibrary.append(template)
-                    }
+            .navigationTitle("계획 이름 변경")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("저장") { if onSave(draft) { dismiss() } else { failed = true } }
                 }
             }
         }
-        .sheet(item: $editing) { exercise in
-            ExerciseDraftView(exercise: exercise, title: "운동 수정") { saved in
-                guard model.data.plan(for: date).exercises.contains(where: { $0.id == saved.id }) else { return false }
-                return model.saveEdit { data in
-                    var updated = data.plan(for: date)
-                    if let i = updated.exercises.firstIndex(where: { $0.id == saved.id }) { updated.exercises[i] = saved }
-                    data.scheduledPlans[DayKey.key(date)] = updated
-                }
-            }
-        }
-        .sheet(isPresented: $showingCopy) {
-            PlanCopyView(targetDate: date) { source in
-                guard source.exercises.allSatisfy({ model.data.isRegisteredExercise($0, catalog: account.catalogTypes) }) else { return false }
-                var copy = source
-                copy.exercises = source.exercises.map { exercise in
-                    var next = exercise
-                    next.id = UUID()
-                    return next
-                }
-                return model.saveEdit { $0.scheduledPlans[DayKey.key(date)] = copy }
-            }
-        }
+        .protectEditingNavigation()
     }
+}
+
+struct PlanReplacement: Identifiable {
+    let id = UUID()
+    let source: DayPlan
+    let sourceLabel: String
+    let previous: DayPlan
 }
 
 struct PlanCopyView: View {
@@ -199,33 +262,94 @@ struct PlanCopyView: View {
     @Environment(\.dismiss) private var dismiss
     let targetDate: Date
     let onCopy: (DayPlan) -> Bool
-    @State private var sourceDate = Date()
-    @State private var saveFailed = false
+    @State private var sourceDate: Date
+    @State private var pending: PlanReplacement?
+
+    init(targetDate: Date, onCopy: @escaping (DayPlan) -> Bool) {
+        self.targetDate = targetDate
+        self.onCopy = onCopy
+        _sourceDate = State(initialValue: Calendar.current.date(byAdding: .day, value: -1, to: targetDate) ?? targetDate)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                if saveFailed { Text("저장하지 못했어요. 다시 시도해 주세요.").foregroundStyle(.red) }
-                Section("날짜에서 가져오기") {
-                    DatePicker("날짜", selection: $sourceDate, displayedComponents: .date)
-                    let source = model.data.plan(for: sourceDate)
-                    Button("\(source.title) 가져오기") { if onCopy(source) { dismiss() } else { saveFailed = true } }
-                        .disabled(DayKey.key(sourceDate) == DayKey.key(targetDate))
-                }
                 Section {
-                    ForEach([1, 2, 3, 4, 5, 6, 0], id: \.self) { i in
-                        let source = model.data.week[i]
-                        Button("\(DayKey.weekdayNames[i])요일 · \(source.title)") { if onCopy(source) { dismiss() } else { saveFailed = true } }
+                    Text(targetDate, format: .dateTime.year().month().day().weekday())
+                    Text("이 날짜의 운동 전체를 다른 계획으로 바꿔요. 원본 계획과 이미 저장한 운동 기록은 바뀌지 않아요.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                } header: { Text("교체할 날짜") }
+                Section("다른 날짜의 계획") {
+                    DatePicker("가져올 날짜", selection: $sourceDate, displayedComponents: .date)
+                    sourceRow(model.data.plan(for: sourceDate), label: sourceDate.formatted(.dateTime.month().day().weekday()),
+                              sameDate: DayKey.key(sourceDate) == DayKey.key(targetDate))
+                }
+                Section("기존 요일 계획") {
+                    ForEach([1, 2, 3, 4, 5, 6, 0], id: \.self) { index in
+                        sourceRow(model.data.week[index], label: "\(DayKey.weekdayNames[index])요일", sameDate: false)
                     }
-                } header: {
-                    Text("기존 요일 계획")
-                } footer: {
-                    Text("가져오면 선택한 날짜의 계획을 교체해. 원본은 그대로 유지돼.")
                 }
             }
-            .navigationTitle("계획 가져오기")
+            .navigationTitle("다른 계획으로 교체")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
+            .sheet(item: $pending) { replacement in
+                PlanReplacementReview(targetDate: targetDate, replacement: replacement) {
+                    guard model.data.plan(for: targetDate) == replacement.previous else { return false }
+                    guard onCopy(replacement.source) else { return false }
+                    pending = nil
+                    dismiss()
+                    return true
+                }
+            }
         }
+        .protectEditingNavigation()
+    }
+
+    private func sourceRow(_ source: DayPlan, label: String, sameDate: Bool) -> some View {
+        Button {
+            pending = PlanReplacement(source: source, sourceLabel: label, previous: model.data.plan(for: targetDate))
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(label) · \(source.displayTitle)")
+                if sameDate { Text("현재 편집 중인 날짜예요.").font(.caption).foregroundStyle(.secondary) }
+                else if source.isRestDay { Text("가져올 운동이 없는 휴식 계획이에요.").font(.caption).foregroundStyle(.secondary) }
+                else { Text("운동 \(source.exercises.count)개 · \(source.exercises.map(\.name).joined(separator: ", "))").font(.caption).foregroundStyle(.secondary) }
+            }
+        }.disabled(sameDate || source.isRestDay)
+    }
+}
+
+struct PlanReplacementReview: View {
+    @Environment(\.dismiss) private var dismiss
+    let targetDate: Date
+    let replacement: PlanReplacement
+    let onReplace: () -> Bool
+    @State private var failed = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("바꿀 날짜") { Text(targetDate, format: .dateTime.year().month().day().weekday()) }
+                Section("현재 계획 · 운동 \(replacement.previous.exercises.count)개") {
+                    Text(replacement.previous.displayTitle)
+                    Text(replacement.previous.exercises.map(\.name).joined(separator: ", ")).foregroundStyle(.secondary)
+                }
+                Section("새 계획 · 운동 \(replacement.source.exercises.count)개") {
+                    Text("\(replacement.sourceLabel) · \(replacement.source.displayTitle)")
+                    ForEach(replacement.source.exercises) { ExerciseSummary(exercise: $0) }
+                }
+                Section {
+                    Text("기존 운동 전체를 새 계획으로 바꿔요. 가져오는 원본 계획과 이미 저장한 운동 기록은 그대로 남아요.")
+                    if failed { Text("교체하지 못했어요. 계획이나 계정이 바뀌었을 수 있어요. 취소 후 다시 선택하거나 재시도해 주세요.").foregroundStyle(.red) }
+                }
+            }
+            .navigationTitle("계획을 교체할까요?")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("계획 교체") { if !onReplace() { failed = true } } }
+            }
+        }
+        .interactiveDismissDisabled()
     }
 }
 
@@ -283,17 +407,33 @@ struct ExercisePicker: View {
     @Environment(AppModel.self) private var model
     @Environment(AccountModel.self) private var account
     @Environment(\.dismiss) private var dismiss
-    let onSave: (Exercise, Bool) -> Bool
+    let onSave: (Exercise) -> Bool
     @State private var draft: Exercise?
-    @State private var saveToLibrary = false
 
     var body: some View {
         NavigationStack {
             List {
-                CatalogExerciseSection { type in
-                    saveToLibrary = false
-                    draft = type.makeExercise()
+                Section {
+                    if model.data.exerciseLibrary.isEmpty {
+                        Text("아직 저장한 운동이 없어요. 운동 목록에서 기본 세트·횟수를 저장할 수 있어요.").foregroundStyle(.secondary)
+                    }
+                    ForEach(model.data.exerciseLibrary) { exercise in
+                        let registered = model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes)
+                        Button {
+                            var copy = exercise
+                            copy.id = UUID()
+                            draft = copy
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ExerciseSummary(exercise: exercise)
+                                if !registered { Text("현재 등록되지 않은 운동이에요.").font(.caption).foregroundStyle(.secondary) }
+                            }
+                        }.foregroundStyle(.primary).disabled(!registered)
+                    }
+                } header: { Text("내 운동 목록") } footer: {
+                    Text("저장한 세트·횟수로 시작해요. 이 날짜에서 수정해도 원본 목록은 바뀌지 않아요.")
                 }
+                CatalogExerciseSection { draft = $0.makeExercise() }
             }
             .navigationTitle("운동 추가")
             .task { await account.refreshRecordCatalog() }
@@ -301,7 +441,7 @@ struct ExercisePicker: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
             .navigationDestination(item: $draft) { exercise in
                 ExerciseDraftForm(exercise: exercise, title: "운동 설정", onCancel: { dismiss() }) { saved in
-                    guard onSave(saved, saveToLibrary) else { return false }
+                    guard onSave(saved) else { return false }
                     dismiss()
                     return true
                 }
@@ -376,6 +516,18 @@ struct ExerciseDraftForm: View {
     let onCancel: () -> Void
     let onSave: (Exercise) -> Bool
     @State private var saveFailed = false
+    @State private var owner: UUID?
+    @State private var commonReps = ""
+    @State private var detailedReps: [String] = []
+    @State private var prepared = false
+
+    private var invalidReps: Bool {
+        guard prepared, exercise.plannedReps != nil, !isCindy else { return false }
+        if exercise.setReps != nil {
+            return detailedReps.count != exercise.sets || detailedReps.contains { RepetitionInput.value($0) == nil }
+        }
+        return RepetitionInput.value(commonReps) == nil
+    }
 
     private var registered: Bool { model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes) }
     private var isCindy: Bool { AppData.exerciseKey(exercise.name) == AppData.exerciseKey("신디") }
@@ -399,31 +551,36 @@ struct ExerciseDraftForm: View {
                 }
             } else {
                 LabeledContent("운동 종목", value: exercise.name)
-                Stepper("세트: \(exercise.sets)", value: Binding(
+                Stepper("\(exercise.sets)세트", value: Binding(
                     get: { exercise.sets },
-                    set: { exercise.resizeSetReps(to: $0) }
+                    set: { count in
+                        exercise.resizeSetReps(to: count)
+                        if detailedReps.count > count { detailedReps = Array(detailedReps.prefix(count)) }
+                        while detailedReps.count < count { detailedReps.append(detailedReps.last ?? commonReps) }
+                    }
                 ), in: 1...20)
+                .disabled(invalidReps)
                 if let reps = exercise.plannedReps {
                     Toggle("세트별 횟수 상세 설정", isOn: Binding(
                         get: { exercise.setReps != nil },
-                        set: { exercise.applySetReps($0 ? Array(repeating: reps, count: max(exercise.sets, 1)) : nil) }
-                    ))
-                    if let values = exercise.setReps {
-                        ForEach(values.indices, id: \.self) { index in
-                            Stepper("\(index + 1)세트: \(values[index])회", value: Binding(
-                                get: { exercise.setReps?[index] ?? reps },
-                                set: { value in
-                                    guard var updated = exercise.setReps, updated.indices.contains(index) else { return }
-                                    updated[index] = value
-                                    exercise.applySetReps(updated)
-                                }
-                            ), in: 1...9999)
+                        set: { enabled in
+                            guard !invalidReps else { return }
+                            if enabled {
+                                let value = RepetitionInput.value(commonReps) ?? reps
+                                detailedReps = Array(repeating: String(value), count: exercise.sets)
+                                exercise.applySetReps(Array(repeating: value, count: exercise.sets))
+                            } else {
+                                commonReps = detailedReps.first ?? String(reps)
+                                exercise.applySetReps(nil)
+                            }
+                        }
+                    )).disabled(invalidReps)
+                    if exercise.setReps != nil {
+                        ForEach(detailedReps.indices, id: \.self) { index in
+                            RepetitionInputRow(title: "\(index + 1)세트 목표", text: $detailedReps[index])
                         }
                     } else {
-                        Stepper("목표 횟수: \(reps)회", value: Binding(
-                            get: { exercise.plannedReps ?? reps },
-                            set: { exercise.detail = "\($0)회" }
-                        ), in: 1...9999)
+                        RepetitionInputRow(title: "목표 횟수", text: $commonReps)
                     }
                 } else {
                     TextField("시간·수행 조건", text: $exercise.detail)
@@ -448,12 +605,49 @@ struct ExerciseDraftForm: View {
                 Button("저장") {
                     guard registered else { return }
                     exercise.name = exercise.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !onSave(exercise) { saveFailed = true }
-                }.disabled(!registered || exercise.hasPercentageTarget)
+                    guard owner == model.selection.generation else { saveFailed = true; return }
+                    guard !invalidReps else { return }
+                    var saved = exercise
+                    if !isCindy, exercise.plannedReps != nil {
+                        if exercise.setReps != nil { saved.applySetReps(detailedReps.compactMap { RepetitionInput.value($0) }) }
+                        else if let value = RepetitionInput.value(commonReps) { saved.detail = "\(value)회" }
+                    }
+                    if !onSave(saved) { saveFailed = true }
+                }.disabled(!registered || exercise.hasPercentageTarget || invalidReps)
             }
         }
         .onAppear {
+            guard !prepared else { return }
+            owner = model.selection.generation
             if exercise.hasPercentageTarget { exercise.detail = "10회" }
+            commonReps = String(exercise.plannedReps ?? 10)
+            detailedReps = exercise.setReps?.map(String.init) ?? []
+            prepared = true
+        }
+    }
+}
+
+
+struct RepetitionInputRow: View {
+    let title: String
+    @Binding var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Stepper(value: Binding(get: { RepetitionInput.value(text) ?? 1 }, set: { text = String($0) }), in: 1...9999) {
+                HStack {
+                    Text(title)
+                    Spacer()
+                    TextField("1~9999", text: $text)
+                        .keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                        .monospacedDigit().frame(minWidth: 64, minHeight: 44)
+                        .accessibilityLabel(title + " 횟수 직접 입력")
+                    Text("회")
+                }
+            }
+            if RepetitionInput.value(text) == nil {
+                Text("1~9999 사이의 정수로 입력해 주세요.").font(.footnote).foregroundStyle(.red)
+            }
         }
     }
 }

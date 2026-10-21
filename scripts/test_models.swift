@@ -2,7 +2,38 @@ import Foundation
 
 @main
 struct ModelChecks {
+    static func planEditorChecks() {
+        let day = Date(timeIntervalSince1970: 1_790_000_000)
+        let a = Exercise(name: "푸쉬업", sets: 3, detail: "12회", setReps: [12, 10, 8])
+        let b = Exercise(name: "풀업", sets: 2, detail: "5회")
+        var data = AppData(week: [])
+        let source = DayPlan(title: "원본", exercises: [a, b])
+        data.scheduledPlans[DayKey.key(day)] = source
+        let token = data.removePlannedExercise(a.id, on: day)!
+        assert(data.plan(for: day).exercises == [b])
+        assert(data.restorePlannedExercise(token))
+        assert(data.plan(for: day) == source)
+        let stale = data.removePlannedExercise(b.id, on: day)!
+        data.scheduledPlans[DayKey.key(day)]?.title = "후속 변경"
+        assert(!data.restorePlannedExercise(stale), "뒤에 편집한 계획을 덮지 않음")
+        let before = data
+        assert(!data.replacePlannedWorkout(with: DayPlan(title: "휴식", exercises: []), on: day))
+        assert(data == before, "휴식 가져오기로 계획이 지워지지 않음")
+        assert(data.replacePlannedWorkout(with: source, on: day))
+        assert(data.plan(for: day).exercises.map(\.name) == ["푸쉬업", "풀업"])
+        assert(data.plan(for: day).exercises[0].setReps == [12, 10, 8])
+        assert(data.plan(for: day).exercises[0].id != a.id && source.exercises[0].id == a.id)
+        assert(DayPlan(title: "", exercises: [a, b]).displayTitle == "푸쉬업·풀업")
+        assert(DayPlan(title: "운동", exercises: [a, b]).displayTitle == "운동", "기존 사용자 이름은 보존")
+        for text in ["", "0", "-1", "1.5", "10000", "999999999999999999999", "+2"] {
+            assert(RepetitionInput.value(text) == nil, "잘못된 숫자를 자동 보정해 저장하지 않음")
+        }
+        assert(RepetitionInput.value("1") == 1 && RepetitionInput.value("9999") == 9999)
+        print("Plan editor model checks passed")
+    }
+
     static func main() throws {
+        planEditorChecks()
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
         var original = AppData.sample

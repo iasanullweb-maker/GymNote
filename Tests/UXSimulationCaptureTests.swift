@@ -7,6 +7,10 @@ import XCTest
 @MainActor
 final class UXSimulationCaptureTests: XCTestCase {
     typealias Screen = UXSimulationFixtures.Screen
+    private enum EditorCapture: String {
+        case copy = "plan-copy", confirmation = "plan-replacement-confirmation", picker = "plan-exercise-picker"
+        case repetitions = "plan-repetitions", name = "plan-name", actions = "plan-actions"
+    }
 
     /// AccountModel.init reads the catalog under a lock even with client:nil.
     /// Redirect that access before constructing ANY account, and restore the global hook.
@@ -26,7 +30,7 @@ final class UXSimulationCaptureTests: XCTestCase {
     }
 
     private func capture(_ screen: Screen, width: Int = 834, height: Int = 1194,
-                         accessibility: Bool = false, dark: Bool = false) async throws {
+                         accessibility: Bool = false, dark: Bool = false, editor: EditorCapture? = nil) async throws {
         if let reason = screen.blockedReason { throw XCTSkip(reason) }
         if screen == .workoutReady, !UXSimulationFixtures.calendar.isDate(Date(), inSameDayAs: UXSimulationFixtures.anchor) {
             throw XCTSkip("TodayView uses AppModel.todayPlan/workoutDate Date() when idle. Run this entry point on the anchor day; no fixed-clock injection exists.")
@@ -41,7 +45,8 @@ final class UXSimulationCaptureTests: XCTestCase {
             defer { defaults.removePersistentDomain(forName: suiteName) }
             defaults.set(String(decoding: try JSONEncoder().encode(UXSimulationFixtures.makeDraft()), as: UTF8.self),
                          forKey: ManualWorkoutDraft.storageKey(userID: UXSimulationFixtures.id(90)))
-            let root = entryPoint(screen, model: model)
+            if editor == .copy { model.data.week[0] = DayPlan(title: "휴식", exercises: []) }
+            let root = editorEntryPoint(editor, screen: screen, model: model)
                 .environment(model).environment(account)
                 .environment(\.locale, UXSimulationFixtures.locale)
                 .environment(\.calendar, UXSimulationFixtures.calendar)
@@ -64,6 +69,11 @@ final class UXSimulationCaptureTests: XCTestCase {
             window.makeKeyAndVisible()
             window.layoutIfNeeded()
             try await Task.sleep(nanoseconds: 700_000_000)
+            if editor == .actions, let scroll = findScroll(in: window) {
+                scroll.setContentOffset(CGPoint(x: 0, y: max(-scroll.adjustedContentInset.top,
+                    scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
+                try await Task.sleep(nanoseconds: 150_000_000)
+            }
             XCTAssertEqual(window.bounds.width, CGFloat(width))
             XCTAssertEqual(window.bounds.height, CGFloat(height))
             let format = UIGraphicsImageRendererFormat()
@@ -81,15 +91,15 @@ final class UXSimulationCaptureTests: XCTestCase {
             }
             let png = try XCTUnwrap(image.pngData())
             // Dark captures add a "--dark" suffix for design review; UX collect.mjs maps receipts explicitly and ignores them.
-            let name = "\(screen.rawValue)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")" + (dark ? "--dark" : "")
+            let name = "\(editor?.rawValue ?? screen.rawValue)--\(width)x\(height)--\(accessibility ? "accessibility" : "standard")" + (dark ? "--dark" : "")
             let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
             attachment.name = name + ".png"
             attachment.lifetime = .keepAlways
             add(attachment)
-            let metadata: [String: String] = ["captureId": screen.rawValue, "fixtureId": "demo-v1",
+            let metadata: [String: String] = ["captureId": editor?.rawValue ?? screen.rawValue, "fixtureId": "demo-v1",
                 "anchorTime": UXSimulationFixtures.anchorISO8601,
                 "renderedAt": ISO8601DateFormatter().string(from: Date()),
-                "clock": "system-clock-not-frozen", "scope": "direct-product-view-without-root-tab-chrome",
+                "clock": "system-clock-not-frozen", "scope": editor == nil ? "direct-product-view-without-root-tab-chrome" : "plan-editor-design-review",
                 "appearance": dark ? "dark" : "light"]
             let receipt = XCTAttachment(data: try JSONSerialization.data(withJSONObject: metadata, options: [.sortedKeys]),
                                         uniformTypeIdentifier: "public.json")
@@ -99,6 +109,42 @@ final class UXSimulationCaptureTests: XCTestCase {
             XCTAssertNil(account.user)
             XCTAssertFalse(account.configured)
         }
+    }
+
+    private func findScroll(in view: UIView) -> UIScrollView? {
+        if let scroll = view as? UIScrollView, scroll.contentSize.height > scroll.bounds.height { return scroll }
+        return view.subviews.compactMap { findScroll(in: $0) }.first
+    }
+
+    @ViewBuilder
+    private func editorEntryPoint(_ editor: EditorCapture?, screen: Screen, model: AppModel) -> some View {
+        let date = UXSimulationFixtures.anchor
+        let plan = model.data.plan(for: date)
+        switch editor {
+        case .copy: PlanCopyView(targetDate: date, onCopy: { _ in false })
+        case .confirmation:
+            PlanReplacementReview(targetDate: date, replacement: PlanReplacement(
+                source: plan, sourceLabel: "10월 11일", previous: DayPlan(title: "기존 계획", exercises: Array(plan.exercises.prefix(1)))),
+                onReplace: { false })
+        case .picker: ExercisePicker(onSave: { _ in false })
+        case .repetitions:
+            ExerciseDraftView(exercise: Exercise(name: "푸쉬업", sets: 3, detail: "12회", setReps: [12, 10, 8]),
+                              title: "운동 수정", onSave: { _ in false })
+        case .name: PlanNameEditor(plan: plan, onSave: { _ in false })
+        case .actions: NavigationStack { ScheduledDayEditor(date: date) }
+        case nil: entryPoint(screen, model: model)
+        }
+    }
+
+    func testPlanEditorAdditionalScreens() async throws {
+        for variant in [EditorCapture.copy, .confirmation, .picker, .repetitions, .name, .actions] {
+            try await capture(.planDateDetail, editor: variant)
+            try await capture(.planDateDetail, width: 393, height: 852, editor: variant)
+            try await capture(.planDateDetail, width: 393, height: 852, dark: true, editor: variant)
+        }
+        try await capture(.planDateDetail, width: 393, height: 852, accessibility: true, dark: true, editor: .repetitions)
+        try await capture(.planDateDetail, width: 393, height: 852, accessibility: true, dark: true, editor: .confirmation)
+        try await capture(.planDateDetail, dark: true)
     }
 
     @ViewBuilder
