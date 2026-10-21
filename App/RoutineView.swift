@@ -249,6 +249,7 @@ struct PlanNameEditor: View {
                 if failed { Text("저장하지 못했어요. 입력 내용은 남아 있으니 다시 시도해 주세요.").foregroundStyle(.red) }
             }
             .navigationTitle("계획 이름 변경")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -301,6 +302,7 @@ struct PlanCopyView: View {
                 }
             }
             .navigationTitle("다른 계획으로 교체")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } } }
             .sheet(item: $pending) { replacement in
                 PlanReplacementReview(targetDate: targetDate, replacement: replacement) {
@@ -321,9 +323,9 @@ struct PlanCopyView: View {
         } label: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(label) · \(source.displayTitle)")
-                if sameDate { Text("현재 편집 중인 날짜예요.").font(.caption).foregroundStyle(.secondary) }
-                else if source.isRestDay { Text("가져올 운동이 없는 휴식 계획이에요.").font(.caption).foregroundStyle(.secondary) }
-                else { Text("운동 \(source.exercises.count)개 · \(source.exercises.map(\.name).joined(separator: ", "))").font(.caption).foregroundStyle(.secondary) }
+                if sameDate { Text("현재 편집 중인 날짜예요.").font(.caption).foregroundStyle(Color.secondary) }
+                else if source.isRestDay { Text("가져올 운동이 없는 휴식 계획이에요.").font(.caption).foregroundStyle(Color.secondary) }
+                else { Text("운동 \(source.exercises.count)개 · \(source.exercises.map(\.name).joined(separator: ", "))").font(.caption).foregroundStyle(Color.secondary) }
             }
         }.disabled(sameDate || source.isRestDay)
     }
@@ -354,6 +356,7 @@ struct PlanReplacementReview: View {
                 }
             }
             .navigationTitle("계획을 교체할까요?")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("계획 교체") { if !onReplace() { failed = true } } }
@@ -598,6 +601,7 @@ struct ExerciseDraftForm: View {
             }
         }
         .navigationTitle(isCindy ? "신디 설정" : title)
+        .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("취소", action: onCancel) }
@@ -636,16 +640,20 @@ struct RepetitionInputRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Stepper(value: Binding(get: { RepetitionInput.value(text) ?? 1 }, set: { text = String($0) }), in: 1...9999) {
-                HStack {
-                    Text(title)
-                    Spacer()
-                    TextField("1~9999", text: $text)
-                        .keyboardType(.numberPad).multilineTextAlignment(.trailing)
-                        .monospacedDigit().frame(minWidth: 64, minHeight: 44)
-                        .accessibilityLabel(title + " 횟수 직접 입력")
-                    Text("회")
-                }
+            Text(title)
+            HStack(spacing: 12) {
+                TextField("1~9999", text: $text)
+                    .keyboardType(.numberPad).multilineTextAlignment(.leading)
+                    .monospacedDigit().frame(minWidth: 64, minHeight: 44)
+                    .accessibilityLabel(title + " 횟수 직접 입력")
+                Text("회")
+                Spacer(minLength: 8)
+                Stepper(title, value: Binding(
+                    get: { RepetitionInput.value(text) ?? 1 },
+                    set: { text = String($0) }
+                ), in: 1...9999)
+                .labelsHidden()
+                .accessibilityLabel(title + " 횟수 조절")
             }
             if RepetitionInput.value(text) == nil {
                 Text("1~9999 사이의 정수로 입력해 주세요.").font(.footnote).foregroundStyle(.red)

@@ -9,7 +9,7 @@ final class UXSimulationCaptureTests: XCTestCase {
     typealias Screen = UXSimulationFixtures.Screen
     private enum EditorCapture: String {
         case copy = "plan-copy", confirmation = "plan-replacement-confirmation", picker = "plan-exercise-picker"
-        case repetitions = "plan-repetitions", name = "plan-name", actions = "plan-actions"
+        case repetitions = "plan-repetitions", name = "plan-name", actions = "plan-actions", copyRest = "plan-copy-rest"
     }
 
     /// AccountModel.init reads the catalog under a lock even with client:nil.
@@ -45,7 +45,7 @@ final class UXSimulationCaptureTests: XCTestCase {
             defer { defaults.removePersistentDomain(forName: suiteName) }
             defaults.set(String(decoding: try JSONEncoder().encode(UXSimulationFixtures.makeDraft()), as: UTF8.self),
                          forKey: ManualWorkoutDraft.storageKey(userID: UXSimulationFixtures.id(90)))
-            if editor == .copy { model.data.week[0] = DayPlan(title: "휴식", exercises: []) }
+            if editor == .copy || editor == .copyRest { model.data.week[0] = DayPlan(title: "휴식", exercises: []) }
             let root = editorEntryPoint(editor, screen: screen, model: model)
                 .environment(model).environment(account)
                 .environment(\.locale, UXSimulationFixtures.locale)
@@ -69,7 +69,7 @@ final class UXSimulationCaptureTests: XCTestCase {
             window.makeKeyAndVisible()
             window.layoutIfNeeded()
             try await Task.sleep(nanoseconds: 700_000_000)
-            if editor == .actions, let scroll = findScroll(in: window) {
+            if (editor == .actions || editor == .copyRest), let scroll = findScroll(in: window) {
                 scroll.setContentOffset(CGPoint(x: 0, y: max(-scroll.adjustedContentInset.top,
                     scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
                 try await Task.sleep(nanoseconds: 150_000_000)
@@ -121,7 +121,7 @@ final class UXSimulationCaptureTests: XCTestCase {
         let date = UXSimulationFixtures.anchor
         let plan = model.data.plan(for: date)
         switch editor {
-        case .copy: PlanCopyView(targetDate: date, onCopy: { _ in false })
+        case .copy, .copyRest: PlanCopyView(targetDate: date, onCopy: { _ in false })
         case .confirmation:
             PlanReplacementReview(targetDate: date, replacement: PlanReplacement(
                 source: plan, sourceLabel: "10월 11일", previous: DayPlan(title: "기존 계획", exercises: Array(plan.exercises.prefix(1)))),
@@ -145,6 +145,7 @@ final class UXSimulationCaptureTests: XCTestCase {
         try await capture(.planDateDetail, width: 393, height: 852, accessibility: true, dark: true, editor: .repetitions)
         try await capture(.planDateDetail, width: 393, height: 852, accessibility: true, dark: true, editor: .confirmation)
         try await capture(.planDateDetail, dark: true)
+        try await capture(.planDateDetail, width: 393, height: 852, dark: true, editor: .copyRest)
     }
 
     @ViewBuilder
