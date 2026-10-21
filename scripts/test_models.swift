@@ -25,6 +25,7 @@ struct ModelChecks {
         assert(data.plan(for: day).exercises[0].id != a.id && source.exercises[0].id == a.id)
         assert(DayPlan(title: "", exercises: [a, b]).displayTitle == "푸쉬업·풀업")
         assert(DayPlan(title: "운동", exercises: [a, b]).displayTitle == "운동", "기존 사용자 이름은 보존")
+        assert(DayPlan(title: "휴식", exercises: [a]).displayTitle == "휴식", "명시적으로 정한 이름은 표시에서도 보존")
         for text in ["", "0", "-1", "1.5", "10000", "999999999999999999999", "+2"] {
             assert(RepetitionInput.value(text) == nil, "잘못된 숫자를 자동 보정해 저장하지 않음")
         }

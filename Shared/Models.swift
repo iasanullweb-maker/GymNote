@@ -114,7 +114,7 @@ struct DayPlan: Codable, Hashable {
     /// Legacy generic names are displayed as a summary without changing the stored schema.
     var displayTitle: String {
         let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard name.isEmpty || name == "휴식" else { return name }
+        guard name.isEmpty else { return name }
         guard !isRestDay else { return "휴식" }
         var names: [String] = []
         for exercise in exercises where !names.contains(exercise.name) { names.append(exercise.name) }
