@@ -23,5 +23,6 @@
 
 - 기준 커밋: main `b898fee`에서 작업, 통합 전 최신 main `6b72443`(문서만 변경) 병합. 제품·테스트 입력 차이 없음.
 - 실행: `git diff --check` 통과, 변경 코드 검토.
-- 미실행: iOS 빌드·XCTest. 이 작업 환경(Windows/리눅스 셸)에 Swift/Xcode가 없다. 작은 UI 변경 유예 규칙에 따라 `TODOLIST_HANDOFF.md`에 기술 검증 대기로 남기고, 다음 묶음 검증 또는 배포 전 CI(check.yml)에서 해소한다.
-- push·배포: 하지 않음.
+- 로컬 미실행: iOS 빌드·XCTest(이 작업 환경에 Swift/Xcode 없음).
+- CI 검증(2026-10-21, 사용자 요청): 소스 `92ee3a1`을 `claude/disabled-button-state` 브랜치로 push하고 workflow_dispatch로 [Build IPA 39534442670](https://github.com/iasanullweb-maker/GymNote/actions/runs/39534442670) 실행. `checks / ios`(iPad XCTest·Swift 회귀)·`database`·`account-deletion`·`tooling`·앱/위젯 Release `build`·`release-gate` 모두 성공, `publish`는 main이 아니어서 건너뜀.
+- push·배포: 검사용 작업 브랜치만 push. main push·배포는 하지 않음.

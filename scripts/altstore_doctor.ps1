@@ -197,6 +197,8 @@ if ($ErrorText) {
           @('iPad를 USB로 노트북에 연결하고 잠금 해제 → "이 컴퓨터 신뢰"', 'iTunes에서 iPad 선택 → "Wi-Fi를 통해 이 iPad와 동기화" 켜기(한 번만)', 'AltServer가 실행 중인지 확인 후 Refresh All')),
         @('timed out|12002|시간이 초과|timeout|network connection was lost|offline', 0, 'Apple/AltStore 서버까지 네트워크가 막힘(학교망)',
           @('노트북·iPad 모두 VPN 켜기 또는 휴대폰 핫스팟 사용', 'USB 연결 후 Refresh All')),
+        @('correct format|3840|unknown tag html|올바른 형식|isn.t in the correct', 0, 'Apple/AltStore 응답 대신 웹페이지(HTML)를 받음: 학교망 차단 페이지 또는 USB 연결 불량(NSCocoaErrorDomain 3840)',
+          @('USB 케이블을 끝까지 다시 꽂고 잠금 해제 → iTunes에 iPad가 보이는지 확인(2026-10-21 사례는 USB 접촉 불량)', '노트북·iPad 모두 VPN이 켜져 있는지 다시 확인 → 다시 UPDATE/Refresh All', '계속되면 AltServer를 최신 버전으로 업데이트(트레이 아이콘 → Check for Updates, 노트북 VPN 켠 상태)')),
         @('503|service unavailable|502|bad gateway|504', 0, '서버가 요청을 거절함(HTTP 503): 학교망 필터/프록시 또는 Apple·AltStore 서버 일시 장애',
           @('노트북·iPad 모두 VPN 켜기 또는 휴대폰 핫스팟으로 바꾼 뒤 Refresh All', '그래도 같으면 https://developer.apple.com/system-status/ 에서 Certificates, Identifiers & Profiles·Account 장애 확인 → 장애면 풀릴 때까지 대기(서명 만료 전이면 앱은 계속 사용 가능)')),
         @('maximum.*app id|app ids|10 app|app id limit', 0, '무료 Apple ID의 주간 App ID 한도(7일에 10개) 초과',
@@ -209,7 +211,7 @@ if ($ErrorText) {
           @('iCloud(웹 설치판) 실행·로그인 확인', 'AltServer 종료 후 다시 실행')),
         @('expired|만료|revoked|certificate', 0, '앱/AltStore 서명 만료 또는 인증서 폐기',
           @('AltStore가 열리지 않으면: 노트북 AltServer 트레이 아이콘 → Install AltStore → 해당 iPad, 같은 Apple ID로 덮어 설치(삭제 금지)', '그 뒤 AltStore → My Apps → Refresh All')),
-        @('download|could not be opened|couldn.t be read|파일', 0, 'IPA 다운로드 실패(GitHub 접속 문제 가능)',
+        @('download|could not be opened|다운로드', 0, 'IPA 다운로드 실패(GitHub 접속 문제 가능)',
           @('iPad에서 VPN/핫스팟으로 바꾼 뒤 다시 UPDATE')),
         @('device|기기를 찾|unable to connect|pair', 0, '노트북이 iPad를 인식하지 못함',
           @('USB 케이블 재연결·잠금 해제·신뢰', 'iTunes에서 iPad가 보이는지 확인'))

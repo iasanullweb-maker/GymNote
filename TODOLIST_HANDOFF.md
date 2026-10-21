@@ -4,7 +4,7 @@
 
 ## 누를 수 없는 버튼 회색 표시 (미배포, 2026-10-21)
 
-- [ ] **기술 검증 대기: 전체 iOS 빌드·XCTest.** 휴식일 운동 시작·직접 기록 불러오기 버튼 비활성화와 회귀 테스트 1개 추가. 작업 환경에 Swift가 없어 미실행. 다음 묶음 검증 또는 배포 전 CI로 해소한다. 상세는 [결과](docs/ux-simulation/results/disabled-button-state-20261021.md).
+- [x] **전체 iOS 빌드·XCTest — 2026-10-21 기술 완료.** 소스 `92ee3a1`의 [Build IPA 39534442670](https://github.com/iasanullweb-maker/GymNote/actions/runs/39534442670)(작업 브랜치 수동 실행)에서 iOS·DB·계정 삭제·도구 검사, Release 빌드, release-gate 성공. 게시는 건너뜀(미배포). 상세는 [결과](docs/ux-simulation/results/disabled-button-state-20261021.md).
 - [ ] **미배포: 다음 배포 후 사용자 확인.** 휴식일 실행 탭의 ‘운동 시작’이 회색이고 아래 안내가 보이는지, 자정을 넘겨 앱을 켜 둔 채 휴식일이 된 경우 눌러도 화면이 휴식일로 바뀌는지, 지난 운동 직접 기록의 ‘선택한 날짜의 루틴’·‘이전 운동 일지’가 가져올 운동이 없을 때 회색인지 확인한다.
 
 ## AltStore 갱신 실패 재발 방지 (2026-10-21)
