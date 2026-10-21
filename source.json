@@ -21,12 +21,12 @@
       "category": "utilities",
       "versions": [
         {
-          "version": "0.1.115",
-          "buildVersion": "115",
-          "date": "2026-10-21T00:28:43Z",
-          "localizedDescription": "빌드 #115",
-          "downloadURL": "https://github.com/iasanullweb-maker/GymNote/releases/download/build-115/GymNote.ipa",
-          "size": 2207359,
+          "version": "0.1.117",
+          "buildVersion": "117",
+          "date": "2026-10-21T02:31:57Z",
+          "localizedDescription": "빌드 #117",
+          "downloadURL": "https://github.com/iasanullweb-maker/GymNote/releases/download/build-117/GymNote.ipa",
+          "size": 2224580,
           "minOSVersion": "17.0"
         }
       ],
