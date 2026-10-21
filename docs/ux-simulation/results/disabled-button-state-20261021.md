@@ -21,7 +21,7 @@
 
 ## 검증
 
-- 기준 커밋: main `b898fee`
+- 기준 커밋: main `b898fee`에서 작업, 통합 전 최신 main `6b72443`(문서만 변경) 병합. 제품·테스트 입력 차이 없음.
 - 실행: `git diff --check` 통과, 변경 코드 검토.
 - 미실행: iOS 빌드·XCTest. 이 작업 환경(Windows/리눅스 셸)에 Swift/Xcode가 없다. 작은 UI 변경 유예 규칙에 따라 `TODOLIST_HANDOFF.md`에 기술 검증 대기로 남기고, 다음 묶음 검증 또는 배포 전 CI(check.yml)에서 해소한다.
 - push·배포: 하지 않음.
