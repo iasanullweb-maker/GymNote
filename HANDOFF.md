@@ -2,14 +2,21 @@
 
 마지막 업데이트: 2026-10-21
 
-## 날짜 계획 시트 UX 개선 (2026-10-21, 미배포)
+## 0.1.133 정식 배포 완료 (2026-10-21)
+
+- 사용자 “배포 진행해” 승인으로 main a34b782를 일반 push하고, 마지막 커밋이 [skip ci]여서 [정식 Build #133 / 39557827990](https://github.com/iasanullweb-maker/GymNote/actions/runs/39557827990)를 수동 실행했다. 같은 SHA의 iOS·DB·계정 삭제·도구 검사, 앱/위젯 Release, release-gate, publish 모두 성공. XCTest 177개(기존 캡처 4개 건너뜀·실패 0).
+- 날짜 계획 편집·코치마크·세트별 횟수/이어받기·신디 설정·짧은 밀기 삭제·시작 애니메이션을 포함한다. 사전 검증 ab82b71과 배포 a34b782의 제품/검사/CI 입력 트리 일치, 차이는 인계 문서뿐임을 확인했다.
+- build-133/latest 태그 = a34b782, 실제 IPA의 앱/위젯 0.1.133 (133), 2,423,263바이트, SHA-256 47db8561bd7687330c06f8ba4ff5785896dda9a1b1a0eab17bb4a10bb77a7bce. AltStore 커밋 0405c90f의 버전·빌드·고정 URL·크기 일치. [상세 대조](docs/ux-simulation/results/release-133-20261021.md).
+- 배포는 완료했지만 사용자 설치·실기기 조작 확인은 대기. 문서 갱신은 커밋·main 로컬 통합만 하고 추가 main push로 새 배포를 시작하지 않는다.
+
+## 날짜 계획 시트 UX 개선 (2026-10-21, 0.1.133 배포)
 
 - 지정 프롬프트의 1~6번 구현. 휴식/동일 날짜 교체 비활성+이유, 추가/전체 교체 분리와 확인 시트, saveEdit 저장 실패·이름 draft·삭제 되돌리기, 내 운동 목록 설정 복사, 새 계획 이름, 과거 계획 편집/기록 링크·진행 중 차단·숫자 직접 입력을 적용했다. 교체 방식은 예시 설명 후 사용자 승인받았다. 실제 사용자 확인은 다음 배포 후 대기.
 - 기준 main a776f8b, 최종 제품·검사 소스 ab82b71. [Build IPA 39555785924](https://github.com/iasanullweb-maker/GymNote/actions/runs/39555785924) 전체 검사·앱/위젯 Release·release-gate 성공, publish skipped. XCTest 177개(기존 4개 건너뜀·실패 0), 새 PlanEditorTests 8개 통과. 최종 iPad/iPhone·다크·큰 글자 캡처 16장 직접 확인. 중간 캡처의 숫자 라벨 줄바꿈·확인 제목 잘림을 고쳤다.
 - 독립 critique/코드 리뷰에서 계정 전환 후 기본 루틴 저장 우회와 구버전 세트별 배열 길이 복구 문제를 찾아 고쳤다. 원래 generation을 저장 직전까지 확인하고, undo는 현재 해당 날짜 계획이 삭제 후 내용과 같을 때만 복원한다. 다른 날짜/일지/원본 목록은 보존한다.
 - 검증 브랜치 codex/plan-editor-ux-20261021만 push. 이후 문서만 커밋하고 공통 잠금·양쪽 상태·기준 SHA/제품 입력 동일성 확인 아래 기존 main에 로컬 fast-forward 통합한다. main push·배포·운영 변경 없음. 실제 터치·숫자 키보드·VoiceOver·두 시트 종료는 미확인. [상세 결과](docs/ux-simulation/results/plan-editor-ux-20261021.md), 현재 대기는 TODOLIST의 같은 항목.
 
-## 운동 시작 애니메이션: 버튼이 운동 중 바로 변신 (2026-10-21, 미배포)
+## 운동 시작 애니메이션: 버튼이 운동 중 바로 변신 (2026-10-21, 0.1.133 배포)
 
 - 사용자: 운동 시작 시 아래 '운동 중' 바가 갑자기 튀어나와 개연성이 없다 → B(버튼이 바로 변신) 기본, A(아래에서 올라오기)로 바꿀 수 있게. 설정 → 화면 → '운동 시작 애니메이션'(기기별 AppStorage `workoutStartAnimationStyle`). 코드는 `App/WorkoutStartMotion.swift`, TodayView 시작 버튼, RootView overlay·`workoutStatus`. 동작 줄이기에서는 페이드만.
 - 검증: 소스 `999d88a`의 [Build IPA 39546432147](https://github.com/iasanullweb-maker/GymNote/actions/runs/39546432147) 전체 검사·Release·release-gate 성공, 판 캡처 확인. main `b12b4f4`(신디 설정 포함) 병합 소스 `beeff54`의 [Build IPA 39547230881](https://github.com/iasanullweb-maker/GymNote/actions/runs/39547230881), main `3f0bd7f`(탭 안내·세트 횟수 이어받기 포함) 병합 소스 `84112cd`의 [Build IPA 39548150803](https://github.com/iasanullweb-maker/GymNote/actions/runs/39548150803)도 전체 성공. 실제 움직임은 실기기 확인 대기. main push·배포 없음. [상세](docs/ux-simulation/results/start-motion-20261021.md).
@@ -18,12 +25,12 @@
 
 - Impeccable critique로 찾은 아쉬운 점 전부를 사용자가 승인해 TODOLIST에 등록. 근거·코드 위치는 [리뷰 결과](docs/ux-simulation/results/plan-editor-review-20261021.md), 다음 세션은 [프롬프트](docs/parallel-work/prompts/plan-editor-ux-20261021.md)를 붙여 넣어 시작한다.
 
-## 탭 첫 방문 코치마크 (2026-10-21, 미배포)
+## 탭 첫 방문 코치마크 (2026-10-21, 0.1.133 배포)
 
 - 각 탭 첫 방문에 실제 영역 강조·어두운 배경·화살표·짧은 설명을 표시. 사용자 요청대로 건너뛰기 없이 다음/완료로 진행하고, 최종 완료한 탭만 기기에 저장한다. 운동/일상 실행·계획·기록은 별도, 친구·설정은 공통으로 총 8개 안내(각 1~2단계).
 - 기준 `b12b4f4`, 제품·검사 소스 `7fe3ce5`. diff·공백·Swift Tree-sitter의 새 구문 오류 없음·대상 Anchor 등록 대조 통과. XCTest 3개 추가했으나 Windows에서 실행하지 못했다. 전체 iOS 검사·Release·화면/접근성 검증은 다음 묶음 검증 또는 배포 전 대기. [상세 결과](docs/ux-simulation/results/tab-coachmarks-20261021.md). 기존 main에 로컬 fast-forward 통합하며 push·배포 없음.
 
-## 신디 전용 운동 설정 (2026-10-21, 미배포)
+## 신디 전용 운동 설정 (2026-10-21, 0.1.133 배포)
 
 - 신디에만 ‘목표 세트 수’와 ‘1세트 구성’(풀업 5회·푸쉬업 10회·에어 스쿼트 15회)을 분리하고 제목을 ‘신디 설정’으로 변경. 의미가 불명확한 ‘한 세트’ 입력과 중복 반복 설명 없이 표시한다. 일반 운동 폼·저장 데이터는 유지한다.
 - 기준 `5599bdc`, 제품 소스 `4a3e905`. diff·공백·Swift Tree-sitter 구문 검사 통과. Windows에서 전체 iOS 빌드·XCTest·실제 화면/접근성 검증 미실행, 다음 묶음 검증/배포 전 대기. [결과](docs/ux-simulation/results/cindy-settings-20261021.md). 별도 워크트리에서 기존 main에 로컬 통합하며 push·배포 없음.
@@ -36,7 +43,7 @@
 - `doctor`는 `design-sidecar-stale` 1건을 보고했다. DESIGN.md를 기준으로 사용하고 보조 `.impeccable/design.json`은 향후 요청 시 `document`로 갱신한다. 설치 요청에서 디자인 기준을 다시 생성하지 않았다.
 - 기록 기준 main `6ede94e`. 문서만 변경하고 공백·diff 검토 후 별도 워크트리에서 커밋·main 로컬 fast-forward 통합한다. 앱 코드·검사·빌드 입력 변경 없음, 전체 iOS 빌드·실기기 검사·push·배포 없음. Taste·Figma MCP 보류와 Playwright 대신 CI 시뮬레이터 캡처 방식을 유지한다.
 
-## 짧은 밀기 삭제 화면 깨짐 수정 (2026-10-21, 미배포)
+## 짧은 밀기 삭제 화면 깨짐 수정 (2026-10-21, 0.1.133 배포)
 
 - 사용자 제보: 날짜 계획 시트에서 운동 행을 왼쪽으로 밀면 이름이 사라지고 빨간 버튼이 깨져 보임. `App/ShortSwipeAction.swift`가 행 여백 안에서만 그려진 것이 원인. 행 여백을 직접 그리고, 글자는 제자리에 둔 채 둥근 빨간 버튼이 오른쪽에서 자라도록 고쳤다. 이동 거리·편집 모드·접근성 동작은 유지. 같은 modifier의 운동 일지·운동 목록·일상 완료 취소에도 적용.
 - 검증: 소스 `8d13320`의 [Build IPA 39539487372](https://github.com/iasanullweb-maker/GymNote/actions/runs/39539487372) 전체 검사·Release·release-gate 성공, 열린 상태 캡처 4장 직접 확인. main push·배포 없음. [상세](docs/ux-simulation/results/swipe-delete-fix-20261021.md).
