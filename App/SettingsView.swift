@@ -4,7 +4,6 @@ import UserNotifications
 /// 설정 탭: 휴식 타이머, 계정(시트로 열기), 진단
 struct SettingsView: View {
     static let restRange = 5...600
-    static let stepRange = 5...120
     /// 예: "버전 0.1.104 (104)". Info.plist의 CFBundleShortVersionString·CFBundleVersion(빌드 때 Actions가 채움).
     static let appVersion: String = {
         let info = Bundle.main.infoDictionary
@@ -63,13 +62,11 @@ struct SettingsView: View {
                     Stepper("세트 사이 휴식: \(RestDuration.text(seconds: model.data.defaultRest))", value: $model.data.defaultRest,
                             in: Self.restRange, step: 5)
                         .coachmarkTarget("settings.rest")
-                    Stepper("−/+ 버튼 간격: \(RestDuration.text(seconds: model.data.restStep))", value: $model.data.restStep,
-                            in: Self.stepRange, step: 5)
                     Toggle("휴식 끝 알림 소리", isOn: $model.data.restSound)
                 } header: {
                     Text("휴식 타이머")
                 } footer: {
-                    Text("세트 완료를 누르면 모든 운동에 이 휴식이 자동으로 시작돼. '−/+ 버튼 간격'은 운동 탭 휴식 타이머 옆 −/+를 한 번 누를 때 바뀌는 시간이야. 5초 단위, 최소 5초. 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
+                    Text("세트 완료를 누르면 모든 운동에 이 휴식이 자동으로 시작돼. 실행 탭의 휴식 타이머 휠에서도 초 단위로 바꿀 수 있어(최소 5초, 최대 10분). 소리를 끄면 휴식이 끝날 때 알림 배너만 떠.")
                 }
 
                 Section {

@@ -131,33 +131,8 @@ struct TodayView: View {
                         Text("운동을 길게 눌러 끌면 순서를 바꿀 수 있어요. 완료한 운동은 아래에 모이고, 완료를 취소하면 원래 자리로 돌아가요.")
                     }
                 }
-                Section {
-                    (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
-                        Button { model.startDefaultRest() } label: {
-                            Label("휴식 타이머 \(RestDuration.text(seconds: model.data.defaultRest))", systemImage: "timer")
-                        }
-                        .buttonStyle(.borderless)
-                        HStack {
-                            if !compact { Spacer() }
-                            // 기본 휴식 시간 조절 (간격은 설정 탭의 '−/+ 버튼 간격')
-                            Button { model.adjustDefaultRest(by: -model.data.restStep) } label: {
-                                Image(systemName: "minus")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 22, height: 22)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
-                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 줄이기")
-                            Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
-                                Image(systemName: "plus")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 22, height: 22)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
-                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 늘리기")
-                        }
-                    }
+                Section("휴식 타이머") {
+                    RestTimerPanel()
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.displayTitle)")
@@ -458,6 +433,8 @@ struct WorkoutStatusBanner: View {
     var totalSets = 0
     /// 값이 바뀌면 테두리를 한 번 진하게 반짝인다(운동 시작 직후 "방금 시작한 그것" 표시).
     var pulse = 0
+    /// 카드 자체(여백 제외)의 global 위치. 운동 시작 변신 애니메이션의 도착 자리.
+    var onCardFrame: ((CGRect) -> Void)? = nil
     @State private var glowing = false
 
     private var tight: Bool { compact || verticalSizeClass == .compact }
@@ -483,6 +460,9 @@ struct WorkoutStatusBanner: View {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .strokeBorder(Color.orange.opacity(glowing ? 0.9 : (resting ? 0.5 : 0.25)), lineWidth: glowing ? 2 : 1)
                     .allowsHitTesting(false)
+            }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                onCardFrame?(frame)
             }
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: resting)

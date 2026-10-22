@@ -19,7 +19,8 @@ struct RestLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     ActivityTime(state: context.state, resting: resting)
-                        .frame(width: 130, alignment: .trailing)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 130, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     Text("다음: \(context.state.title)")
@@ -29,7 +30,9 @@ struct RestLiveActivity: Widget {
                     .foregroundStyle(.orange)
             } compactTrailing: {
                 ActivityTime(state: context.state, resting: resting)
-                    .font(.caption2).frame(width: 72, alignment: .trailing)
+                    .font(.caption2)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 72, alignment: .trailing)
             } minimal: {
                 Image(systemName: resting || !working ? "timer" : "figure.strengthtraining.traditional")
             }
@@ -58,9 +61,12 @@ struct RestLockScreenView: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 4) {
+                // Timer text in widgets reserves its full width and ignores frame
+                // alignment unless the text itself is trailing-aligned.
                 ActivityTime(state: context.state, resting: resting)
                     .font(.system(size: 28, weight: .bold, design: .rounded)).foregroundStyle(.white)
-                    .frame(width: 130, alignment: .trailing)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 130, alignment: .trailing)
                 Text(resting ? "남은 휴식" : working ? "운동 경과" : "")
                     .font(.caption2).foregroundStyle(.white.opacity(0.7))
             }
