@@ -43,19 +43,9 @@ final class PlanEditorSession {
         return true
     }
 
-    func rename(_ title: String) -> Bool {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return save { data in
-            var plan = data.plan(for: date)
-            plan.title = trimmed.isEmpty ? DayPlan(title: "", exercises: plan.exercises).displayTitle : trimmed
-            data.scheduledPlans[DayKey.key(date)] = plan
-        }
-    }
-
     func add(_ exercise: Exercise) -> Bool {
         save { data in
             var plan = data.plan(for: date)
-            if plan.isRestDay && (plan.title == "휴식" || plan.title.isEmpty) { plan.title = exercise.name }
             plan.exercises.append(exercise)
             data.scheduledPlans[DayKey.key(date)] = plan
         }

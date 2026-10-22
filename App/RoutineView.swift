@@ -54,8 +54,9 @@ struct RoutineView: View {
                                     }
                                     .frame(width: 32)
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(plan.isRestDay ? "휴식" : plan.title)
-                                        if !plan.isRestDay {
+                                        // 계획 이름은 운동 구성에서 자동으로 만든다. 운동이 3개를 넘으면 전체 목록을 한 줄 더 보여 준다.
+                                        Text(plan.displayTitle)
+                                        if plan.exercises.count > 3 {
                                             Text(plan.exercises.map(\.name).joined(separator: ", "))
                                                 .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                                         }
@@ -126,12 +127,12 @@ struct ScheduledDayEditor: View {
             if !session.isCurrentOwner {
                 Section { Text("계정이 바뀌었어요. 이 화면을 닫고 다시 열어 주세요.").foregroundStyle(.secondary) }
             }
-            if activeOnDate || !model.data.workouts(on: date).isEmpty || Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: model.currentDate) {
+            if activeOnDate || !model.data.workouts(on: date).isEmpty {
                 Section {
-                    Text(activeOnDate
-                         ? "이 날짜의 운동을 진행 중이에요. 운동을 마친 뒤 계획을 수정해 주세요."
-                         : "지난 날짜도 계획을 수정할 수 있어요. 이미 저장한 운동 기록은 바뀌지 않아요.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                    if activeOnDate {
+                        Text("이 날짜의 운동을 진행 중이에요. 운동을 마친 뒤 계획을 수정해 주세요.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     if !model.data.workouts(on: date).isEmpty {
                         NavigationLink("이 날짜 운동 기록 보기") { WorkoutJournalDayDetail(date: date) }
                     }
@@ -148,7 +149,7 @@ struct ScheduledDayEditor: View {
                 }
             }
             Section {
-                if session.plan.isRestDay { Text("아직 계획한 운동이 없어요. 아래에서 운동을 추가해 주세요.").foregroundStyle(.secondary) }
+                if session.plan.isRestDay { Text("휴식일이에요. 아래에서 운동을 추가해 주세요.").foregroundStyle(.secondary) }
                 ForEach(session.plan.exercises) { exercise in
                     Button { editing = exercise } label: {
                         HStack {
@@ -160,23 +161,16 @@ struct ScheduledDayEditor: View {
                     .shortSwipeAction { session.remove(exercise) }
                 }
                 .onMove { session.move(from: $0, to: $1) }
-            } header: { Text("계획한 운동").coachmarkTarget("plan.exercises") } footer: {
-                Text("운동을 누르면 세트·횟수를 수정해요. 왼쪽으로 밀면 삭제하고, ‘순서 편집’에서 순서를 바꿀 수 있어요.")
+            } header: { Text("운동").coachmarkTarget("plan.exercises") } footer: {
+                if !session.plan.isRestDay { Text("눌러서 수정 · 왼쪽으로 밀어 삭제") }
             }
             .disabled(activeOnDate || !session.isCurrentOwner)
             Section {
-                Button { showingAdd = true } label: { Label("운동 선택해서 추가", systemImage: "plus") }
+                Button { showingAdd = true } label: { Label("운동 추가", systemImage: "plus") }
                     .coachmarkTarget("plan.add")
-                Button { showingStarter = true } label: { Label("기본 루틴 추가", systemImage: "list.bullet.clipboard") }
-            } header: { Text("운동 추가") } footer: {
-                Text("지금 계획한 운동을 유지하고 뒤에 추가해요.")
-            }
-            .disabled(activeOnDate || !session.isCurrentOwner)
-            Section {
-                Button("다른 계획으로 교체") { showingCopy = true }
+                Button { showingStarter = true } label: { Label("기본 루틴 불러오기", systemImage: "list.bullet.clipboard") }
+                Button { showingCopy = true } label: { Label("다른 날 계획으로 바꾸기", systemImage: "arrow.triangle.2.circlepath") }
                     .coachmarkTarget("plan.replace")
-            } header: { Text("계획 교체") } footer: {
-                Text("다른 날짜나 요일의 계획으로 이 날짜의 운동 전체를 바꿔요. 교체 전에 내용을 확인할 수 있어요.")
             }
             .disabled(activeOnDate || !session.isCurrentOwner)
         }
@@ -375,30 +369,39 @@ struct ExercisePicker: View {
     let onSave: (Exercise) -> Bool
     @State private var draft: Exercise?
 
+    /// 한 종목은 한 번만 보여 준다. 내 운동 목록에 저장한 설정이 있으면 그 세트·횟수를 쓴다.
+    private var choices: [ExerciseChoice] {
+        CatalogRecordType.sorted(account.catalogTypes).filter(\.active).map { type in
+            let key = AppData.exerciseKey(type.name)
+            return ExerciseChoice(type: type, saved: model.data.exerciseLibrary.first { AppData.exerciseKey($0.name) == key })
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    if model.data.exerciseLibrary.isEmpty {
-                        Text("아직 저장한 운동이 없어요. 운동 목록에서 기본 세트·횟수를 저장할 수 있어요.").foregroundStyle(.secondary)
-                    }
-                    ForEach(model.data.exerciseLibrary) { exercise in
-                        let registered = model.data.isRegisteredExercise(exercise, catalog: account.catalogTypes)
-                        Button {
-                            var copy = exercise
-                            copy.id = UUID()
-                            draft = copy
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ExerciseSummary(exercise: exercise)
-                                if !registered { Text("현재 등록되지 않은 운동이에요.").font(.caption).foregroundStyle(.secondary) }
+                    ForEach(choices) { choice in
+                        Button { draft = choice.makeExercise() } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(choice.type.name)
+                                if let saved = choice.saved {
+                                    Text("\(saved.sets)세트 · \(saved.detail)").font(.caption).foregroundStyle(.secondary)
+                                } else if !choice.type.hint.isEmpty {
+                                    Text(choice.type.hint).font(.caption).foregroundStyle(.secondary)
+                                }
                             }
-                        }.foregroundStyle(.primary).disabled(!registered)
+                        }.foregroundStyle(.primary)
                     }
-                } header: { Text("내 운동 목록").coachmarkTarget("exercise.library") } footer: {
-                    Text("저장한 세트·횟수로 시작해요. 이 날짜에서 수정해도 원본 목록은 바뀌지 않아요.")
+                    if choices.isEmpty {
+                        Text("현재 사용할 수 있는 운동 종목이 없어요.").foregroundStyle(.secondary)
+                    }
+                    if let message = account.catalogMessage {
+                        Text(message).font(.footnote).foregroundStyle(.secondary)
+                    }
+                } header: { Text("운동").coachmarkTarget("exercise.library") } footer: {
+                    Text("내 운동 목록에 저장한 운동은 저장한 세트·횟수로 시작해요.")
                 }
-                CatalogExerciseSection { draft = $0.makeExercise() }
             }
             .tabCoachmarks(.exercisePicker)
             .navigationTitle("운동 추가")
@@ -414,6 +417,19 @@ struct ExercisePicker: View {
             }
         }
         .protectEditingNavigation()
+    }
+}
+
+struct ExerciseChoice: Identifiable {
+    let type: CatalogRecordType
+    let saved: Exercise?
+    var id: String { type.id }
+
+    /// 계획에 넣을 새 복사본. 저장한 설정을 바꿔도 원본 목록은 그대로다.
+    func makeExercise() -> Exercise {
+        guard var copy = saved else { return type.makeExercise() }
+        copy.id = UUID()
+        return copy
     }
 }
 

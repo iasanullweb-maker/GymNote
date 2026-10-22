@@ -111,10 +111,8 @@ struct DayPlan: Codable, Hashable {
     var isRestDay: Bool { exercises.isEmpty }
     var totalSets: Int { exercises.reduce(0) { $0 + max($1.sets, 0) } }
 
-    /// Legacy generic names are displayed as a summary without changing the stored schema.
+    /// 계획 이름은 항상 운동 구성에서 자동으로 만든다. 저장된 `title`은 이전 버전 호환용으로만 남긴다.
     var displayTitle: String {
-        let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard name.isEmpty else { return name }
         guard !isRestDay else { return "휴식" }
         var names: [String] = []
         for exercise in exercises where !names.contains(exercise.name) { names.append(exercise.name) }

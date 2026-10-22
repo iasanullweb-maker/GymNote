@@ -32,8 +32,8 @@ struct ManualWorkoutDraft: Codable, Equatable {
     var moves: [Move] = []
 
     var isValid: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !moves.isEmpty && moves.allSatisfy(\.isValid)
+        // 일지 이름은 운동 구성에서 자동으로 만든다(DayPlan.displayTitle). 제목 입력은 받지 않는다.
+        !moves.isEmpty && moves.allSatisfy(\.isValid)
             && Calendar.current.startOfDay(for: date) <= Calendar.current.startOfDay(for: Date())
     }
 

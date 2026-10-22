@@ -238,7 +238,7 @@ struct TogetherPlanDaySection: View {
             let plan = model.data.plan(for: date)
             NavigationLink { ScheduledDayEditor(date: date) } label: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Label("운동 · \(plan.isRestDay ? "휴식" : plan.title)", systemImage: "figure.strengthtraining.traditional")
+                    Label("운동 · \(plan.displayTitle)", systemImage: "figure.strengthtraining.traditional")
                     ForEach(plan.exercises) { exercise in
                         Text(exercise.name).foregroundStyle(.white)
                         Text("\(exercise.sets)세트 · \(exercise.detail)").font(.caption).foregroundStyle(.white)

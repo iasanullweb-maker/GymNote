@@ -39,7 +39,7 @@ struct GymWidgetView: View {
         plan.exercises.map(\.name).joined(separator: " · ")
     }
     private var dayTitle: String {
-        "\(DayKey.weekdayName(workoutDate)) · \(plan.isRestDay ? "휴식일" : plan.title)"
+        "\(DayKey.weekdayName(workoutDate)) · \(plan.isRestDay ? "휴식일" : "운동 \(plan.exercises.count)개")"
     }
     /// 그날 계획한 운동의 '한 세트 / 하루 총량' 최고기록 (운동이 없는 날은 기록 목록 위 종목)
     private var records: [RecordSummary] { entry.data.recordSummaries(on: workoutDate) }
@@ -54,7 +54,7 @@ struct GymWidgetView: View {
     var body: some View {
         switch family {
         case .accessoryInline:
-            Text(plan.isRestDay ? "휴식일" : "\(plan.title) · \(exerciseLine)")
+            Text(plan.isRestDay ? "휴식일" : exerciseLine)
         case .accessoryCircular:
             circular
         case .accessoryRectangular:
@@ -73,7 +73,7 @@ struct GymWidgetView: View {
     private var circular: some View {
         VStack(spacing: 2) {
             Image(systemName: "dumbbell")
-            Text(plan.isRestDay ? "휴식" : plan.title)
+            Text(plan.displayTitle)
                 .font(.caption2)
                 .lineLimit(2)
                 .minimumScaleFactor(0.7)

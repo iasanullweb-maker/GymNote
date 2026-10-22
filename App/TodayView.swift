@@ -160,7 +160,7 @@ struct TodayView: View {
                     }
                 }
             }
-            .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
+            .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.displayTitle)")
             .navigationBarTitleDisplayMode(compact ? .inline : .large)
             .task { await account.refreshRecordCatalog() }
             .alert("🎉 신기록!", isPresented: Binding(

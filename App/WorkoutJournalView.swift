@@ -56,7 +56,7 @@ struct WorkoutJournalView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(workout.plan.title).font(.headline)
+                                Text(workout.plan.displayTitle).font(.headline)
                                 Spacer()
                                 Text("\(workout.done)세트").foregroundStyle(.secondary)
                             }
@@ -123,7 +123,7 @@ struct WorkoutJournalDayDetail: View {
                         WorkoutJournalDetail(workout: workout)
                     }
                 } header: {
-                    Text(workout.plan.title)
+                    Text(workout.plan.displayTitle)
                 }
             }
         }
@@ -193,6 +193,6 @@ struct WorkoutJournalDetail: View {
                 Text("횟수는 실제 / 계획 순서예요. 세트를 누르면 실제 횟수를 수정할 수 있어요. 예전 일지의 미기록 횟수와 시간은 계획 기준만 남아 있어요.")
             }
         }
-        .navigationTitle(workout.plan.title)
+        .navigationTitle(workout.plan.displayTitle)
     }
 }

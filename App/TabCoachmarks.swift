@@ -16,8 +16,7 @@ struct TabCoachTour {
         .init(target: "plan.replace", title: "계획 전체를 바꿔요", message: "다른 날짜나 요일의 계획을 가져오고, 확인한 뒤 교체해요.")
     ])
     static let exercisePicker = Self(id: "workout.exercise.picker", steps: [
-        .init(target: "exercise.library", title: "저장한 운동을 골라요", message: "내 운동 목록의 세트·횟수를 복사해요. 원본은 바뀌지 않아요."),
-        .init(target: "exercise.catalog", title: "새 종목도 추가해요", message: "운동 종목을 고르면 세트·횟수 설정으로 이어져요.")
+        .init(target: "exercise.library", title: "운동을 골라요", message: "운동을 누르면 세트·횟수 설정으로 이어져요. 내 운동 목록에 저장한 운동은 그 설정으로 시작해요.")
     ])
     static func exerciseSettings(cindy: Bool) -> Self {
         Self(id: cindy ? "workout.exercise.cindy" : "workout.exercise.settings", steps: [

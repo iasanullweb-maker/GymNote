@@ -38,21 +38,17 @@ struct ManualWorkoutView: View {
             Form {
                 Section {
                     DatePicker("운동한 날짜", selection: $draft.date, in: ...Date(), displayedComponents: .date)
-                    TextField("일지 제목", text: $draft.title)
                 } footer: {
                     Text("운동을 마친 뒤 한 번에 기록하세요. 입력 내용은 이 기기에 임시 저장돼요.")
                 }
                 Section("불러오기 · 현재 입력에 추가") {
                     // 눌러도 가져올 운동이 없으면(휴식일·미등록 종목만·완료 세트 없음) 회색으로 비활성화한다.
                     Button("선택한 날짜의 루틴") {
-                        let plan = model.data.plan(for: draft.date)
-                        if draft.moves.isEmpty { draft.title = plan.title }
                         for exercise in importablePlanExercises { draft.append(exercise) }
                     }.disabled(importablePlanExercises.isEmpty)
                     Menu("이전 운동 일지") {
                         ForEach(model.data.workouts.sorted { $0.startedAt > $1.startedAt }) { workout in
-                            Button("\(workout.startedAt.formatted(.dateTime.year().month().day())) · \(workout.plan.title)") {
-                                if draft.moves.isEmpty { draft.title = workout.plan.title }
+                            Button("\(workout.startedAt.formatted(.dateTime.year().month().day())) · \(workout.plan.displayTitle)") {
                                 for exercise in importableExercises(workout) { draft.append(exercise, session: workout) }
                             }.disabled(importableExercises(workout).isEmpty)
                         }

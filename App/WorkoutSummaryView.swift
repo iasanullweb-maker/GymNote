@@ -5,7 +5,7 @@ struct WorkoutSummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(summary.session.plan.title).font(.title3.bold())
+            Text(summary.session.plan.displayTitle).font(.title3.bold())
             Text("\(summary.session.done) / \(summary.session.total)세트 완료")
                 .monospacedDigit()
             if let seconds = summary.duration {

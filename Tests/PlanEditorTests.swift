@@ -49,13 +49,12 @@ final class PlanEditorTests: XCTestCase {
         XCTAssertNotNil(session.failure)
     }
 
-    func testFailedDeletionRenameMoveAndReplacementPreserveOriginal() throws {
+    func testFailedDeletionMoveAndReplacementPreserveOriginal() throws {
         let session = PlanEditorSession(model: model, date: date)
         let before = model.data
         _ = try SharedStore.activate(userID: UUID())
         session.remove(session.plan.exercises[0])
         XCTAssertNil(session.deletion)
-        XCTAssertFalse(session.rename("저장 실패한 이름"))
         session.move(from: IndexSet(integer: 0), to: 2)
         XCTAssertFalse(session.replace(with: DayPlan(title: "새 계획", exercises: [CatalogRecordType.defaults[2].makeExercise()])))
         XCTAssertEqual(model.data, before)
@@ -80,7 +79,6 @@ final class PlanEditorTests: XCTestCase {
         try await model.switchAccount(nil)
         let afterSwitch = model.data
         XCTAssertFalse(session.isCurrentOwner, "이전 편집기에서 기본 루틴을 여는 경로도 차단")
-        XCTAssertFalse(session.rename("이전 화면 이름"))
         XCTAssertFalse(session.add(exercise))
         XCTAssertFalse(session.replace(with: DayPlan(title: "이전 화면 교체", exercises: [exercise])))
         session.remove(exercise)
@@ -89,15 +87,14 @@ final class PlanEditorTests: XCTestCase {
         XCTAssertNotNil(session.failure)
     }
 
-    func testMoveAndRenamePersistWithoutChangingJournal() throws {
+    func testMovePersistsWithoutChangingJournal() throws {
         let plan = model.data.plan(for: date)
         let workout = WorkoutSession(startedAt: date, plan: plan, completedSets: [plan.exercises[0].id.uuidString: 1])
         model.data.workouts = [workout]
         let session = PlanEditorSession(model: model, date: date)
         session.move(from: IndexSet(integer: 0), to: 2)
         XCTAssertEqual(session.plan.exercises, Array(plan.exercises.reversed()))
-        XCTAssertTrue(session.rename("수정한 이름"))
-        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.plan(for: date).title, "수정한 이름")
+        XCTAssertEqual(try SharedStore.snapshot(userID: nil).data.plan(for: date).exercises, Array(plan.exercises.reversed()))
         XCTAssertEqual(model.data.workouts, [workout])
     }
 
@@ -122,9 +119,18 @@ final class PlanEditorTests: XCTestCase {
         model.data.activeWorkout = WorkoutSession(startedAt: date, plan: plan)
         let before = model.data
         let session = PlanEditorSession(model: model, date: date)
-        XCTAssertFalse(session.rename("진행 중 수정"))
         XCTAssertFalse(session.add(plan.exercises[0]))
         session.remove(plan.exercises[0])
         XCTAssertEqual(model.data, before)
+    }
+
+    func testExerciseChoiceUsesSavedSettingsAndMakesIndependentCopy() {
+        let type = CatalogRecordType.defaults[0]
+        var saved = type.makeExercise()
+        saved.sets = 5
+        let fromLibrary = ExerciseChoice(type: type, saved: saved).makeExercise()
+        XCTAssertEqual(fromLibrary.sets, 5, "내 운동 목록의 세트·횟수로 시작")
+        XCTAssertNotEqual(fromLibrary.id, saved.id, "원본 목록과 독립된 복사본")
+        XCTAssertEqual(ExerciseChoice(type: type, saved: nil).makeExercise().sets, type.makeExercise().sets)
     }
 }

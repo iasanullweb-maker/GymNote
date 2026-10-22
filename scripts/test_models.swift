@@ -24,8 +24,9 @@ struct ModelChecks {
         assert(data.plan(for: day).exercises[0].setReps == [12, 10, 8])
         assert(data.plan(for: day).exercises[0].id != a.id && source.exercises[0].id == a.id)
         assert(DayPlan(title: "", exercises: [a, b]).displayTitle == "푸쉬업·풀업")
-        assert(DayPlan(title: "운동", exercises: [a, b]).displayTitle == "운동", "기존 사용자 이름은 보존")
-        assert(DayPlan(title: "휴식", exercises: [a]).displayTitle == "휴식", "명시적으로 정한 이름은 표시에서도 보존")
+        assert(DayPlan(title: "운동", exercises: [a, b]).displayTitle == "푸쉬업·풀업", "계획 이름은 항상 운동 구성에서 자동으로 만든다")
+        assert(DayPlan(title: "휴식", exercises: [a]).displayTitle == "푸쉬업", "이전에 저장된 '휴식' 이름도 운동이 있으면 무시")
+        assert(DayPlan(title: "운동", exercises: []).displayTitle == "휴식")
         for text in ["", "0", "-1", "1.5", "10000", "999999999999999999999", "+2"] {
             assert(RepetitionInput.value(text) == nil, "잘못된 숫자를 자동 보정해 저장하지 않음")
         }

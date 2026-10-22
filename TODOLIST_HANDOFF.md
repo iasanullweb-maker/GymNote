@@ -2,6 +2,12 @@
 
 마지막 업데이트: 2026-10-22
 
+## 날짜 계획 단순화·운동 추가 중복 제거·계획 이름 자동 (2026-10-22, 미배포)
+
+- [x] **코드 수정·정적 검사.** 운동 추가 시트 종목 1회 표시(저장 설정 병합), 계획 화면 버튼 묶음 단순화, 계획·일지 이름 항상 자동. [결과](docs/ux-simulation/results/plan-simplify-20261022.md).
+- [ ] **기술 검증 대기 — 다음 묶음 검증 또는 배포 전.** Swift/Xcode 없음으로 컴파일·XCTest(PlanEditorTests 포함)·`scripts/test_models.swift`·앱/위젯 Release·화면 캡처 미실행.
+- [ ] **미배포: 배포 후 사용자 확인.** 운동 추가에서 푸쉬업·풀업·신디가 한 번씩만 보이고 저장 세트·횟수가 표시되는지, 계획 화면에 이름 입력이 없고 이름이 운동 구성대로 자동 표시되는지, 지난 운동 입력에 제목 칸이 없는지 확인.
+
 ## 0.1.141 세부 튜토리얼 배포·사용자 확인 (2026-10-22)
 
 - [x] **정식 배포·실제 IPA·AltStore 대조 완료.** main `4e5b52e`, [정식 #141](https://github.com/iasanullweb-maker/GymNote/actions/runs/39613144658) attempt 2 전체 검사·Release·게이트·게시 성공. XCTest 186개(182 통과·기존 4개 건너뜀·실패 0), 앱/위젯 0.1.141 (141)·파일 해시·build-141/latest·AltStore 일치. [완료 근거](docs/ux-simulation/results/release-141-20261022.md). 새 배포 없음.
