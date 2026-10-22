@@ -1,6 +1,12 @@
 # 헬스노트 (GymNote) 작업 인계
 
-마지막 업데이트: 2026-10-21
+마지막 업데이트: 2026-10-22
+
+## 0.1.141 세부 튜토리얼 배포 완료 확인 (2026-10-22)
+
+- 사용자 재개 요청 후 [정식 #141 / 39613144658](https://github.com/iasanullweb-maker/GymNote/actions/runs/39613144658) attempt 2가 이미 게시까지 성공했음을 확인했다. 배포 SHA `4e5b52e`, iOS·DB·계정 삭제·tooling·앱/위젯 Release·게이트·publish 모두 성공. XCTest 186개(182 통과·기존 4개 건너뜀·실패 0). 새 배포·push·재시도 없음.
+- 실제 앱/위젯 0.1.141 (141), IPA 2,446,259바이트, build-141/latest SHA·파일 해시·AltStore 버전/빌드·고정 URL·크기·권한 일치. [대조 근거](docs/ux-simulation/results/release-141-20261022.md). 사용자 설치·두 기기/계정·VoiceOver 확인은 대기.
+- 별도 위젯 배치 수정은 로컬 보존·배포 제외. Intel #142는 iOS cancelled로 전체 검증 미완료여서 미채택·main 미반영 상태를 유지한다. 완료 기록은 문서 커밋·main 로컬 통합만 하며 추가 원격 push 없음. 아래 중단 시점 기록은 과거 상태다.
 
 ## 세부 튜토리얼 배포 중단 시점 (2026-10-21, 사용자 “여기까지 하고 정리해둬”)
 
@@ -9,7 +15,7 @@
 - [Intel 대체 검증 #142](https://github.com/iasanullweb-maker/GymNote/actions/runs/39616093717), `a45389d`: CI runs-on 두 줄만 macos-15-intel로 변경. 정리 시점 build/iOS 진행 중, 나머지 3개 검사 성공. 검증 브랜치에만 push했고 main 미반영. 사용자 요청으로 더 기다리거나 추가 push/재시도하지 않는다.
 - 기존 GitHub 실행은 취소하지 않았다. #141은 이후 자동 게시될 수 있고 #142는 검증 전용이다. 재개 시 두 run·원격 main·latest/AltStore부터 조회하고 중복 배포를 피한다. [정확한 상태·경로·재개 절차](docs/ux-simulation/results/detail-tutorial-release-pause-20261021.md). 정리 문서만 커밋·main 로컬 통합하며 추가 원격 push 없음.
 
-## 세부 화면 튜토리얼·계정별 표시 이력 (2026-10-21, 검증 완료·미배포)
+## 세부 화면 튜토리얼·계정별 표시 이력 (2026-10-21 구현, 0.1.141 배포)
 
 - 최종 제품·검사 `6c95bae`: 계획 설정 등 세부 안내 7종, 계획 이름 직접 편집 제거, 계정별 완료 저장·동기화. 서버 확인 후 계정 이력으로 자동 표시하며 게스트 자동 안내 없음. 다시 보기는 세션에서만 초기화한다.
 - 사용자 CI 승인 후 [Build IPA 39602412657](https://github.com/iasanullweb-maker/GymNote/actions/runs/39602412657) 전체 검사·앱/위젯 Release·게이트 성공, publish skipped. XCTest 186개(182 통과·기존 캡처 4개 건너뜀·실패 0). 세부 안내 15장과 일반 계획 편집 다크 화면 직접 확인. 1차 캡처에서 발견한 Section 정렬 변화를 실제 제목/행 측정으로 고친 뒤 전체 재검증했다. [근거·제한](docs/ux-simulation/results/detail-tutorial-account-20261021.md).
