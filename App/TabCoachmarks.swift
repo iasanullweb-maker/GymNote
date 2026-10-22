@@ -70,7 +70,7 @@ struct TabCoachTour {
         default:
             return Self(id: "settings", steps: [
                 .init(target: "settings.rest", title: "세트 사이 휴식을 정해요",
-                      message: "−/+ 버튼으로 휴식 시간을 조절하세요.")
+                      message: "여기나 실행 탭의 휴식 타이머 휠에서 휴식 시간을 정하세요.")
             ])
         }
     }

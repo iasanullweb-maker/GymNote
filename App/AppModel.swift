@@ -281,9 +281,10 @@ final class AppModel {
         startRest(seconds: data.defaultRest, title: next.title, info: next.info)
     }
 
-    func adjustDefaultRest(by delta: Int) {
+    /// 실행 탭 휴식 타이머 휠에서 고른 분·초. 5초~10분으로 묶는다(0분 0초 → 5초, 10분 n초 → 10분).
+    func setDefaultRest(minutes: Int, seconds: Int) {
         let range = SettingsView.restRange
-        data.defaultRest = min(max(data.defaultRest + delta, range.lowerBound), range.upperBound)
+        data.defaultRest = min(max(minutes * 60 + seconds, range.lowerBound), range.upperBound)
     }
 
     func stopRest() {

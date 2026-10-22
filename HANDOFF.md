@@ -2,6 +2,12 @@
 
 마지막 업데이트: 2026-10-22
 
+## 운동 시작 변신 착지·시계 앱식 휴식 타이머 (2026-10-22, 미배포)
+
+- 원인: 변신 판의 도착 frame을 `workoutStatus` 바깥(`frame(maxWidth: .infinity)`+여백)에서 재서, 판이 화면 폭까지 커진 뒤 최대 720pt인 진짜 카드로 바뀌며 갑자기 작아졌다. 카드 자체에서 global frame을 보고(`WorkoutStatusBanner.onCardFrame`) 그 자리로 날게 했다. 스프링 튕김은 위치에만 적용하고 크기는 0...1로 묶었다.
+- 휴식 타이머: `App/RestTimerPanel.swift`(분·초 휠, 취소/시작 원 버튼, 남은 시간 링·종료 시각). `AppModel.adjustDefaultRest` → `setDefaultRest(minutes:seconds:)`. 설정 −/+ 간격 스테퍼·코치마크 문구 정리, DESIGN.md 갱신.
+- 검증: 코드 검토·`git diff --check`만. Swift 컴파일·XCTest·Release 빌드는 Windows 환경상 미실행 → TODOLIST 기술 검증 대기. push·배포 없음.
+
 ## 0.1.141 세부 튜토리얼 배포 완료 확인 (2026-10-22)
 
 - 사용자 재개 요청 후 [정식 #141 / 39613144658](https://github.com/iasanullweb-maker/GymNote/actions/runs/39613144658) attempt 2가 이미 게시까지 성공했음을 확인했다. 배포 SHA `4e5b52e`, iOS·DB·계정 삭제·tooling·앱/위젯 Release·게이트·publish 모두 성공. XCTest 186개(182 통과·기존 4개 건너뜀·실패 0). 새 배포·push·재시도 없음.

@@ -131,33 +131,8 @@ struct TodayView: View {
                         Text("운동을 길게 눌러 끌면 순서를 바꿀 수 있어요. 완료한 운동은 아래에 모이고, 완료를 취소하면 원래 자리로 돌아가요.")
                     }
                 }
-                Section {
-                    (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
-                        Button { model.startDefaultRest() } label: {
-                            Label("휴식 타이머 \(RestDuration.text(seconds: model.data.defaultRest))", systemImage: "timer")
-                        }
-                        .buttonStyle(.borderless)
-                        HStack {
-                            if !compact { Spacer() }
-                            // 기본 휴식 시간 조절 (간격은 설정 탭의 '−/+ 버튼 간격')
-                            Button { model.adjustDefaultRest(by: -model.data.restStep) } label: {
-                                Image(systemName: "minus")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 22, height: 22)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.data.defaultRest <= SettingsView.restRange.lowerBound)
-                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 줄이기")
-                            Button { model.adjustDefaultRest(by: model.data.restStep) } label: {
-                                Image(systemName: "plus")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 22, height: 22)
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.data.defaultRest >= SettingsView.restRange.upperBound)
-                            .accessibilityLabel("휴식 시간 \(RestDuration.text(seconds: model.data.restStep)) 늘리기")
-                        }
-                    }
+                Section("휴식 타이머") {
+                    RestTimerPanel()
                 }
             }
             .navigationTitle("\(DayKey.weekdayName(model.workoutDate))요일 · \(plan.isRestDay ? "휴식" : plan.title)")
