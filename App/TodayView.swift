@@ -458,6 +458,8 @@ struct WorkoutStatusBanner: View {
     var totalSets = 0
     /// 값이 바뀌면 테두리를 한 번 진하게 반짝인다(운동 시작 직후 "방금 시작한 그것" 표시).
     var pulse = 0
+    /// 카드 자체(여백 제외)의 global 위치. 운동 시작 변신 애니메이션의 도착 자리.
+    var onCardFrame: ((CGRect) -> Void)? = nil
     @State private var glowing = false
 
     private var tight: Bool { compact || verticalSizeClass == .compact }
@@ -483,6 +485,9 @@ struct WorkoutStatusBanner: View {
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .strokeBorder(Color.orange.opacity(glowing ? 0.9 : (resting ? 0.5 : 0.25)), lineWidth: glowing ? 2 : 1)
                     .allowsHitTesting(false)
+            }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                onCardFrame?(frame)
             }
             .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: resting)

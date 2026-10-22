@@ -315,16 +315,16 @@ struct RootView: View {
                     withAnimation(reduceMotion ? .easeOut(duration: 0.2) : WorkoutStartMotion.exit) { model.finishWorkout() }
                 },
                 doneSets: model.workoutProgress.done, totalSets: model.workoutProgress.total,
-                pulse: startMotion.pulse
+                pulse: startMotion.pulse,
+                // 날아가는 판은 바깥 여백·전체 폭이 아니라 실제 카드(최대 720pt) 자리로 간다.
+                // 바깥 frame을 쓰면 판이 화면 폭까지 갔다가 진짜 카드로 바뀌는 순간 갑자기 작아졌다.
+                onCardFrame: isRunTab ? { startMotion.barFrameChanged($0) } : nil
             )
             .disabled(editingNavigation.isEditing)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 10)
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .opacity(startMotion.barHidden ? 0 : 1)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                if isRunTab { startMotion.barFrameChanged(frame) }
-            }
             .transition(statusTransition)
         }
     }

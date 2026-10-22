@@ -29,7 +29,7 @@ final class WorkoutStartMotion {
     enum Phase { case idle, waitingForBar, flying }
 
     /// B 이동: 약간의 튕김으로 '도킹' 느낌.
-    static let flight = Animation.spring(duration: 0.5, bounce: 0.12)
+    static let flight = Animation.spring(duration: 0.5, bounce: 0.08)
     /// A 올라오기, 그리고 두 방식 공통으로 목록 아래 여백이 늘어나는 움직임.
     static let rise = Animation.spring(duration: 0.45, bounce: 0.18)
     /// 끝낼 때는 들어온 길(아래)로, 더 빠르고 튕김 없이.
@@ -84,7 +84,7 @@ final class WorkoutStartMotion {
     func land() {
         fallback?.cancel()
         guard phase != .idle else { return }
-        withAnimation(.easeOut(duration: 0.15)) { phase = .idle }
+        withAnimation(.easeInOut(duration: 0.2)) { phase = .idle }
         pulse += 1
     }
 
@@ -127,16 +127,18 @@ struct WorkoutStartFlight: View, Animatable {
     private static func mix(_ a: CGFloat, _ b: CGFloat, _ t: Double) -> CGFloat { a + (b - a) * CGFloat(t) }
 
     var body: some View {
-        // 스프링 튕김으로 1을 살짝 넘을 수 있다. 위치는 그대로 따르고 모양·색은 0...1로 묶는다.
+        // 스프링 튕김으로 progress가 1을 살짝 넘을 수 있다. 위치만 튕김을 따르고, 크기·모양·색은 0...1로 묶는다.
+        // (크기까지 튕기면 도착 직전 카드보다 더 좁아졌다 돌아와 '갑자기 작아지는' 느낌이 났다.)
         let t = progress
         let shape = min(max(progress, 0), 1)
-        let width = max(Self.mix(from.width, to.width, t), 1)
-        let height = max(Self.mix(from.height, to.height, t), 1)
+        let width = max(Self.mix(from.width, to.width, shape), 1)
+        let height = max(Self.mix(from.height, to.height, shape), 1)
         let midX = Self.mix(from.midX, to.midX, t)
         let midY = Self.mix(from.midY, to.midY, t)
         let radius = Self.mix(12, 28, shape)
-        let orange = max(0, 1 - shape * 1.25)   // 80% 지점에서 주황이 다 빠짐
-        let label = max(0, 1 - shape * 2.5)     // 버튼 글자는 처음 40% 안에 사라짐
+        let orange = max(0, 1 - shape * 1.25)                 // 80% 지점에서 주황이 다 빠짐
+        let label = max(0, 1 - shape * 2.5)                   // 버튼 글자는 처음 40% 안에 사라짐
+        let status = min(max((shape - 0.55) / 0.45, 0), 1)    // 후반에 진짜 카드의 왼쪽 내용이 미리 비침
         let plate = RoundedRectangle(cornerRadius: radius, style: .continuous)
         ZStack {
             plate.fill(.regularMaterial)
@@ -147,8 +149,19 @@ struct WorkoutStartFlight: View, Animatable {
                 .foregroundStyle(.black)
                 .lineLimit(1)
                 .opacity(label)
+            // 착지 순간 빈 판 → 내용이 '툭' 나타나지 않도록 카드와 같은 자리에 아이콘·제목을 먼저 띄운다.
+            HStack(spacing: 12) {
+                Image(systemName: "figure.strengthtraining.traditional")
+                    .font(.title2).foregroundStyle(.orange)
+                Text("운동 중").font(.headline)
+                Spacer(minLength: 0)
+            }
+            .lineLimit(1)
+            .padding(.horizontal, 16)
+            .opacity(status)
         }
         .frame(width: width, height: height)
+        .clipShape(plate)
         .shadow(color: .black.opacity(0.12 * shape), radius: 10, y: 4)
         .position(x: midX - origin.x, y: midY - origin.y)
         .allowsHitTesting(false)
