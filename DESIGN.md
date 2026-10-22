@@ -201,6 +201,7 @@ components:
 
 ### Status Card (signature)
 - 탭 공통으로 떠 있는 운동 중 / 휴식 중 / 휴식 끝 카드. 머티리얼 + 28pt continuous + Status Float. 휴식 중은 주황, 휴식 끝은 초록. 타이머는 `Text(timerInterval:)` 고정폭 숫자.
+- 사용자가 위아래로만 끌어 옮길 수 있다(가로 이동 없음, 원래 자리 아래로는 내려가지 않음). 올린 높이는 탭 공통으로 유지된다.
 
 ### Workspace Switcher (signature)
 - 운동(주황)·일상(청록) 두 칸. 바탕 `secondary 8%` 22pt, 선택 칸은 해당 색 12% 채움 + 17pt.

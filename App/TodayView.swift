@@ -211,9 +211,6 @@ struct ExerciseRow: View {
                     }
                 }
 
-            Text("완료 \(done) / \(exercise.sets)세트")
-                .font(.caption).foregroundStyle(.secondary)
-                .accessibilityHidden(true) // The circles already announce the same progress.
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 24, maximum: 24), spacing: 10)],
                       alignment: .leading, spacing: 10) {
                 ForEach(0..<max(exercise.sets, 0), id: \.self) { i in
