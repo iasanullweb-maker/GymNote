@@ -2,6 +2,11 @@
 
 마지막 업데이트: 2026-10-22
 
+## 잠금 화면 휴식 타이머 시계 위치 수정 (2026-10-22, 미배포)
+
+- 사용자 첨부(iPad 잠금 화면)에서 "1:11"이 아래 "남은 휴식"과 오른쪽 정렬되지 않고 가운데쯤 표시됨. `Text(timerInterval:)`/`Text(_:style: .timer)`는 위젯에서 최대 길이만큼 폭을 잡고 내부 정렬이 기본(leading/가운데)이라 프레임 정렬이 무시되는 것이 원인. `Widget/RestLiveActivity.swift`의 세 곳(잠금 화면, 다이내믹 아일랜드 확장 trailing, compactTrailing)에 `.multilineTextAlignment(.trailing)` 추가, 잠금 화면·확장 영역은 고정 폭 130 대신 최대 130.
+- 기준 main `c152715`. diff 검토만 수행. Windows에 Swift/Xcode가 없어 iOS 빌드·네이티브 화면 확인 미실행. 별도 워크트리 `claude/rest-timer-align`에서 커밋 후 main에 로컬 fast-forward 통합, push·배포 없음.
+
 ## 0.1.141 세부 튜토리얼 배포 완료 확인 (2026-10-22)
 
 - 사용자 재개 요청 후 [정식 #141 / 39613144658](https://github.com/iasanullweb-maker/GymNote/actions/runs/39613144658) attempt 2가 이미 게시까지 성공했음을 확인했다. 배포 SHA `4e5b52e`, iOS·DB·계정 삭제·tooling·앱/위젯 Release·게이트·publish 모두 성공. XCTest 186개(182 통과·기존 4개 건너뜀·실패 0). 새 배포·push·재시도 없음.
