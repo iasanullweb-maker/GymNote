@@ -91,6 +91,11 @@ struct RootView: View {
     @AppStorage("selectedWorkspace") private var workspace = "운동"
     @AppStorage(WorkoutStartAnimationStyle.storageKey) private var startStyle = WorkoutStartAnimationStyle.defaultStyle
     @State private var startMotion = WorkoutStartMotion()
+    /// 운동 중·휴식 바를 위로 끌어올린 거리(pt). 탭을 바꿔도 같은 높이에 있도록 모든 탭이 공유하고 앱을 다시 열어도 유지한다.
+    @AppStorage("workoutStatusLift") private var statusLift = 0.0
+    @State private var statusLiftAtDragStart: Double?
+    /// 끌어올리지 않은 원래 자리의 바 윗변(전역 좌표). 위로 올릴 수 있는 한계를 정한다.
+    @State private var statusRestingMinY: CGFloat = 0
 
     init(initialTab: Int = 0, initialDate: Date = Date(), runsLifecycle: Bool = true) {
         self.runsLifecycle = runsLifecycle
@@ -325,8 +330,31 @@ struct RootView: View {
             .padding(.horizontal, 16).padding(.vertical, compact ? 6 : 10)
             .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .opacity(startMotion.barHidden ? 0 : 1)
+            .offset(y: -clampedStatusLift)
+            .gesture(statusDrag)
+            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { minY in
+                statusRestingMinY = minY + clampedStatusLift
+            }
             .transition(statusTransition)
         }
+    }
+
+    /// 바를 위아래로만 끌어 옮긴다(가로 이동 없음). 원래 자리보다 아래로는 내려가지 않고,
+    /// 위로는 화면 위쪽 탭 영역을 가리지 않는 곳까지만 올라간다. 버튼 탭과 겹치지 않도록 조금 끌어야 시작한다.
+    private var statusDrag: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                let start = statusLiftAtDragStart ?? clampedStatusLift
+                statusLiftAtDragStart = start
+                statusLift = clampStatusLift(start - value.translation.height)
+            }
+            .onEnded { _ in statusLiftAtDragStart = nil }
+    }
+
+    private var maxStatusLift: Double { max(0, Double(statusRestingMinY) - 220) }
+    private var clampedStatusLift: Double { clampStatusLift(statusLift) }
+    private func clampStatusLift(_ value: Double) -> Double {
+        statusRestingMinY > 0 ? min(max(0, value), maxStatusLift) : max(0, value)
     }
 
     /// A(올라오기)는 아래에서 올라오며 나타나고, B(변신)는 판이 대신 날아오므로 제자리에서 나타난다.
